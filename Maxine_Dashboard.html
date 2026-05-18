@@ -4109,11 +4109,10 @@ function renderProgressView(){
   // Per-domain — clickable level cards
   doms.innerHTML = "";
   DOMAINS.forEach(d=>{
-    // Skill-based mastery
-    const ds = SKILLS.filter(s=>s.dom===d.key);
-    const mSkills = ds.filter(s=>skillStatus(s.id)==="mastered").length;
-    const ratio = ds.length ? mSkills/ds.length : 0;
-    const dlv = domainLevel(ratio);
+    // Science-backed level (Fischer + vocab norms)
+    const dlv  = computeDomainLevel(d.key);
+    const ds   = SKILLS.filter(s=>s.dom===d.key);
+    const mSkills = ds.filter(s=>skillStatus(s.id)==="mastered"||skillStatus(s.id)==="already_mastered").length;
     // Activity completion
     let actTotal=0, actDone=0;
     THEMES.forEach(t=>(t[d.key]||[]).forEach((_,i)=>{
