@@ -6336,10 +6336,18 @@ function drawSkillCatalogue(){
   let masteredCount = 0;
 
   SKILLS.forEach(s => {
+    // Improvement 3: hidden-skill filtering. Default: hidden===true skills
+    // are excluded when _catShowHidden is false. Missing `hidden` property
+    // is treated as `false` (visible).
+    if (s.hidden === true && !_catShowHidden) return;
+
     if (fd && s.dom !== fd) return;
     const status = skillStatus(s.id);
     if (fs && status !== fs) return;
-    if (ft && !s.t.toLowerCase().includes(ft) && !s.what.toLowerCase().includes(ft)) return;
+    // `what` may not exist on every skill — guard with || "".
+    const tStr = (s.t || "").toLowerCase();
+    const wStr = (s.what || s.desc || "").toLowerCase();
+    if (ft && !tStr.includes(ft) && !wStr.includes(ft)) return;
 
     // Smart mode: hide mastered skills that are below recommended level
     if (skillViewMode === "smart" && status === "mastered"){
@@ -6351,12 +6359,13 @@ function drawSkillCatalogue(){
     const recLv = recommendedLevel(s.dom);
     const isZPD = lv === recLv;
     const highlight = isZPD && status !== "mastered" ? 'border-left:3px solid #F59E0B;' : '';
+    const hiddenClass = s.hidden === true ? " skill-hidden" : "";
     html += `
-      <div class="skill-row" data-skillid="${escapeHtml(s.id)}" style="display:flex; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); cursor:pointer; background:${STATUS_COLORS[status]}; align-items:flex-start; ${highlight}">
+      <div class="skill-row${hiddenClass}" data-skillid="${escapeHtml(s.id)}" style="display:flex; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); cursor:pointer; background:${STATUS_COLORS[status]}; align-items:flex-start; ${highlight}">
         <div style="flex:0 0 36px; text-align:center; font-size:22px">${domInfo?domInfo.emoji:"⭐"}</div>
         <div style="flex:1; min-width:0">
-          <div style="font-weight:700; font-size:14px">${escapeHtml(s.t)} <span style="font-size:11px; color:var(--muted); font-weight:400">${escapeHtml(s.age)}</span>${isZPD && status!=="mastered" ? '<span style="font-size:10px; background:#FEF3C7; color:#854D0E; padding:1px 6px; border-radius:4px; margin-left:6px; font-weight:700">🎯 ZPD</span>' : ""}</div>
-          <div style="font-size:12px; color:var(--muted); margin-top:2px">${escapeHtml(s.what)}</div>
+          <div style="font-weight:700; font-size:14px">${escapeHtml(s.t)} <span style="font-size:11px; color:var(--muted); font-weight:400">${escapeHtml(s.age || "")}</span>${isZPD && status!=="mastered" ? '<span style="font-size:10px; background:#FEF3C7; color:#854D0E; padding:1px 6px; border-radius:4px; margin-left:6px; font-weight:700">🎯 ZPD</span>' : ""}</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:2px">${escapeHtml(s.what || s.desc || "")}</div>
         </div>
         <button class="small" data-skillcycle="${escapeHtml(s.id)}" style="font-size:11px; white-space:nowrap">${escapeHtml(STATUS_LABEL[status])}</button>
       </div>
