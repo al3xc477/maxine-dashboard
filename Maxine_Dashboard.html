@@ -2183,7 +2183,7 @@ function saveState(s){
   s._savedAt = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
   // Auto-push to cloud (debounced 2 s) — works on all devices incl. iPad
-  if (typeof cloudSyncSave === "function") cloudSyncSave();
+  if (typeof syncPushDebounced === "function") syncPushDebounced();
   // Auto-sync to connected FSA folder (debounced 1.5 s) — Chrome/Edge only
   if (typeof syncSaveToFolder === "function") syncSaveToFolder();
 }
@@ -2967,7 +2967,7 @@ function openSettings(){
   const pa = document.getElementById("syncPasteArea"); if(pa) pa.style.display="none";
   const pt = document.getElementById("syncPasteText"); if(pt) pt.value="";
   const ea = document.getElementById("cloudSyncEnterArea"); if(ea) ea.style.display="none";
-  if (typeof renderCloudSync==="function") renderCloudSync();
+  // (auto-sync panel renders itself via syncAutoInit)
   renderSyncStatus();
   setModal.classList.add("open");
 }
