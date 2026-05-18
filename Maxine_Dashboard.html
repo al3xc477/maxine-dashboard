@@ -6140,6 +6140,11 @@ function cycleSkillStatus(cur){
   return STATUS_ORDER[(i + 1) % STATUS_ORDER.length];
 }
 
+/* Hidden-toggle state (Improvement 3). Defaulted false; persisted in
+   localStorage so the user's preference survives reloads.                    */
+let _catShowHidden = false;
+try { _catShowHidden = localStorage.getItem("maxine-show-hidden") === "true"; } catch(e){}
+
 function renderSkillCatalogue(){
   // Populate domain filter once
   const dom = document.getElementById("skillDomain");
@@ -6158,6 +6163,22 @@ function renderSkillCatalogue(){
     if (!confirm("Reset all skill statuses? This will not remove your old activity tracking data.")) return;
     state.skillStatus = {}; saveState(state); drawSkillCatalogue();
   };
+  // Hidden-skill toggle (Improvement 3)
+  const hidBtn = document.getElementById("skillHiddenToggle");
+  if (hidBtn && !hidBtn._wired){
+    hidBtn._wired = true;
+    hidBtn.onclick = () => {
+      _catShowHidden = !_catShowHidden;
+      try { localStorage.setItem("maxine-show-hidden", _catShowHidden ? "true" : "false"); } catch(e){}
+      drawSkillCatalogue();
+    };
+  }
+  // Vocab stat card "View full vocabulary →" link
+  const vGo = document.getElementById("catVocabGoBtn");
+  if (vGo && !vGo._wired){
+    vGo._wired = true;
+    vGo.onclick = () => { if (typeof showView === "function") showView("vocabulary"); };
+  }
   drawSkillCatalogue();
 }
 
