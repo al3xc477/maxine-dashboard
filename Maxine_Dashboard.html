@@ -495,6 +495,81 @@
 #syncOfflineBanner .sob-btn-primary { background:#3B82F6; color:#fff }
 #syncOfflineBanner .sob-btn-secondary { background:rgba(255,255,255,0.15); color:#fff }
 
+/* ── Game Creator (mainView card) ──────────────────────────────────────── */
+.gc-ctx-row{
+  display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;
+}
+.gc-ctx-btn{
+  border:1px solid var(--line); background:#F8FAFC; color:var(--ink);
+  padding:8px 12px; min-height:44px; border-radius:999px;
+  font-size:13px; font-weight:600; cursor:pointer;
+  transition: background .15s, color .15s, border-color .15s, transform .08s;
+}
+.gc-ctx-btn:hover{ background:#EEF2FF }
+.gc-ctx-btn:active{ transform:scale(.96) }
+.gc-ctx-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent) }
+@keyframes fadeIn { from{ opacity:0; transform:translateY(4px) } to{ opacity:1; transform:none } }
+.game-results{ margin-top:12px; }
+.game-results:not(:empty){ animation: fadeIn 0.3s ease; }
+.gc-theme-badge{
+  display:inline-flex; align-items:center; gap:6px;
+  background:#EEF2FF; color:#3730A3; border-radius:8px;
+  padding:4px 10px; font-size:12px; font-weight:600; margin-bottom:10px;
+}
+.gc-card{
+  background:#fff; border:1px solid var(--line); border-radius:12px;
+  padding:12px; margin-bottom:8px;
+  border-left:4px solid var(--accent);
+  transition: box-shadow .15s;
+}
+.gc-card:hover{ box-shadow:0 2px 8px rgba(0,0,0,.06) }
+.gc-card.dom-gross    { border-left-color:#3B82F6 }
+.gc-card.dom-fine     { border-left-color:#F59E0B }
+.gc-card.dom-sensory  { border-left-color:#FB923C }
+.gc-card.dom-cognitive{ border-left-color:#6366F1 }
+.gc-card.dom-vocab    { border-left-color:#EC4899 }
+.gc-card.dom-social   { border-left-color:#6B7280 }
+.gc-card-head{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:6px }
+.gc-dom-chip{
+  display:inline-flex; align-items:center; gap:3px;
+  padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.06em; color:#fff;
+}
+.gc-dom-chip.dom-gross    { background:#3B82F6 }
+.gc-dom-chip.dom-fine     { background:#F59E0B }
+.gc-dom-chip.dom-sensory  { background:#FB923C }
+.gc-dom-chip.dom-cognitive{ background:#6366F1 }
+.gc-dom-chip.dom-vocab    { background:#EC4899 }
+.gc-dom-chip.dom-social   { background:#6B7280 }
+.gc-card-text{ font-size:15px; line-height:1.45; color:var(--ink); margin:2px 0 8px }
+.gc-vocab-chip{
+  display:inline-flex; align-items:center; gap:4px;
+  background:#F0F9FF; color:#0369A1; border:1px solid #BAE6FD;
+  border-radius:6px; padding:2px 8px; font-size:12px; font-weight:600; margin-right:6px;
+}
+.gc-did-btn{
+  font-size:13px; padding:8px 12px; min-height:44px;
+  background:#F1F4FA; color:var(--ink); border:none; border-radius:10px;
+  font-weight:700; cursor:pointer; transition: background .15s, color .15s;
+}
+.gc-did-btn:hover{ background:#DBEAFE }
+.gc-logged{
+  display:inline-flex; align-items:center; gap:4px;
+  background:#DCFCE7; color:#14532D; padding:8px 12px; min-height:44px;
+  border-radius:10px; font-weight:700; font-size:13px;
+}
+.gc-reroll-row{ display:flex; justify-content:flex-end; margin-top:6px }
+.gc-reroll-btn{
+  font-size:13px; padding:8px 12px; min-height:44px;
+  background:transparent; color:var(--muted); border:1px dashed var(--line);
+  border-radius:10px; font-weight:600; cursor:pointer;
+}
+.gc-reroll-btn:hover{ background:#F8FAFC; color:var(--ink) }
+@media (max-width:480px){
+  .gc-ctx-btn{ padding:8px 10px; font-size:12px }
+  .gc-card-text{ font-size:15px }
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
