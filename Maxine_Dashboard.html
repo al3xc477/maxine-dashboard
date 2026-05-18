@@ -5478,45 +5478,190 @@ const DOMAIN_GUIDANCE = {
   social: { strong:"Strong social-emotional — extend playdates, name subtle emotions (proud/disappointed/curious), Brackett RULER vocabulary.", growth:"Daily emotion-naming, calm jar, time-ins (not time-outs). Co-regulation precedes self-regulation (Perry). Connect before redirect (Siegel)." },
 };
 
+/* ─────────────────────────────────────────────────────────────────────────
+   FEATURE B — Coaching view (rewrite of renderTailoredAssessment)
+   Two columns answering the two questions parents actually ask:
+     LEFT  "🎯 Ready for a push" — top 2 by stallScore
+     RIGHT "🚀 Riding the wave"  — top 2 by momentumScore
+   Uses v3.1 signals (frontierSkills, deriveStatus, state.observations,
+   skillXp). No "weakness/behind/delay/deficit" — kindness in copy is enforced.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Sum of XP for skills in `domKey` whose latest observation is within the
+   last `daysAgo`. Approximates "XP earned in window".                       */
+function _coachXpInWindow(domKey, daysAgo){
+  const cutoff = Date.now() - daysAgo * 86400000;
+  let total = 0;
+  for (const s of SKILLS){
+    if (s.dom !== domKey) continue;
+    const obs = (state.observations || []).filter(o => o.skillId === s.id && (o.ts||0) >= cutoff);
+    if (obs.length) total += skillXp(s.id);
+  }
+  return total;
+}
+
+function _coachWeeklyXp(domKey, weekIdx){
+  const now = Date.now();
+  const end = now - weekIdx * 7 * 86400000;
+  const start = end - 7 * 86400000;
+  let total = 0;
+  for (const s of SKILLS){
+    if (s.dom !== domKey) continue;
+    const hit = (state.observations || []).some(o => o.skillId === s.id && (o.ts||0) >= start && (o.ts||0) < end);
+    if (hit) total += skillXp(s.id);
+  }
+  return total;
+}
+
+function _coachStallScore(domKey){
+  let score = 0;
+  const cutoff21 = Date.now() - 21 * 86400000;
+  for (const s of SKILLS){
+    if (s.dom !== domKey) continue;
+    const st = deriveStatus(s.id);
+    if (st === "practising"){
+      const lastTs = (state.observations || [])
+        .filter(o => o.skillId === s.id).map(o => o.ts || 0)
+        .reduce((a,b) => Math.max(a,b), 0);
+      if (lastTs && lastTs < cutoff21) score += 1;
+    }
+    if (s.keystone && st !== "mastered" && st !== "already_mastered") score += 1;
+  }
+  if (_coachXpInWindow(domKey, 7) === 0) score += 1;
+  return score;
+}
+
+function _coachMomentumScore(domKey){
+  const meanXp = DOMAINS.reduce((s,d) => s + _coachXpInWindow(d.key, 7), 0) / Math.max(1, DOMAINS.length);
+  const xp7 = _coachXpInWindow(domKey, 7);
+  let score = meanXp > 0 ? (xp7 / meanXp) : 0;
+  const cutoff30 = Date.now() - 30 * 86400000;
+  const recentMast = (state.observations || []).filter(o => {
+    const sk = SKILLS.find(x => x.id === o.skillId);
+    return sk && sk.dom === domKey && o.status === "mastered" && (o.ts||0) >= cutoff30;
+  }).length;
+  score += recentMast * 0.5;
+  // Cross-domain skills (skill.secondary_domains non-empty). Field is optional
+  // in the SKILLS schema; default to 0 when absent.
+  const crossCount = SKILLS.filter(s => s.dom === domKey && Array.isArray(s.secondary_domains) && s.secondary_domains.length).length;
+  score += crossCount * 0.25;
+  return score;
+}
+
+/* Confidence chip from observation density. Design decision: define locally
+   since no §12d source-of-truth exists in the file. Maps observations in the
+   last 14 days for the domain to 3 buckets.                                  */
+function _coachConfidence(domKey){
+  const cutoff = Date.now() - 14 * 86400000;
+  const n = (state.observations || []).filter(o => {
+    const sk = SKILLS.find(x => x.id === o.skillId);
+    return sk && sk.dom === domKey && (o.ts||0) >= cutoff;
+  }).length;
+  if (n >= 4) return { label:"High confidence",   color:"#14532D", bg:"#DCFCE7" };
+  if (n >= 1) return { label:"Medium confidence", color:"#854D0E", bg:"#FEF3C7" };
+  return        { label:"Light data",        color:"#374151", bg:"#F3F4F6" };
+}
+
+/* Bottleneck hint for the frontier skill — answers "one more observation
+   needed in: ___". Inspects the skill's observation pattern.                 */
+function _coachBottleneck(skill){
+  const obs = (state.observations || []).filter(o => o.skillId === skill.id);
+  if (obs.length === 0) return "a first observation in any context";
+  const observers = new Set(obs.map(o => o.by || "—"));
+  if (observers.size === 1) return "a second observer (try the other parent)";
+  const spread = (Math.max(...obs.map(o => o.ts||0)) - Math.min(...obs.map(o => o.ts||0))) / 86400000;
+  if (spread < 14) return "a 14-day spread (re-check next week)";
+  return "another session to lock it in";
+}
+
 function renderTailoredAssessment(){
   const el = document.getElementById("tailoredAssessment");
   if (!el) return;
   try {
-    const stats = DOMAINS.map(d => ({ d, pct: Math.round(domainSkillMastery(d.key)*100) }));
-    const sorted = [...stats].sort((a,b)=>b.pct-a.pct);
-    const strengths   = sorted.slice(0, 2);
-    const growthAreas = sorted.slice(-2).reverse();
-    const masteredCount = SKILLS.filter(s => deriveStatus(s.id) === "mastered").length;
+    const totalObs = (state.observations || []).length;
+    if (totalObs < 5){
+      const pct = Math.min(100, Math.round(totalObs / 5 * 100));
+      el.innerHTML = `
+        <div style="text-align:center; padding:18px 8px">
+          <div style="font-size:32px; line-height:1; margin-bottom:6px">🧭</div>
+          <div style="font-weight:700; font-size:15px; margin-bottom:4px">Log a few more activities to unlock coaching insights</div>
+          <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">${totalObs}/5 observations · ${5-totalObs} more to start your tailored picture</div>
+          <div class="progress-bar" style="max-width:280px; margin:0 auto"><div style="width:${pct}%"></div></div>
+        </div>`;
+      return;
+    }
+
+    // Score every domain on both axes
+    const scored = DOMAINS.map(d => ({
+      d,
+      stall:    _coachStallScore(d.key),
+      momentum: _coachMomentumScore(d.key),
+      weekly:   [3,2,1,0].map(i => _coachWeeklyXp(d.key, i)),
+      conf:     _coachConfidence(d.key),
+      frontier: frontierSkills().find(s => s.dom === d.key) || null,
+    }));
+
+    const stalls    = [...scored].sort((a,b) => b.stall    - a.stall   ).slice(0, 2);
+    const momentums = [...scored].sort((a,b) => b.momentum - a.momentum).slice(0, 2);
+    const theme = pickTheme();
+
+    // Domain-card renderer (used in both columns)
+    function card(item, side){
+      const { d, frontier, weekly, conf } = item;
+      const maxXp = Math.max(1, ...weekly);
+      const spark = weekly.map(v => {
+        const h = Math.max(3, Math.round((v / maxXp) * 28));
+        return `<div title="${v} XP" style="width:8px; height:${h}px; background:${side==="left"?"#F59E0B":"#3B82F6"}; border-radius:2px; opacity:${v?1:0.25}"></div>`;
+      }).join("");
+      const themeActs = (theme && Array.isArray(theme[d.key])) ? theme[d.key].slice(0, 2) : [];
+      const acts = themeActs.length
+        ? themeActs.map(a => `<li style="margin:2px 0">${escapeHtml(a.t)}<span style="color:var(--muted); font-size:11px; margin-left:6px">${a.d||""}</span></li>`).join("")
+        : `<li style="color:var(--muted)">Open this week's activities to pick a quick win.</li>`;
+      const sideBg     = side === "left" ? "#FFF7ED" : "#EEF2FF";
+      const sideBorder = side === "left" ? "#FED7AA" : "#C7D2FE";
+      const sideAccent = side === "left" ? "#92400E" : "#3730A3";
+      return `
+        <div style="background:${sideBg}; border:1px solid ${sideBorder}; border-radius:12px; padding:12px; margin-bottom:10px">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; margin-bottom:6px">
+            <div style="font-weight:700; font-size:14px; color:${sideAccent}">${d.emoji} ${escapeHtml(d.label)}</div>
+            <span style="font-size:10px; font-weight:700; color:${conf.color}; background:${conf.bg}; padding:2px 7px; border-radius:6px">${conf.label}</span>
+          </div>
+          ${frontier
+            ? `<div style="font-size:12px; margin-bottom:4px"><strong>Next unlock:</strong> ${escapeHtml(frontier.t)}<span style="color:var(--muted); margin-left:4px">${escapeHtml(frontier.age||"")}</span></div>
+               <div style="font-size:11px; color:${sideAccent}; margin-bottom:6px">📝 One more observation: ${escapeHtml(_coachBottleneck(frontier))}</div>`
+            : `<div style="font-size:12px; margin-bottom:6px; color:${sideAccent}">🌟 Every catalogue skill at her tier is mastered — keep playing for breadth.</div>`}
+          <div style="font-size:11px; color:var(--muted); margin-bottom:3px; text-transform:uppercase; letter-spacing:.06em; font-weight:700">Quick wins from this week's theme</div>
+          <ul style="margin:0 0 8px 18px; padding:0; font-size:12px; line-height:1.45">${acts}</ul>
+          <div style="display:flex; align-items:flex-end; gap:3px; height:30px; margin-top:6px" title="Weekly XP (4 wks)">${spark}</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:2px">XP over last 4 weeks (oldest → this week)</div>
+        </div>
+      `;
+    }
+
     el.innerHTML = `
-      <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">Computed from your skill catalogue (${masteredCount} skills mastered) + ${(state.feedback||[]).length} memory notes. Sources cited.</div>
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px">
+      <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:12px">
+        Based on ${totalObs} observation${totalObs===1?'':'s'} across ${SKILLS.length} catalogue skills. Kept gentle — every domain shows a building block and her natural momentum.
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr; gap:12px" id="coachGrid">
         <div>
-          <div style="font-weight:700; font-size:14px; color:#14532D; margin-bottom:6px">💪 Strengths</div>
-          ${strengths.map(s => `
-            <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:10px; padding:10px; margin-bottom:6px">
-              <div style="font-weight:700">${s.d.emoji} ${escapeHtml(s.d.label)} <span style="color:var(--muted); font-size:12px; font-weight:400">${s.pct}%</span></div>
-              <div style="font-size:13px; margin-top:4px">${escapeHtml(DOMAIN_GUIDANCE[s.d.key].strong)}</div>
-            </div>
-          `).join("")}
+          <div style="font-weight:700; font-size:14px; color:#92400E; margin-bottom:8px">🎯 Ready for a push</div>
+          ${stalls.map(s => card(s, "left")).join("") || `<div class="sub" style="color:var(--muted)">No domain is stalling — keep the routine.</div>`}
         </div>
         <div>
-          <div style="font-weight:700; font-size:14px; color:#9D174D; margin-bottom:6px">🌱 Areas for growth</div>
-          ${growthAreas.map(s => `
-            <div style="background:#FFF1F2; border:1px solid #FECDD3; border-radius:10px; padding:10px; margin-bottom:6px">
-              <div style="font-weight:700">${s.d.emoji} ${escapeHtml(s.d.label)} <span style="color:var(--muted); font-size:12px; font-weight:400">${s.pct}%</span></div>
-              <div style="font-size:13px; margin-top:4px">${escapeHtml(DOMAIN_GUIDANCE[s.d.key].growth)}</div>
-            </div>
-          `).join("")}
+          <div style="font-weight:700; font-size:14px; color:#3730A3; margin-bottom:8px">🚀 Riding the wave</div>
+          ${momentums.map(m => card(m, "right")).join("") || `<div class="sub" style="color:var(--muted)">Momentum builds with the next session.</div>`}
         </div>
       </div>
-      <div style="margin-top:12px; font-size:12px; color:var(--muted); font-style:italic">
-        Recommended difficulty per domain (Vygotsky ZPD): ${DOMAINS.map(d=>`${d.emoji} L${recommendedLevel(d.key)}`).join(" · ")}.
-        Healthy approach: stretch in <em>one</em> area at a time. Avoid over-scheduling. Joy + repetition > pressure (Gopnik, "The Gardener and The Carpenter").
+      <div style="margin-top:12px; font-size:11px; color:var(--muted); font-style:italic">
+        Two-column layout becomes side-by-side on tablet/desktop. Mantra: stretch one area at a time, joy &gt; pressure (Gopnik, "The Gardener and The Carpenter").
       </div>
+      <style>
+        @media (min-width: 720px){ #coachGrid{ grid-template-columns: 1fr 1fr; } }
+      </style>
     `;
   } catch(err){
     console.warn("renderTailoredAssessment failed", err);
-    el.innerHTML = `<div class="sub" style="color:var(--muted)">Assessment unavailable — please reload.</div>`;
+    el.innerHTML = `<div class="sub" style="color:var(--muted)">Coaching insights unavailable — please reload.</div>`;
   }
 }
 
