@@ -5655,9 +5655,65 @@ const SKILLS = [
   { id:"se-sound-react", dom:"sensory", t:"Reacts appropriately to loud/quiet sounds", age:"~12m", what:"Turns toward sudden sound, calms to quiet", why:"Auditory localization + sensory modulation.", how:"Everyday exposure. No desensitization.", next:"Matches paired sound containers", src:"OT sensory integration" },
 
   // LANGUAGE – early foundation
-  { id:"la-words-10", dom:"vocab", t:"Uses 10+ words with meaning", age:"~15m", what:"10 distinct words in context", why:"Core language emergence — later milestone for bilingual (≤16m acceptable).", how:"Respond to all word attempts as if correct.", next:"50 words", src:"CDC / bilingual adjustment Marchman 2010" },
   { id:"la-points-pic", dom:"vocab", t:"Points to pictures when named", age:"~15–18m", what:"Points to dog, ball, cup in a picture book when asked", why:"Receptive vocabulary + vocabulary map (Bloom).", how:"Board books. 'Where's the…?'", next:"Names pictures spontaneously", src:"CDC / Bloom 1993" },
   { id:"la-bilingual-aware", dom:"vocab", t:"Responds to both English and French", age:"~18m+", what:"Shows different-language comprehension (not just one language)", why:"Bilingual language separation emerging — healthy dual system (Genesee).", how:"Test same request in both languages.", next:"Uses words in both languages spontaneously", src:"Genesee McGill / Werker UBC" },
+
+  // ── NEW Language progression skills (Improvement 2 PART C) ──
+  // The spec proposed `lang_two_word`, `lang_three_word`, `lang_pronouns_i_you`,
+  // but those duplicate existing entries (la-2word, la-3word, la-pronouns), so
+  // they're omitted here. Prereqs that originally pointed at the duplicate IDs
+  // have been remapped to the existing equivalents (e.g. "la-3word").
+  // Both `t` (legacy label) and `desc` (spec) are populated; `what/why/how/next/src`
+  // are filled so the skill modal renders cleanly. `tier` is explicit; `prereqs`
+  // is honoured by computeReadinessSnapshot's nextChallenges calculation.
+  { id:"lang_question_what", dom:"vocab", tier:2, prereqs:[], keystone:false,
+    t:"Asks 'what' questions", age:"~24m",
+    what:"Spontaneously asks 'what's that?' or 'what is it?'",
+    desc:"Spontaneously asks 'what's that?' or 'what is it?'",
+    why:"Inquiry drives vocabulary expansion (Gopnik).",
+    how:"Answer in 1 short sentence, then expand.",
+    next:"Asks 'where' questions",
+    src:"Theory-of-mind onset · Gopnik UC Berkeley" },
+  { id:"lang_question_where", dom:"vocab", tier:2, prereqs:["lang_question_what"], keystone:false,
+    t:"Asks 'where' questions", age:"~24–28m",
+    what:"Uses 'where is [X]?' spontaneously",
+    desc:"Uses 'where is [X]?' spontaneously",
+    why:"Spatial vocabulary + theory of mind (knows others have knowledge she lacks).",
+    how:"Hide-and-seek games. Model 'Where is the ___?'",
+    next:"Asks 'why' questions",
+    src:"CDC milestones" },
+  { id:"lang_plural_s", dom:"vocab", tier:2, prereqs:["la-3word"], keystone:false,
+    t:"Plurals with -s", age:"~26–30m",
+    what:"Adds -s for plurals: 'two dogs', 'my shoes'",
+    desc:"Adds -s for plurals: 'two dogs', 'my shoes'",
+    why:"First grammatical morpheme (Brown's stages).",
+    how:"Count objects together. Emphasise the 's': 'two doggssss'.",
+    next:"Past tense -ed",
+    src:"Roger Brown's stages of grammatical development" },
+  { id:"lang_past_tense", dom:"vocab", tier:3, prereqs:["la-3word"], keystone:false,
+    t:"Simple past tense", age:"~30m+",
+    what:"Uses -ed or irregular past: 'I fell', 'we went'",
+    desc:"Uses -ed or irregular past: 'I fell', 'we went'",
+    why:"Time concepts + grammar maturation. Over-regularisation ('I goed') is healthy.",
+    how:"Recap the day at bath/bedtime: 'Today we went to the park'.",
+    next:"Tells a simple story (3+ steps)",
+    src:"Brown's stages · CDC" },
+  { id:"lang_narrative", dom:"vocab", tier:3, prereqs:["la-3word","lang_past_tense"], keystone:true,
+    t:"Tells a simple story (3+ steps)", age:"~32m+",
+    what:"Recounts an event in sequence: first... then... then...",
+    desc:"Recounts an event in sequence: first... then... then...",
+    why:"Narrative is a school-readiness predictor (Nelson, narrative practice).",
+    how:"Use a photo or a drawing. Ask 'what happened first?'",
+    next:"Stories with character feelings",
+    src:"Katherine Nelson · narrative practice" },
+  { id:"lang_bilingual_switch", dom:"vocab", tier:3, prereqs:[], keystone:false,
+    t:"Code-switches EN↔FR fluidly", age:"~30m+",
+    what:"Switches language intentionally depending on conversation partner",
+    desc:"Switches language intentionally depending on conversation partner",
+    why:"Pragmatic awareness of bilingualism — not confusion (Genesee).",
+    how:"Maman/Papa stay consistent. Praise the switch when she does it.",
+    next:"Sentence-level translation",
+    src:"Genesee McGill · Pearson FIU" },
 ];
 
 /* ── v3.1 SKILLS_CUSTOM_SEED — T0 baseline (~0–10m) + extensible seed slot ──
