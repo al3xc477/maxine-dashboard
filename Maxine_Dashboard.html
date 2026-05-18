@@ -3994,40 +3994,48 @@ function renderProgressView(){
   })));
   const pct = totalActs ? Math.round((mastered/totalActs)*100) : 0;
 
-  // Build per-domain level summary for the header card
+  // Build per-domain level summary using science-backed computeDomainLevel
   const domSummary = DOMAINS.map(d => {
-    const ds = SKILLS.filter(s => s.dom === d.key);
-    const mSkills = ds.filter(s => skillStatus(s.id)==="mastered").length;
-    const ratio = ds.length ? mSkills/ds.length : 0;
-    const lv = domainLevel(ratio);
-    return { d, lv, mSkills, total: ds.length };
+    const clv = computeDomainLevel(d.key);           // Fischer + MacArthur-Bates
+    const ds   = SKILLS.filter(s => s.dom === d.key);
+    const mSkills = ds.filter(s => skillStatus(s.id)==="mastered" || skillStatus(s.id)==="already_mastered").length;
+    return { d, lv: clv, mSkills, total: ds.length };
   });
   const overallScore = domSummary.reduce((s,x)=>s+x.lv.score,0) / domSummary.length;
-  const overallLv = domainLevel((overallScore-1)/4); // map score 1-5 → ratio 0-1
+  // Map average score (1–5) back to a label
+  const overallLv = domainLevel((overallScore-1)/4);
   const sorted = [...domSummary].sort((a,b)=>a.lv.score-b.lv.score);
-  const focusAreas  = sorted.slice(0,2); // lowest levels → prioritise
-  const strengthArea = sorted[sorted.length-1]; // highest level
+  const focusAreas   = sorted.slice(0,2);            // lowest → prioritise
+  const strengthArea = sorted[sorted.length-1];      // highest
   const theme = pickTheme();
+
+  // ZPD-targeted next skills for focus areas
   const nextActs = focusAreas.map(x => {
     const recLv = recommendedLevel(x.d.key);
-    // Find next skill at ZPD level (recLv), then one above for stretch
-    const zpd = SKILLS.filter(s=>s.dom===x.d.key && skillStatus(s.id)!=="mastered" && skillLevel(s)===recLv)[0];
-    const stretch = SKILLS.filter(s=>s.dom===x.d.key && skillStatus(s.id)!=="mastered" && skillLevel(s)>recLv)[0];
+    const zpd     = SKILLS.filter(s=>s.dom===x.d.key && skillStatus(s.id)!=="mastered" && skillStatus(s.id)!=="already_mastered" && skillLevel(s)===recLv)[0];
+    const stretch = SKILLS.filter(s=>s.dom===x.d.key && skillStatus(s.id)!=="mastered" && skillStatus(s.id)!=="already_mastered" && skillLevel(s)>recLv)[0];
     const sk = zpd || stretch;
-    return sk ? `<strong>${escapeHtml(sk.t)}</strong> <span style="color:var(--muted); font-size:11px">(${escapeHtml(sk.age||"")})</span>` : null;
+    if (!sk) return null;
+    const tag = sk===zpd ? '<span style="font-size:10px;background:#D1FAE5;color:#065F46;border-radius:4px;padding:1px 4px">⭐ ZPD</span>'
+                         : '<span style="font-size:10px;background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 4px">🌱 Stretch</span>';
+    return `${x.d.emoji} <strong>${escapeHtml(sk.t)}</strong> ${tag} <span style="color:var(--muted); font-size:11px">(${escapeHtml(sk.age||"")})</span>`;
   }).filter(Boolean);
 
-  // Vocab word counts from master tracker
-  const vmKnownEn = Object.keys(state.vocabMaster||{}).filter(k=>k.endsWith("_en")).length;
-  const vmKnownFr = Object.keys(state.vocabMaster||{}).filter(k=>k.endsWith("_fr")).length;
+  // Holistic vocab counts from ALL trackers (MacArthur-Bates CDI logic)
+  const { en: vmKnownEn, fr: vmKnownFr, conceptual: vmConceptual } = vocabTotalKnown();
+  const vocabLv = computeDomainLevel('vocab');
   const bodyPartCat = VOCAB_MASTER.find(c=>c.cat.includes("Body"));
   const bodyKnownEn = bodyPartCat ? bodyPartCat.words.filter(w=>isVMastered(w.en,"en")).length : 0;
   const bodyTotal   = bodyPartCat ? bodyPartCat.words.length : 0;
-  const vocabMilestone = vmKnownEn < 50
-    ? `<span style="color:#9D174D; font-size:11px">— ${50-vmKnownEn} more to reach +50 🎯</span>`
-    : vmKnownEn < 200
-      ? `<span style="color:#166534; font-size:11px">✅ +50 milestone · ${200-vmKnownEn} more for +200</span>`
-      : `<span style="color:#166534; font-size:11px">🌟 +200 word milestone reached!</span>`;
+  // How many recent sessions logged?
+  const recentDays = [...new Set((state.history||[]).slice(-30).map(h=>h.date))].length;
+  const vocabMilestone = vmConceptual < 50
+    ? `<span style="color:#9D174D; font-size:11px">— ${50-vmConceptual} concepts to reach +50 🎯</span>`
+    : vmConceptual < 200
+      ? `<span style="color:#166534; font-size:11px">✅ +50 milestone · ${200-vmConceptual} concepts for +200</span>`
+      : vmConceptual < 500
+        ? `<span style="color:#166534; font-size:11px">🌟 +200 milestone reached! · ${500-vmConceptual} for 500</span>`
+        : `<span style="color:#166534; font-size:11px">🏆 +500 concept milestone!</span>`;
 
   stats.innerHTML = `
     <div class="prog-card" style="grid-column:1/-1; padding:16px; background:linear-gradient(135deg,#F0FDF4,#FAFAFA)">
