@@ -2805,6 +2805,80 @@ document.addEventListener("click", (e)=>{
     applyActivityFeedback(abBtn.dataset.actid, abBtn.dataset.actfb);
     return;
   }
+
+  // 🔄 "Different idea" — cycles quick activities for this domain slot
+  const rerollBtn = e.target.closest("button[data-actreroll]");
+  if (rerollBtn){
+    e.stopPropagation();
+    const actId  = rerollBtn.dataset.actreroll;
+    const domKey = rerollBtn.dataset.dom;
+    const theme  = pickTheme();
+    const alts   = quickActivitiesFor(theme, domKey);
+    state.actSwap = state.actSwap || {};
+    const nextIdx = ((state.actSwap[actId] || 0) + 1) % alts.length;
+    state.actSwap[actId] = nextIdx;
+    saveState(state);
+    const alt    = alts[nextIdx];
+    const altEl  = document.getElementById(`altact-${actId}`);
+    if (altEl && alt){
+      altEl.style.display  = "block";
+      altEl.style.background = "#F0FDF4";
+      altEl.style.borderColor = "#86EFAC";
+      altEl.innerHTML = `
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#065F46;margin-bottom:4px">⚡ Alternative idea (${nextIdx+1}/${alts.length})</div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:3px">${escapeHtml(alt.t)}</div>
+        <div style="font-size:12px;color:#374151;margin-bottom:3px">💡 ${escapeHtml(alt.h)}</div>
+        <div style="font-size:11px;color:#6B7280">⏱ ${escapeHtml(alt.d)}${alt.o?' · 🌳 Outdoor OK':''}</div>
+      `;
+    }
+    return;
+  }
+
+  // 💡 "Too easy — confirm mastery?" — show inline confirmation
+  const toosyBtn = e.target.closest("button[data-acttoosy]");
+  if (toosyBtn){
+    e.stopPropagation();
+    const actId  = toosyBtn.dataset.acttoosy;
+    const title  = toosyBtn.dataset.acttitle;
+    const altEl  = document.getElementById(`altact-${actId}`);
+    if (altEl){
+      altEl.style.display     = "block";
+      altEl.style.background  = "#FFF7ED";
+      altEl.style.borderColor = "#FED7AA";
+      altEl.innerHTML = `
+        <div style="font-size:12px;font-weight:700;color:#C2410C;margin-bottom:5px">💡 Confirm mastery?</div>
+        <div style="font-size:12px;color:#374151;margin-bottom:8px;line-height:1.4">
+          Maxine found <strong>"${escapeHtml(title)}"</strong> too easy.<br>
+          Has she already mastered this skill?
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="ab" style="background:#DCFCE7;color:#14532D;border-color:#86EFAC" data-confirmmaster="${actId}">✅ Yes — mark as mastered</button>
+          <button class="ab" style="background:#F3F4F6;color:#374151;border-color:#D1D5DB" data-dismisstoosy="${actId}">↩ Skip — move on</button>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  // ✅ Confirm mastery from too-easy prompt
+  const confirmBtn = e.target.closest("button[data-confirmmaster]");
+  if (confirmBtn){
+    e.stopPropagation();
+    const actId = confirmBtn.dataset.confirmmaster;
+    applyActivityFeedback(actId, 'already_mastered');
+    showToast("🎓 Mastered! Head to the Skills tab to update her developmental level.");
+    return;
+  }
+
+  // ↩ Dismiss too-easy prompt
+  const dismissBtn = e.target.closest("button[data-dismisstoosy]");
+  if (dismissBtn){
+    e.stopPropagation();
+    const altEl = document.getElementById(`altact-${dismissBtn.dataset.dismisstoosy}`);
+    if (altEl) altEl.style.display = "none";
+    return;
+  }
+
   // activity card click → open detail modal
   const actEl = e.target.closest(".act");
   if (actEl && !e.target.closest(".act-buttons")) {
