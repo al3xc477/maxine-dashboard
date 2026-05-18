@@ -2562,8 +2562,14 @@ function renderDomains(theme){
           const status = s ? s.status : "new";
           const by = s ? s.by : "";
           const hasRich = !!(a.prep || a.present || a.ext || a.src);
+          const diff = activityDifficultyMatch(d.key, i);
+          const diffBadge = diff==="easy"    ? '<span class="badge" style="background:#F3F4F6;color:#6B7280">⚪ Below level</span>'
+                          : diff==="current"  ? '<span class="badge" style="background:#DBEAFE;color:#1D4ED8">🎯 At level</span>'
+                          : diff==="zpd"      ? '<span class="badge" style="background:#D1FAE5;color:#065F46">⭐ Good challenge</span>'
+                          : '<span class="badge" style="background:#FEF3C7;color:#92400E">🌱 Stretch</span>';
+          const actId = activityId(theme.w, d.key, i);
           return `
-          <div class="act s-${status}" data-domain="${d.key}" data-idx="${i}" data-actid="${activityId(theme.w, d.key, i)}">
+          <div class="act s-${status}" data-domain="${d.key}" data-idx="${i}" data-actid="${actId}">
             <div class="lvtag l${i+1}">L${i+1}</div>
             <div class="body">
               <div class="title">${escapeHtml(a.t)} ${hasRich ? '<span class="stmp-rich-tag">📖 Rich detail</span>' : ''} ${status!=="new" ? `<span class="act-status-badge s-${status}">${prettyStatus(status)}${by?` · ${by}`:""}</span>` : ''}</div>
@@ -2571,13 +2577,19 @@ function renderDomains(theme){
                 <span class="badge time">⏱ ${escapeHtml(a.d || "~10 min")}</span>
                 ${a.o ? '<span class="badge out">🌳 Outdoor OK</span>' : ''}
                 <span class="badge">${i===0?"Easy":i===1?"Standard":"Stretch"}</span>
+                ${diffBadge}
               </div>
               <div class="act-buttons">
-                <button class="ab mastered" data-actfb="mastered" data-actid="${activityId(theme.w, d.key, i)}">✅ Mastered</button>
-                <button class="ab practising" data-actfb="practising" data-actid="${activityId(theme.w, d.key, i)}">⏳ Practising</button>
-                <button class="ab too_hard" data-actfb="too_hard" data-actid="${activityId(theme.w, d.key, i)}">😣 Too hard</button>
-                <button class="ab already_mastered" data-actfb="already_mastered" data-actid="${activityId(theme.w, d.key, i)}">🎓 Already mastered (skip)</button>
+                <button class="ab mastered" data-actfb="mastered" data-actid="${actId}">✅ Mastered</button>
+                <button class="ab practising" data-actfb="practising" data-actid="${actId}">⏳ Practising</button>
+                <button class="ab too_hard" data-actfb="too_hard" data-actid="${actId}">😣 Too hard</button>
+                <button class="ab already_mastered" data-actfb="already_mastered" data-actid="${actId}">🎓 Already mastered (skip)</button>
               </div>
+              <div class="act-buttons" style="margin-top:4px; border-top:1px dashed var(--line); padding-top:4px">
+                <button class="ab" style="background:#F0F9FF;color:#0369A1;border-color:#BAE6FD" data-actreroll="${actId}" data-dom="${d.key}" data-slotidx="${i}">🔄 Different idea</button>
+                <button class="ab" style="background:#FFF7ED;color:#C2410C;border-color:#FED7AA" data-acttoosy="${actId}" data-dom="${d.key}" data-acttitle="${escapeHtml(a.t)}">💡 Too easy — confirm mastery?</button>
+              </div>
+              <div id="altact-${actId}" style="display:none; margin-top:8px; padding:8px 10px; background:#F0FDF4; border:1px solid #86EFAC; border-radius:8px; font-size:12px"></div>
             </div>
             <div class="chev">›</div>
           </div>
