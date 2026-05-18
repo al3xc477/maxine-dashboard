@@ -488,6 +488,7 @@
     <!-- Section jump strip -->
     <nav class="section-jump no-print" id="progressJump">
       <button class="sj-btn sj-active" onclick="sjScrollTo('sec-prog-summary',this)">📊 Summary</button>
+      <button class="sj-btn" onclick="sjScrollTo('sec-prog-mastery',this)">⭐ Mastery XP</button>
       <button class="sj-btn" onclick="sjScrollTo('sec-prog-domains',this)">🏅 Domains</button>
       <button class="sj-btn" onclick="sjScrollTo('sec-prog-assess',this)">🎓 Assessment</button>
       <button class="sj-btn" onclick="sjScrollTo('sec-prog-wellness',this)">💪 Wellness</button>
@@ -503,6 +504,19 @@
     </div>
     <div class="prog-grid" id="progStats"></div>
     </div>
+
+    <!-- v3.1 Mastery XP + Frontier -->
+    <div class="card" style="margin-bottom:14px; background: linear-gradient(135deg, #EEF2FF 0%, #FAF8F5 65%); border-color:#C7D2FE" id="sec-prog-mastery">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px">
+        <h2 style="margin:0">⭐ Mastery XP &amp; Frontier</h2>
+        <span class="sub" id="masteryTierLabel" style="color:var(--muted); font-size:12px"></span>
+      </div>
+      <div class="sub" style="color:var(--muted); font-size:13px; margin:6px 0 12px">XP grows with status depth × tier difficulty (keystones bonus ×1.5). Frontier shows the 1-2 skills per domain at her current edge.</div>
+      <div id="masteryXpTiles" class="prog-grid" style="margin-bottom:10px"></div>
+      <div id="frontierBanner"></div>
+      <div id="reverifyBanner" style="margin-top:10px"></div>
+    </div>
+
     <div class="card" style="margin-bottom:14px" id="sec-prog-domains">
       <h2>Domain mastery</h2>
       <div id="progDomains"></div>
@@ -543,7 +557,7 @@
 
     <div class="card" style="margin-bottom:14px">
       <h2>🌱 Montessori sensitive periods active at 2y2m</h2>
-      <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">From Maria Montessori + Lillard's "Montessori: The Science Behind the Genius" (Oxford). These windows close — nurture them <em>now</em>.</div>
+      <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">From Maria Montessori + Lillard (Oxford). These windows close — nurture them <em>now</em>.</div>
       <div id="sensitivePeriods" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:8px"></div>
     </div>
 
@@ -1427,7 +1441,7 @@ const THEMES = [
            A("Action verbs: scoop, lick","Real ice cream (if treat day)","['Scoop = action.','Lick = action.','Demonstrate + name.']","Action vocab.", false)],
     social:[A("Share scoops","Pom-poms","['You have 6, share equally.','3 each.','Take turns serving.']","Fairness.", false),
             A("Take turns serving","Pretend shop","['She is shopkeeper.','You order.','Switch roles.']","Turn-taking + roles.", false),
-            A("Wait for melt","Real ice cream","['One bite at a time.','Wait between.','Patience reward.']","Delayed gratification.", false)]
+            A("Wait for melt","Real ice cream","['One bite at a time.','Wait between.','Patience reward.']","Self-control practice.", false)]
   },
 
   { w:28, start:"2026-07-06", title:"Pirates & Treasure", emoji:"🏴‍☠️",
@@ -1597,7 +1611,7 @@ const THEMES = [
 
   { w:36, start:"2026-08-31", title:"Back to School", emoji:"🎒",
     words:[["school","école","🏫"],["backpack","sac à dos","🎒"],["book","livre","📚"],["friend","ami","🧒"],["teacher","maîtresse","👩‍🏫"],["crayon","crayon","🖍️"]],
-    gross:[A("Walk with mini-backpack","Backpack","['Light items.','Walk around.','Carry.']","Carrying weight.", true),A("Shoes to shelf","Shoes + shelf","['One pair.','Place neatly.','Praise.']","Sequence."),A("Line-up walk","Open space","['One behind other.','Walk slowly.','Stop on cue.']","Group skill.", true)],
+    gross:[A("Walk with mini-backpack","Backpack","['Light items.','Walk around.','Carry.']","Carrying weight.", true),A("Shoes to shelf","Shoes + shelf","['One pair.','Place neatly.','Praise.']","Sequence."),A("Line-up walk","Open space","['One after another.','Walk slowly.','Stop on cue.']","Group skill.", true)],
     fine:[A("Zip backpack","Backpack","['Zip up.','Zip down.','5 times.']","Zipper skill."),A("Sort school supplies","Crayons + paper + book","['One pile each.','Sort.','Pack.']","Sort."),A("Glue label","Label + bottle","['Apply glue.','Stick label.','Press.']","Glue + press.")],
     sensory:[A("New shoe smell","Shoes","['Sniff.','New smell.','Comment.']","Olfactory."),A("Paper textures","Different papers","['Smooth, rough, soft.','Compare.','Name.']","Tactile."),A("Crayon weight","Crayons","['Hold.','Heavy or light?','Different sizes.']","Tactile.")],
     cognitive:[A("Routine sequence","Picture cards","['Wake → dress → eat → Kita.','Order.','Repeat.']","Sequence."),A("Days of week","Calendar","['Today is.','Yesterday was.','Tomorrow will be.']","Time."),A("Match items to bag","Items + bag","['What goes in backpack?','Sort.','Pack.']","Categorisation.")],
@@ -2155,7 +2169,7 @@ const STORAGE_KEY = "maxine-dashboard-v2";
    Used ONLY when localStorage is empty (first visit on any new device).
    Once loaded it is saved to localStorage and stays current from there.
    To refresh: export a new backup → re-embed via Cowork.                     */
-const SEED_STATE = {"domainLevel":{"gross":2,"fine":3,"sensory":1,"cognitive":2,"vocab":1,"social":1},"domainStreak":{"gross":0,"fine":0,"sensory":0,"cognitive":0,"vocab":0,"social":0},"history":[],"quickLog":{},"themeOrder":[12,20,21,22,23,24,25,26,27,28,13,14,15,16,17,18,19,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52],"themeOverrides":{},"currentUser":"Claire","activityStatus":{},"feedback":[],"focus":{"text":"","domains":[]},"skillStatus":{"gm-walk":{"status":"mastered","by":"Claire","ts":1779094750892},"gm-run":{"status":"mastered","by":"Claire","ts":1779094755867},"gm-jump":{"status":"mastered","by":"Claire","ts":1779094759022},"gm-kick":{"status":"mastered","by":"Claire","ts":1779094767545},"gm-throw":{"status":"mastered","by":"Claire","ts":1779094773642},"gm-carry-heavy":{"status":"mastered","by":"Claire","ts":1779094784333},"fm-scissors":{"status":"mastered","by":"Claire","ts":1779094802551},"fm-velcro":{"status":"mastered","by":"Claire","ts":1779094815130},"co-count-3":{"status":"mastered","by":"Claire","ts":1779094825026},"co-count-5":{"status":"mastered","by":"Claire","ts":1779094827417},"so-parallel":{"status":"mastered","by":"Claire","ts":1779094868133},"so-empathy":{"status":"mastered","by":"Claire","ts":1779094871289},"so-please-thanks":{"status":"mastered","by":"Claire","ts":1779094876282},"gm-stairs-up":{"status":"mastered","by":"Claire","ts":1779096450633},"gm-climb":{"status":"mastered","by":"Claire","ts":1779096526447},"co-instr-1":{"status":"mastered","by":"Claire","ts":1779097026249},"la-3word":{"status":"mastered","by":"Claire","ts":1779097591056}},"vocabMastered":{"12-0-en":{"by":"Claire","ts":1779097302280},"12-1-en":{"by":"Claire","ts":1779097303774},"12-2-en":{"by":"Claire","ts":1779097304585},"12-3-en":{"by":"Claire","ts":1779097305256},"12-4-en":{"by":"Claire","ts":1779097306046},"12-5-en":{"by":"Claire","ts":1779097307323},"12-6-en":{"by":"Claire","ts":1779097307696},"12-7-en":{"by":"Claire","ts":1779097309118},"12-8-en":{"by":"Claire","ts":1779097309657},"12-9-en":{"by":"Claire","ts":1779097310350},"12-10-en":{"by":"Claire","ts":1779097311513},"12-11-en":{"by":"Claire","ts":1779097312254},"12-12-en":{"by":"Claire","ts":1779097313782},"12-13-en":{"by":"Claire","ts":1779097314241},"12-15-en":{"by":"Claire","ts":1779097317750},"27-1-en":{"by":"Claire","ts":1779097447365},"27-0-en":{"by":"Claire","ts":1779097451686},"13-7-en":{"by":"Claire","ts":1779097462686},"13-6-en":{"by":"Claire","ts":1779097463346},"13-5-en":{"by":"Claire","ts":1779097464123},"13-4-en":{"by":"Claire","ts":1779097464816},"13-0-en":{"by":"Claire","ts":1779097468617},"13-8-en":{"by":"Claire","ts":1779097470376},"13-13-en":{"by":"Claire","ts":1779097472846},"13-14-en":{"by":"Claire","ts":1779097473477},"14-1-en":{"by":"Claire","ts":1779097477119},"14-0-en":{"by":"Claire","ts":1779097477624},"15-1-en":{"by":"Claire","ts":1779097483777},"29-0-en":{"by":"Claire","ts":1779097494647},"17-8-en":{"by":"Claire","ts":1779097552007},"18-2-en":{"by":"Claire","ts":1779097556805}},"currentChild":"Maxine","children":{"Maxine":{"name":"Maxine","emoji":"👧","dob":"2024-03-09"},"Lou":{"name":"Lou","emoji":"👶","dob":"2026-06-15"}},"lou":{"events":[],"sleepStart":null},"basics":{},"rituals":{"2026-05-18":{}},"vocabMaster":{"eye_en":{"ts":1779098757777},"eyes_en":{"ts":1779098760554},"nose_en":{"ts":1779098761964},"hand_en":{"ts":1779098762481},"ear_en":{"ts":1779098764166},"foot_en":{"ts":1779098764475},"mouth_en":{"ts":1779098765364},"hair_en":{"ts":1779098767120},"leg_en":{"ts":1779098767476},"arm_en":{"ts":1779098768638},"finger_en":{"ts":1779098769696},"belly_en":{"ts":1779098771601},"knee_en":{"ts":1779098772806},"tongue_en":{"ts":1779098775515},"mum_en":{"ts":1779098782228},"dad_en":{"ts":1779098782544},"baby_en":{"ts":1779098783245},"police_en":{"ts":1779098790796},"happy_en":{"ts":1779098795389},"sad_en":{"ts":1779098797171},"angry_en":{"ts":1779098798290},"cry_en":{"ts":1779098801256},"hug_en":{"ts":1779098802259},"thank_you_en":{"ts":1779098806647},"please_en":{"ts":1779098808274},"wait_en":{"ts":1779098812309},"kiss_en":{"ts":1779098814731},"bee_en":{"ts":1779098817506},"butterfly_en":{"ts":1779098818059},"bird_en":{"ts":1779098818762},"frog_en":{"ts":1779098819776},"worm_en":{"ts":1779098821981},"fly_en":{"ts":1779098823170},"ant_en":{"ts":1779098823723},"ladybug_en":{"ts":1779098824626},"fish_en":{"ts":1779098826312},"crab_en":{"ts":1779098827168},"whale_en":{"ts":1779098827835},"octopus_en":{"ts":1779098829353},"jellyfish_en":{"ts":1779098829869},"cow_en":{"ts":1779098831855},"pig_en":{"ts":1779098832734},"horse_en":{"ts":1779098833356},"sheep_en":{"ts":1779098834218},"chicken_en":{"ts":1779098835018},"duck_en":{"ts":1779098836140},"penguin_en":{"ts":1779098838078},"bear_en":{"ts":1779098838478},"tree_en":{"ts":1779098842660},"flower_en":{"ts":1779098843276},"water_en":{"ts":1779098847766},"milk_en":{"ts":1779098848045},"bread_en":{"ts":1779098848642},"egg_en":{"ts":1779098849247},"butter_en":{"ts":1779098849807},"apple_en":{"ts":1779098855441},"carrot_en":{"ts":1779098855772},"ice_cream_en":{"ts":1779098858155},"cookie_en":{"ts":1779098860257},"spoon_en":{"ts":1779098861714},"cup_en":{"ts":1779098862456},"knife_en":{"ts":1779098864975},"fork_en":{"ts":1779098865281},"ball_en":{"ts":1779098870799},"glove_en":{"ts":1779098877822},"bus_en":{"ts":1779098880476},"bike_en":{"ts":1779098880802},"plane_en":{"ts":1779098881683},"car_en":{"ts":1779098882961},"boat_en":{"ts":1779098883812},"train_en":{"ts":1779098886882},"school_en":{"ts":1779098889477},"hospital_en":{"ts":1779098891159},"jump_en":{"ts":1779098900245},"run_en":{"ts":1779098900954},"hide_en":{"ts":1779098906671},"touch_en":{"ts":1779099018515},"smell_en":{"ts":1779099020187},"grandma_en":{"ts":1779099026161},"teacher_en":{"ts":1779099029819},"together_en":{"ts":1779099039872},"rain_en":{"ts":1779099061585},"sun_en":{"ts":1779099061985},"snow_en":{"ts":1779099063660},"wind_en":{"ts":1779099064961},"mud_en":{"ts":1779099068945},"moon_en":{"ts":1779099077699},"star_en":{"ts":1779099078504},"plate_en":{"ts":1779099089848},"helmet_en":{"ts":1779099095540},"bottle_en":{"ts":1779099098220},"blanket_en":{"ts":1779099099236},"backpack_en":{"ts":1779099102721},"book_en":{"ts":1779099104693},"guitar_en":{"ts":1779099106701},"balloon_en":{"ts":1779099107644},"bag_en":{"ts":1779099111978},"rocket_en":{"ts":1779099116506},"hat_en":{"ts":1779099120204},"bunny_en":{"ts":1779099246565},"fruit_en":{"ts":1779099257882},"bowl_en":{"ts":1779099262476},"yellow_en":{"ts":1779099274376},"green_en":{"ts":1779099274951},"red_en":{"ts":1779099275445},"blue_en":{"ts":1779099276036},"light_en":{"ts":1779099282508},"dark_en":{"ts":1779099282878},"to_fly_en":{"ts":1779099285800},"dance_en":{"ts":1779099289844},"lick_en":{"ts":1779099291758},"brush_en":{"ts":1779099294824},"fall_en":{"ts":1779099298904},"back_en":{"ts":1779100759875},"wet_en":{"ts":1779100773993},"sister_en":{"ts":1779100776978},"gentle_en":{"ts":1779100793951},"cloud_en":{"ts":1779100818471},"juice_en":{"ts":1779102096690},"face_en":{"ts":1779103529507}}};
+const SEED_STATE = {"domainLevel":{"gross":2,"fine":3,"sensory":1,"cognitive":2,"vocab":1,"social":1},"domainStreak":{"gross":0,"fine":0,"sensory":0,"cognitive":0,"vocab":0,"social":0},"history":[],"quickLog":{},"themeOrder":[12,20,21,22,23,24,25,26,27,28,13,14,15,16,17,18,19,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52],"themeOverrides":{},"currentUser":"Claire","activityStatus":{},"feedback":[],"focus":{"text":"","domains":[]},"skillStatus":{"gm-walk":{"status":"mastered","by":"Claire","ts":1779094750892},"gm-run":{"status":"mastered","by":"Claire","ts":1779094755867},"gm-jump":{"status":"mastered","by":"Claire","ts":1779094759022},"gm-kick":{"status":"mastered","by":"Claire","ts":1779094767545},"gm-throw":{"status":"mastered","by":"Claire","ts":1779094773642},"gm-carry-heavy":{"status":"mastered","by":"Claire","ts":1779094784333},"fm-scissors":{"status":"mastered","by":"Claire","ts":1779094802551},"fm-velcro":{"status":"mastered","by":"Claire","ts":1779094815130},"co-count-3":{"status":"mastered","by":"Claire","ts":1779094825026},"co-count-5":{"status":"mastered","by":"Claire","ts":1779094827417},"so-parallel":{"status":"mastered","by":"Claire","ts":1779094868133},"so-empathy":{"status":"mastered","by":"Claire","ts":1779094871289},"so-please-thanks":{"status":"mastered","by":"Claire","ts":1779094876282},"gm-stairs-up":{"status":"mastered","by":"Claire","ts":1779096450633},"gm-climb":{"status":"mastered","by":"Claire","ts":1779096526447},"co-instr-1":{"status":"mastered","by":"Claire","ts":1779097026249},"la-3word":{"status":"mastered","by":"Claire","ts":1779097591056}},"vocabMastered":{"12-0-en":{"by":"Claire","ts":1779097302280},"12-1-en":{"by":"Claire","ts":1779097303774},"12-2-en":{"by":"Claire","ts":1779097304585},"12-3-en":{"by":"Claire","ts":1779097305256},"12-4-en":{"by":"Claire","ts":1779097306046},"12-5-en":{"by":"Claire","ts":1779097307323},"12-6-en":{"by":"Claire","ts":1779097307696},"12-7-en":{"by":"Claire","ts":1779097309118},"12-8-en":{"by":"Claire","ts":1779097309657},"12-9-en":{"by":"Claire","ts":1779097310350},"12-10-en":{"by":"Claire","ts":1779097311513},"12-11-en":{"by":"Claire","ts":1779097312254},"12-12-en":{"by":"Claire","ts":1779097313782},"12-13-en":{"by":"Claire","ts":1779097314241},"12-15-en":{"by":"Claire","ts":1779097317750},"27-1-en":{"by":"Claire","ts":1779097447365},"27-0-en":{"by":"Claire","ts":1779097451686},"13-7-en":{"by":"Claire","ts":1779097462686},"13-6-en":{"by":"Claire","ts":1779097463346},"13-5-en":{"by":"Claire","ts":1779097464123},"13-4-en":{"by":"Claire","ts":1779097464816},"13-0-en":{"by":"Claire","ts":1779097468617},"13-8-en":{"by":"Claire","ts":1779097470376},"13-13-en":{"by":"Claire","ts":1779097472846},"13-14-en":{"by":"Claire","ts":1779097473477},"14-1-en":{"by":"Claire","ts":1779097477119},"14-0-en":{"by":"Claire","ts":1779097477624},"15-1-en":{"by":"Claire","ts":1779097483777},"29-0-en":{"by":"Claire","ts":1779097494647},"17-8-en":{"by":"Claire","ts":1779097552007},"18-2-en":{"by":"Claire","ts":1779097556805}},"currentChild":"Maxine","children":{"Maxine":{"name":"Maxine","emoji":"👧","dob":"2024-03-09"},"Lou":{"name":"Lou","emoji":"👶","dob":"2026-06-15"}},"lou":{"events":[],"sleepStart":null},"basics":{},"rituals":{"2026-05-18":{}},"vocabMaster":{"eye_en":{"ts":1779098757777},"eyes_en":{"ts":1779098760554},"nose_en":{"ts":1779098761964},"hand_en":{"ts":1779098762481},"ear_en":{"ts":1779098764166},"foot_en":{"ts":1779098764475},"mouth_en":{"ts":1779098765364},"hair_en":{"ts":1779098767120},"leg_en":{"ts":1779098767476},"arm_en":{"ts":1779098768638},"finger_en":{"ts":1779098769696},"belly_en":{"ts":1779098771601},"knee_en":{"ts":1779098772806},"tongue_en":{"ts":1779098775515},"mum_en":{"ts":1779098782228},"dad_en":{"ts":1779098782544},"baby_en":{"ts":1779098783245},"police_en":{"ts":1779098790796},"happy_en":{"ts":1779098795389},"sad_en":{"ts":1779098797171},"angry_en":{"ts":1779098798290},"cry_en":{"ts":1779098801256},"hug_en":{"ts":1779098802259},"thank_you_en":{"ts":1779098806647},"please_en":{"ts":1779098808274},"wait_en":{"ts":1779098812309},"kiss_en":{"ts":1779098814731},"bee_en":{"ts":1779098817506},"butterfly_en":{"ts":1779098818059},"bird_en":{"ts":1779098818762},"frog_en":{"ts":1779098819776},"worm_en":{"ts":1779098821981},"fly_en":{"ts":1779098823170},"ant_en":{"ts":1779098823723},"ladybug_en":{"ts":1779098824626},"fish_en":{"ts":1779098826312},"crab_en":{"ts":1779098827168},"whale_en":{"ts":1779098827835},"octopus_en":{"ts":1779098829353},"jellyfish_en":{"ts":1779098829869},"cow_en":{"ts":1779098831855},"pig_en":{"ts":1779098832734},"horse_en":{"ts":1779098833356},"sheep_en":{"ts":1779098834218},"chicken_en":{"ts":1779098835018},"duck_en":{"ts":1779098836140},"penguin_en":{"ts":1779098838078},"bear_en":{"ts":1779098838478},"tree_en":{"ts":1779098842660},"flower_en":{"ts":1779098843276},"water_en":{"ts":1779098847766},"milk_en":{"ts":1779098848045},"bread_en":{"ts":1779098848642},"egg_en":{"ts":1779098849247},"butter_en":{"ts":1779098849807},"apple_en":{"ts":1779098855441},"carrot_en":{"ts":1779098855772},"ice_cream_en":{"ts":1779098858155},"cookie_en":{"ts":1779098860257},"spoon_en":{"ts":1779098861714},"cup_en":{"ts":1779098862456},"knife_en":{"ts":1779098864975},"fork_en":{"ts":1779098865281},"ball_en":{"ts":1779098870799},"glove_en":{"ts":1779098877822},"bus_en":{"ts":1779098880476},"bike_en":{"ts":1779098880802},"plane_en":{"ts":1779098881683},"car_en":{"ts":1779098882961},"boat_en":{"ts":1779098883812},"train_en":{"ts":1779098886882},"school_en":{"ts":1779098889477},"hospital_en":{"ts":1779098891159},"jump_en":{"ts":1779098900245},"run_en":{"ts":1779098900954},"hide_en":{"ts":1779098906671},"touch_en":{"ts":1779099018515},"smell_en":{"ts":1779099020187},"grandma_en":{"ts":1779099026161},"teacher_en":{"ts":1779099029819},"together_en":{"ts":1779099039872},"rain_en":{"ts":1779099061585},"sun_en":{"ts":1779099061985},"snow_en":{"ts":1779099063660},"wind_en":{"ts":1779099064961},"mud_en":{"ts":1779099068945},"moon_en":{"ts":1779099077699},"star_en":{"ts":1779099078504},"plate_en":{"ts":1779099089848},"helmet_en":{"ts":1779099095540},"bottle_en":{"ts":1779099098220},"blanket_en":{"ts":1779099099236},"backpack_en":{"ts":1779099102721},"book_en":{"ts":1779099104693},"guitar_en":{"ts":1779099106701},"balloon_en":{"ts":1779099107644},"bag_en":{"ts":1779099111978},"rocket_en":{"ts":1779099116506},"hat_en":{"ts":1779099120204},"bunny_en":{"ts":1779099246565},"fruit_en":{"ts":1779099257882},"bowl_en":{"ts":1779099262476},"yellow_en":{"ts":1779099274376},"green_en":{"ts":1779099274951},"red_en":{"ts":1779099275445},"blue_en":{"ts":1779099276036},"light_en":{"ts":1779099282508},"dark_en":{"ts":1779099282878},"to_fly_en":{"ts":1779099285800},"dance_en":{"ts":1779099289844},"lick_en":{"ts":1779099291758},"brush_en":{"ts":1779099294824},"fall_en":{"ts":1779099298904},"back_en":{"ts":1779100759875},"wet_en":{"ts":1779100773993},"sister_en":{"ts":1779100776978},"gentle_en":{"ts":1779100793951},"cloud_en":{"ts":1779100818471},"juice_en":{"ts":1779102096690},"face_en":{"ts":1779103529507}},"observations":[],"masteryConfig":{"reverifyAfterDays":60,"tierMultipliers":{"0":1,"1":2,"2":4,"3":8,"4":16},"statusXpFactor":{"mastered":1,"practising":0.5,"emerging":0.25,"new":0,"too_hard":0,"already_mastered":0.9},"frontierMaxPerDomain":2},"pendingGenerations":[],"reverifyQueue":[],"coachingPicks":[]};
 
 function _seedIfEmpty(){
   try {
@@ -2180,6 +2194,8 @@ function loadState(){
 function saveState(s){
   s._savedAt = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+  // Invalidate v3.1 derived caches — state has changed.
+  if (typeof _v31Bump === "function") _v31Bump();
   // Auto-push to cloud (debounced 2 s) — works on all devices incl. iPad
   if (typeof syncPushDebounced === "function") syncPushDebounced();
   // Auto-sync to connected FSA folder (debounced 1.5 s) — Chrome/Edge only
@@ -2198,6 +2214,48 @@ state.history = state.history || [];
 state.quickLog = state.quickLog || {};
 state.weekOverride = state.weekOverride || null;
 state.customTheme = state.customTheme || null;
+
+/* ── v3.1 Mastery / Observations state ──────────────────────────────────────
+   observations    — append-only event log per skill (event sourcing)
+   masteryConfig   — thresholds (re-verify interval, XP multipliers per tier)
+   pendingGenerations — AI/Claire-proposed activities awaiting review
+   reverifyQueue   — mastered skills due for re-check (auto-populated)
+   coachingPicks   — top picks shown on dashboard (auto-populated)                */
+state.observations       = Array.isArray(state.observations) ? state.observations : [];
+state.masteryConfig      = Object.assign({
+  reverifyAfterDays: 60,
+  tierMultipliers:   { 0:1, 1:2, 2:4, 3:8, 4:16 },
+  statusXpFactor:    { mastered:1, practising:0.5, emerging:0.25, new:0, too_hard:0, already_mastered:0.9 },
+  frontierMaxPerDomain: 2,
+}, state.masteryConfig || {});
+state.pendingGenerations = Array.isArray(state.pendingGenerations) ? state.pendingGenerations : [];
+state.reverifyQueue      = Array.isArray(state.reverifyQueue)      ? state.reverifyQueue      : [];
+state.coachingPicks      = Array.isArray(state.coachingPicks)      ? state.coachingPicks      : [];
+
+/* One-shot migration: legacy state.skillStatus → state.observations.
+   Idempotent — adds a synthetic "import" observation per legacy entry only once.   */
+(function migrateSkillStatusToObservations(){
+  if (state._migratedToObservationsV1) return;
+  try {
+    const legacy = state.skillStatus || {};
+    let added = 0;
+    Object.keys(legacy).forEach(id => {
+      const e = legacy[id]; if (!e || !e.status) return;
+      // Skip if we already have any observation for this skill (idempotent)
+      const has = state.observations.some(o => o.skillId === id);
+      if (has) return;
+      state.observations.push({
+        skillId: id, status: e.status,
+        by: e.by || "—", source: "migration",
+        ts: e.ts || Date.now(), notes: ""
+      });
+      added++;
+    });
+    state._migratedToObservationsV1 = true;
+    // Persist so the next reload skips this block (avoids redundant rewrites).
+    if (added && typeof saveState === "function") saveState(state);
+  } catch(e){ /* migration is best-effort */ }
+})();
 
 /* =========================================================
    THEME PICK
@@ -4057,8 +4115,86 @@ document.addEventListener("click", (e)=>{
 });
 
 /* Progress view */
+/* v3.1 — render the Mastery XP tiles + frontier banner + reverify banner.
+   Pure UI; reads from the memoized helpers. Wrapped in try/catch so a single
+   bad skill entry never blocks the rest of the Progress view.                  */
+function renderMasteryXpView(){
+  const tilesEl    = document.getElementById("masteryXpTiles");
+  const frontierEl = document.getElementById("frontierBanner");
+  const reverifyEl = document.getElementById("reverifyBanner");
+  const tierLabel  = document.getElementById("masteryTierLabel");
+  if (!tilesEl) return; // section not on the page (e.g. older HTML)
+
+  try {
+    const tier = currentTier();
+    if (tierLabel) tierLabel.textContent = `Current tier: T${tier}`;
+
+    // XP tiles per domain
+    tilesEl.innerHTML = DOMAINS.map(d => {
+      const xp = domainXp(d.key);
+      const ds = SKILLS.filter(s => s.dom === d.key);
+      const mastered = ds.filter(s => deriveStatus(s.id) === "mastered").length;
+      return `
+        <div class="prog-card" style="text-align:left">
+          <div class="lbl">${d.emoji} ${escapeHtml(d.label)}</div>
+          <div class="big" style="font-size:28px">${xp}<span style="font-size:14px; color:var(--muted); font-weight:600"> XP</span></div>
+          <div class="sub">${mastered}/${ds.length} mastered · ${ds.filter(s=>!!s.keystone).length} keystone${ds.filter(s=>!!s.keystone).length===1?'':'s'}</div>
+        </div>
+      `;
+    }).join("");
+
+    // Frontier skills
+    const fs = frontierSkills();
+    if (fs.length){
+      frontierEl.innerHTML = `
+        <div style="font-weight:700; font-size:13px; color:var(--ink); margin-bottom:8px">🎯 Frontier — practise these next (T${tier}/T${tier+1})</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px">
+          ${fs.map(s => {
+            const d = DOMAINS.find(x => x.key === s.dom);
+            const st = deriveStatus(s.id);
+            const stPill = st==="practising" ? "🟡 Practising"
+                         : st==="emerging"   ? "🔵 Emerging"
+                         :                     "⚪ New";
+            return `
+              <div style="background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px">
+                <div style="display:flex; gap:6px; align-items:baseline; flex-wrap:wrap">
+                  <span style="font-size:14px">${d?d.emoji:""}</span>
+                  <strong style="font-size:13px; flex:1; min-width:0">${escapeHtml(s.t)}</strong>
+                  ${s.keystone ? '<span style="font-size:9px; background:#FBBF24; color:#7C2D12; padding:1px 6px; border-radius:4px; font-weight:700">KEYSTONE</span>' : ''}
+                </div>
+                <div style="font-size:11px; color:var(--muted); margin-top:4px">${escapeHtml(s.age||"")} · T${tierOf(s)} · ${stPill}</div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    } else {
+      frontierEl.innerHTML = `<div style="font-size:13px; color:var(--muted)">No frontier skills — every catalogue item at her current tier is mastered or marked too-hard. 🌟</div>`;
+    }
+
+    // Re-verify queue
+    const queue = refreshReverifyQueue();
+    if (queue.length){
+      reverifyEl.innerHTML = `
+        <div style="background:#FFFBEB; border:1px solid #FCD34D; border-radius:10px; padding:10px 12px">
+          <div style="font-weight:700; font-size:13px; color:#92400E; margin-bottom:6px">🔄 Re-verify check — ${queue.length} skill${queue.length===1?'':'s'} not seen in ${state.masteryConfig.reverifyAfterDays}+ days</div>
+          <div style="font-size:12px; color:#78350F">Open a skill to confirm she still has it, or mark differently.</div>
+        </div>
+      `;
+    } else {
+      reverifyEl.innerHTML = "";
+    }
+  } catch (err){
+    console.warn("renderMasteryXpView failed", err);
+    tilesEl.innerHTML = `<div class="sub" style="color:var(--muted)">Mastery view unavailable — please reload.</div>`;
+    if (frontierEl) frontierEl.innerHTML = "";
+    if (reverifyEl) reverifyEl.innerHTML = "";
+  }
+}
+
 function renderProgressView(){
-  renderBasics();
+  try { renderBasics(); } catch(e){ console.warn("renderBasics failed", e); }
+  try { renderMasteryXpView(); } catch(e){ console.warn("renderMasteryXpView failed", e); }
   const stats = document.getElementById("progStats");
   const doms = document.getElementById("progDomains");
   const rec = document.getElementById("progRecent");
@@ -4167,7 +4303,7 @@ function renderProgressView(){
             const g = DOMAIN_GUIDANCE[x.d.key];
             return `<div style="margin-bottom:6px">
               <div style="font-size:12px; font-weight:700; margin-bottom:2px">${x.d.emoji} ${x.d.label} <span style="font-weight:400; color:${x.lv.color}; background:${x.lv.bg}; border-radius:5px; padding:1px 5px">${x.lv.label}</span></div>
-              <div style="font-size:12px; color:#78350F; line-height:1.4">${g ? g.weak : ""}</div>
+              <div style="font-size:12px; color:#78350F; line-height:1.4">${g ? g.growth : ""}</div>
             </div>`;
           }).join("")}
           ${nextActs.length ? `
@@ -4223,7 +4359,7 @@ function renderProgressView(){
       </div>
       <div id="${detailId}" style="display:none; margin-top:2px; padding:14px 14px 10px; border:1px solid var(--line); border-top:none; border-radius:0 0 10px 10px; background:${dlv.bg}22">
         <div style="font-size:13px; color:${dlv.score>=3?'#166534':'#92400E'}; line-height:1.55; margin-bottom:10px">
-          <strong>Assessment:</strong> ${dlv.score>=3 ? (DOMAIN_GUIDANCE[d.key]?.strong||"") : (DOMAIN_GUIDANCE[d.key]?.weak||"")}
+          <strong>Assessment:</strong> ${dlv.score>=3 ? (DOMAIN_GUIDANCE[d.key]?.strong||"") : (DOMAIN_GUIDANCE[d.key]?.growth||"")}
         </div>
         ${dlv.src ? `<div style="font-size:11px; color:var(--muted); margin-bottom:8px; font-style:italic">📊 ${escapeHtml(dlv.src)}</div>` : ""}
         ${nextSkills.length ? `
@@ -4390,7 +4526,7 @@ function skillLevel(s){
 
 const SKILLS = [
   // GROSS MOTOR
-  { id:"gm-walk", dom:"gross", t:"Walks well, rare falls", age:"15–24m", what:"Stable upright walking", why:"Builds vestibular + bilateral coordination. Foundation for all gross-motor skills.", how:"Outdoor walks daily. Vary terrain — grass, gravel, stairs, hills.", next:"Walk on uneven surfaces", src:"CDC milestones" },
+  { id:"gm-walk", dom:"gross", keystone:true, t:"Walks well, rare falls", age:"15–24m", what:"Stable upright walking", why:"Builds vestibular + bilateral coordination. Foundation for all gross-motor skills.", how:"Outdoor walks daily. Vary terrain — grass, gravel, stairs, hills.", next:"Walk on uneven surfaces", src:"CDC milestones" },
   { id:"gm-run", dom:"gross", t:"Runs without falling", age:"~24m", what:"Coordinated running 5+ steps", why:"Heart-lung capacity, gross-motor planning.", how:"Open spaces. Chase games. Start–stop on cue.", next:"Run + change direction", src:"CDC milestones" },
   { id:"gm-jump", dom:"gross", t:"Jumps with two feet together", age:"~24m", what:"Both feet leave ground simultaneously", why:"Bilateral coordination + power. Pre-skill for hopping.", how:"Jump off low cushion. Jump over tape line.", next:"Jump for distance", src:"AAP milestones" },
   { id:"gm-stairs-up", dom:"gross", t:"Walks up stairs (rail, alternating)", age:"24–30m", what:"Alternating feet, holding handrail", why:"Balance + leg strength.", how:"Always supervised. Hold rail. Slow.", next:"Walk down stairs alternating", src:"CDC" },
@@ -4440,8 +4576,8 @@ const SKILLS = [
   // LANGUAGE (note: vocabulary words are tracked separately in Bingo)
   { id:"la-words-50", dom:"vocab", t:"Says 50+ words", age:"~24m", what:"50 distinct spoken words", why:"Major language milestone.", how:"Read 3+ books/day. Live human voice. Narrate.", next:"200+ words", src:"Kuhl I-LABS / Fernald Stanford" },
   { id:"la-words-200", dom:"vocab", t:"Says 200+ words", age:"~30m", what:"Vocabulary explosion", why:"Predicts school readiness (Hart-Risley).", how:"Continue reading, narrating, expanding her phrases.", next:"500+", src:"Hart-Risley 1995" },
-  { id:"la-2word", dom:"vocab", t:"Uses 2-word combinations", age:"~21m", what:"'more milk', 'encore lait'", why:"Pre-grammar emerging.", how:"Model 2-3 word phrases.", next:"3-word sentences", src:"CDC" },
-  { id:"la-3word", dom:"vocab", t:"Uses 3-word sentences", age:"~30m", what:"'I want milk', 'maman donne ballon'", why:"Syntax developing.", how:"Expand her 2-word phrases with one more word.", next:"4+ word sentences", src:"CDC" },
+  { id:"la-2word", dom:"vocab", keystone:true, t:"Uses 2-word combinations", age:"~21m", what:"'more milk', 'encore lait'", why:"Pre-grammar emerging.", how:"Model 2-3 word phrases.", next:"3-word sentences", src:"CDC" },
+  { id:"la-3word", dom:"vocab", keystone:true, t:"Uses 3-word sentences", age:"~30m", what:"'I want milk', 'maman donne ballon'", why:"Syntax developing.", how:"Expand her 2-word phrases with one more word.", next:"4+ word sentences", src:"CDC" },
   { id:"la-why", dom:"vocab", t:"Asks 'why?'", age:"~30m+", what:"Inquiry-driven questions", why:"Theory-building.", how:"Answer briefly, then invite more questions.", next:"Asks how/when/where", src:"Gopnik" },
   { id:"la-body-5", dom:"vocab", t:"Names 5+ body parts", age:"24m", what:"Points + names", why:"Body schema + vocab.", how:"'Where's your nose?' game.", next:"More obscure parts (elbow, ankle)", src:"CDC" },
   { id:"la-pronouns", dom:"vocab", t:"Uses pronouns: I, me, mine, you", age:"~24m+", what:"Self-referent language", why:"Self-concept + grammar.", how:"Model in everyday speech.", next:"He/she/they", src:"CDC" },
@@ -4468,22 +4604,22 @@ const SKILLS = [
   { id:"gm-dance-rhythm", dom:"gross", t:"Moves to music (bounce, sway, clap)", age:"~18m", what:"Body responds rhythmically to music", why:"Auditory-motor integration + bilateral.", how:"Play music. Dance together.", next:"Clap to beat", src:"AAP / music therapy consensus" },
 
   // FINE MOTOR – early foundation (likely already mastered)
-  { id:"fm-pincer", dom:"fine", t:"Pincer grasp (thumb + index)", age:"~10–12m", what:"Picks up small objects with 2-finger pincer", why:"Critical fine motor foundation — all tool use depends on it.", how:"Raisins, cereal on tray. She picks up.", next:"In-hand manipulation", src:"Erhardt DPA / OT" },
+  { id:"fm-pincer", dom:"fine", keystone:true, t:"Pincer grasp (thumb + index)", age:"~10–12m", what:"Picks up small objects with 2-finger pincer", why:"Critical fine motor foundation — all tool use depends on it.", how:"Raisins, cereal on tray. She picks up.", next:"In-hand manipulation", src:"Erhardt DPA / OT" },
   { id:"fm-point", dom:"fine", t:"Points with index finger (declarative)", age:"~12m", what:"Points to share attention, not just to request", why:"Joint attention + communication + fine motor isolation.", how:"Point at pictures in books. Model and wait.", next:"Uses index for pressing buttons", src:"Tomasello 1995 / CDC" },
   { id:"fm-scribble", dom:"fine", t:"Scribbles spontaneously with crayon", age:"~12–15m", what:"Makes marks on paper", why:"Pre-writing + hand-eye + visual-motor expression.", how:"Crayon + paper. No demonstration needed.", next:"Controlled strokes", src:"OT" },
   { id:"fm-stack-3", dom:"fine", t:"Stacks 3 blocks without toppling", age:"~18m", what:"Stable 3-block tower", why:"Hand steadiness + visual-spatial sequencing.", how:"Large wooden blocks. No hurry.", next:"Stack 6+", src:"CDC" },
   { id:"fm-spoon-basic", dom:"fine", t:"Uses spoon with some spill", age:"~18m", what:"Self-feeds with spoon, some mess", why:"Wrist supination + bilateral hold.", how:"Yoghurt or porridge. Messy is fine.", next:"Minimal spill", src:"CDC / OT" },
 
   // COGNITIVE – early foundation (likely already mastered)
-  { id:"co-obj-perm", dom:"cognitive", t:"Object permanence (finds hidden object)", age:"~10m", what:"Removes cloth to find hidden toy", why:"Foundation of all memory and search (Piaget Sensorimotor stage 6).", how:"Hide toy under cup. Wait. She finds.", next:"Multiple hiding places", src:"Piaget" },
+  { id:"co-obj-perm", dom:"cognitive", keystone:true, t:"Object permanence (finds hidden object)", age:"~10m", what:"Removes cloth to find hidden toy", why:"Foundation of all memory and search (Piaget Sensorimotor stage 6).", how:"Hide toy under cup. Wait. She finds.", next:"Multiple hiding places", src:"Piaget" },
   { id:"co-cause-effect", dom:"cognitive", t:"Cause-effect: activates toys intentionally", age:"~12m", what:"Pushes button → sound; shakes rattle → noise", why:"Intentional action + learning about consequences (Piaget).", how:"Pop-up toys, musical boxes.", next:"Nesting/stacking", src:"Piaget / CDC" },
-  { id:"co-imitate-simple", dom:"cognitive", t:"Imitates simple actions (clap, bye-bye)", age:"~10–12m", what:"Copies seen gesture with slight delay", why:"Mirror neuron system + social learning foundation (Meltzoff).", how:"Clap, wave, point — wait for her to copy.", next:"Imitate 2-step actions", src:"Meltzoff UW / CDC" },
+  { id:"co-imitate-simple", dom:"cognitive", t:"Imitates simple actions (clap, bye-bye)", age:"~10–12m", what:"Copies seen gesture shortly after watching", why:"Mirror neuron system + social learning foundation (Meltzoff).", how:"Clap, wave, point — wait for her to copy.", next:"Imitate 2-step actions", src:"Meltzoff UW / CDC" },
   { id:"co-1word-instr", dom:"cognitive", t:"Understands and follows 1-word requests", age:"~12m", what:"'Come', 'No', 'Ball' — responds correctly", why:"Receptive language precursor to 1-step instructions.", how:"Clear, consistent words for key objects/actions.", next:"2-word instructions", src:"CDC" },
   { id:"co-sort-shape", dom:"cognitive", t:"Shape sorter (3 basic shapes)", age:"~18–24m", what:"Matches circle/square/triangle holes", why:"Visual spatial reasoning + problem-solving persistence.", how:"Classic wooden shape sorter.", next:"Identify shapes by name", src:"Montessori / OT" },
 
   // SOCIAL – early foundation (likely already mastered)
   { id:"so-wave-bye", dom:"social", t:"Waves bye-bye spontaneously", age:"~10–12m", what:"Waves when someone leaves without prompt", why:"Social routine + joint attention + proto-communication (Tomasello).", how:"Always wave on goodbye. Wait for her to initiate.", next:"'See you soon!'", src:"Tomasello 1995 / CDC" },
-  { id:"so-point-share", dom:"social", t:"Points to show you something interesting", age:"~12m", what:"Declarative pointing — 'look at this!'", why:"Joint attention — single strongest predictor of language outcome (Tomasello, Carpenter).", how:"Comment on what she points at. Expand her vocabulary.", next:"Points to pictures when named", src:"Tomasello-Carpenter 1998" },
+  { id:"so-point-share", dom:"social", keystone:true, t:"Points to show you something interesting", age:"~12m", what:"Declarative pointing — 'look at this!'", why:"Joint attention — single strongest predictor of language outcome (Tomasello, Carpenter).", how:"Comment on what she points at. Expand her vocabulary.", next:"Points to pictures when named", src:"Tomasello-Carpenter 1998" },
   { id:"so-back-forth", dom:"social", t:"Back-and-forth interaction 5+ turns", age:"~18m", what:"Sustained reciprocal play or conversation", why:"Serve-and-return interaction builds neural pathways (CDC-Harvard).", how:"Peek-a-boo, hide-seek, sound imitation games.", next:"Turn-taking with objects", src:"CDC / Harvard Center Dev. Child" },
   { id:"so-attach-secure", dom:"social", t:"Seeks parent when distressed, calms on contact", age:"~12m", what:"Secure attachment base behaviour", why:"Bowlby secure attachment = foundation for social-emotional development.", how:"Consistent response to distress. 'I'm here.'", next:"Co-regulation of bigger emotions", src:"Bowlby attachment theory" },
 
@@ -4498,17 +4634,220 @@ const SKILLS = [
   { id:"la-bilingual-aware", dom:"vocab", t:"Responds to both English and French", age:"~18m+", what:"Shows different-language comprehension (not just one language)", why:"Bilingual language separation emerging — healthy dual system (Genesee).", how:"Test same request in both languages.", next:"Uses words in both languages spontaneously", src:"Genesee McGill / Werker UBC" },
 ];
 
-function skillStatus(id){
-  return (state.skillStatus[id] && state.skillStatus[id].status) || "new";
+/* ── v3.1 SKILLS_CUSTOM_SEED — T0 baseline (~0–10m) + extensible seed slot ──
+   Design decision: keep T0 entries here rather than buried in the SKILLS array
+   so they are easy to audit / replace per child. Merged into SKILLS at load. */
+const SKILLS_CUSTOM_SEED = [
+  { id:"gm-head-control", dom:"gross", keystone:true, tier:0,
+    t:"Head control — holds head steady when held upright", age:"~3–4m",
+    what:"Maintains upright head position without bobbing",
+    why:"Pre-requisite for rolling, sitting, and visual tracking (WHO MDS).",
+    how:"Tummy time. Hold upright on shoulder. Eye-level toys.",
+    next:"Pushes up on forearms", src:"WHO Motor Development Study" },
+  { id:"gm-rolls", dom:"gross", tier:0,
+    t:"Rolls both directions (back ↔ tummy)", age:"~4–6m",
+    what:"Initiates roll in either direction independently",
+    why:"First independent locomotion — vestibular + cross-body integration.",
+    how:"Plenty of floor time. Place toy just out of reach to motivate.",
+    next:"Sits unsupported", src:"WHO Motor Development Study" },
+  { id:"gm-sits", dom:"gross", tier:0,
+    t:"Sits unsupported", age:"~6–8m",
+    what:"Independent sitting with hands free for play",
+    why:"Frees the hands → enables fine-motor practice + bilateral coordination.",
+    how:"Floor play in propped sit → withdraw support gradually.",
+    next:"Pulls to stand", src:"WHO Motor Development Study" },
+  { id:"gm-crawls", dom:"gross", tier:0,
+    t:"Crawls on hands and knees", age:"~8–10m",
+    what:"Reciprocal hands-and-knees crawl across the floor",
+    why:"Bilateral coordination + corpus callosum maturation (Goddard-Blythe).",
+    how:"Open floor space + motivating target toy. No walkers.",
+    next:"Pulls to stand", src:"INPP / WHO MDS" },
+  { id:"gm-pulls-to-stand", dom:"gross", tier:0,
+    t:"Pulls to stand at furniture", age:"~9–12m",
+    what:"Uses furniture to come from sit/kneel to standing",
+    why:"Pre-walking strength + risk planning (Gerber RIE).",
+    how:"Low stable furniture. Floor mat. Let her work it out.",
+    next:"Cruises along furniture", src:"WHO MDS" },
+];
+SKILLS.push(...SKILLS_CUSTOM_SEED);
+
+/* ── v3.1 Mastery XP / Frontier helpers ─────────────────────────────────────
+   tierOf, tierMultiplier, skillXp, domainXp, deriveStatus, addObservation,
+   isFrontier, frontierSkills, stretchSkills, currentTier, refreshReverifyQueue.
+
+   All derivations are pure functions over (skill, state.observations,
+   state.masteryConfig). Memoized per render-tick via _v31Cache.                */
+
+let _v31Cache = { tick:0, status:{}, xp:{}, domXp:{}, tier:null };
+function _v31Bump(){ _v31Cache = { tick:_v31Cache.tick+1, status:{}, xp:{}, domXp:{}, tier:null }; }
+
+function tierOf(skillOrId){
+  const s = typeof skillOrId === "string" ? SKILLS.find(x=>x.id===skillOrId) : skillOrId;
+  if (!s) return 2;
+  if (typeof s.tier === "number") return s.tier;
+  // Derive from age string (lowest number wins so "~10–12m" → tier 0)
+  const nums = (s.age||"").match(/\d+/g) || [];
+  if (!nums.length) return 2;
+  const minM = Math.min(...nums.map(Number));
+  if (minM <= 10) return 0;
+  if (minM <= 15) return 1;
+  if (minM <= 21) return 2;
+  if (minM <= 28) return 3;
+  return 4;
 }
-function setSkillStatus(id, status){
-  state.skillStatus[id] = { status, by: state.currentUser||"—", ts: Date.now() };
+
+function tierMultiplier(tier){
+  const m = (state.masteryConfig && state.masteryConfig.tierMultipliers) || {0:1,1:2,2:4,3:8,4:16};
+  return m[tier] != null ? m[tier] : 1;
+}
+
+/* Latest observation wins. Falls back to legacy skillStatus.
+   Memoized within a render tick. */
+function deriveStatus(skillId){
+  if (_v31Cache.status[skillId] !== undefined) return _v31Cache.status[skillId];
+  let latest = null;
+  try {
+    const obs = state.observations || [];
+    for (let i=0; i<obs.length; i++){
+      const o = obs[i];
+      if (!o || o.skillId !== skillId) continue;
+      if (!latest || (o.ts||0) > (latest.ts||0)) latest = o;
+    }
+  } catch(e){ /* fall through */ }
+  if (latest) return _v31Cache.status[skillId] = latest.status;
+  const legacy = state.skillStatus && state.skillStatus[skillId];
+  return _v31Cache.status[skillId] = (legacy && legacy.status) || "new";
+}
+
+function addObservation({ skillId, status, by, source, notes }){
+  if (!skillId || !status) return;
+  state.observations = state.observations || [];
+  state.observations.push({
+    skillId, status,
+    by: by || state.currentUser || "—",
+    source: source || "manual",
+    ts: Date.now(),
+    notes: notes || ""
+  });
+  // Keep legacy skillStatus mirror in sync so v3.0 code paths still work.
+  state.skillStatus = state.skillStatus || {};
+  state.skillStatus[skillId] = { status, by: by || state.currentUser || "—", ts: Date.now() };
+  _v31Bump();
   saveState(state);
 }
 
-const STATUS_COLORS = { new:"#F3F4F6", emerging:"#FEF3C7", practising:"#FDE68A", mastered:"#DCFCE7" };
-const STATUS_LABEL = { new:"New", emerging:"Emerging", practising:"Practising", mastered:"Mastered ✓" };
-const STATUS_ORDER = ["new", "emerging", "practising", "mastered"];
+function skillXp(skillId){
+  if (_v31Cache.xp[skillId] !== undefined) return _v31Cache.xp[skillId];
+  const s = SKILLS.find(x=>x.id===skillId);
+  if (!s) return 0;
+  const tier = tierOf(s);
+  const status = deriveStatus(skillId);
+  const factor = (state.masteryConfig.statusXpFactor || {})[status] || 0;
+  const ks = s.keystone ? 1.5 : 1.0; // Design decision: keystones earn a 50% bonus
+  const xp = Math.round(10 * tierMultiplier(tier) * factor * ks);
+  return _v31Cache.xp[skillId] = xp;
+}
+
+function domainXp(domKey){
+  if (_v31Cache.domXp[domKey] !== undefined) return _v31Cache.domXp[domKey];
+  let sum = 0;
+  for (const s of SKILLS){ if (s.dom === domKey) sum += skillXp(s.id); }
+  return _v31Cache.domXp[domKey] = sum;
+}
+
+/* Current developmental tier — highest tier where the child has mastered ≥50%
+   of skills in that tier (across all domains). Used to compute frontier.       */
+function currentTier(){
+  if (_v31Cache.tier != null) return _v31Cache.tier;
+  const byTier = {};
+  SKILLS.forEach(s => {
+    const t = tierOf(s);
+    byTier[t] = byTier[t] || { total:0, mastered:0 };
+    byTier[t].total++;
+    const st = deriveStatus(s.id);
+    if (st === "mastered" || st === "already_mastered") byTier[t].mastered++;
+  });
+  let best = 0;
+  for (let t=4; t>=0; t--){
+    const b = byTier[t]; if (!b || !b.total) continue;
+    if (b.mastered / b.total >= 0.5){ best = t; break; }
+  }
+  return _v31Cache.tier = best;
+}
+
+/* A skill is "frontier" if it's at the child's current tier or +1, with an
+   in-progress status (practising/emerging) OR new — but excluding mastered/
+   already_mastered/too_hard. Limited per-domain so the list stays actionable.  */
+function isFrontier(skillId){
+  const s = SKILLS.find(x=>x.id===skillId); if (!s) return false;
+  const st = deriveStatus(skillId);
+  if (st === "mastered" || st === "already_mastered" || st === "too_hard") return false;
+  const t = tierOf(s); const cur = currentTier();
+  return t === cur || t === cur + 1;
+}
+
+function frontierSkills(){
+  const max = state.masteryConfig.frontierMaxPerDomain || 2;
+  const byDom = {};
+  // Sort priority: practising → emerging → new; lower tier first within group.
+  const order = { practising:0, emerging:1, new:2 };
+  const candidates = SKILLS
+    .filter(s => isFrontier(s.id))
+    .sort((a,b) => {
+      const sa = order[deriveStatus(a.id)] ?? 3;
+      const sb = order[deriveStatus(b.id)] ?? 3;
+      if (sa !== sb) return sa - sb;
+      return tierOf(a) - tierOf(b);
+    });
+  const out = [];
+  for (const s of candidates){
+    byDom[s.dom] = (byDom[s.dom] || 0) + 1;
+    if (byDom[s.dom] <= max) out.push(s);
+  }
+  return out;
+}
+
+/* Stretch = one tier above current frontier; not yet mastered. Encourages
+   gentle exposure beyond the child's comfort zone (Vygotsky ZPD).             */
+function stretchSkills(){
+  const target = currentTier() + 1;
+  return SKILLS.filter(s => {
+    const t = tierOf(s); if (t !== target) return false;
+    const st = deriveStatus(s.id);
+    return st !== "mastered" && st !== "already_mastered" && st !== "too_hard";
+  }).slice(0, 6);
+}
+
+/* Re-verify queue: mastered skills not re-observed in >reverifyAfterDays.
+   Auto-refreshed; result stored on state.reverifyQueue for sync visibility.   */
+function refreshReverifyQueue(){
+  const days = state.masteryConfig.reverifyAfterDays || 60;
+  const cutoff = Date.now() - days*86400000;
+  const queue = [];
+  for (const s of SKILLS){
+    const st = deriveStatus(s.id);
+    if (st !== "mastered") continue;
+    const obs = (state.observations||[]).filter(o => o.skillId === s.id);
+    const last = obs.length
+      ? Math.max(...obs.map(o=>o.ts||0))
+      : ((state.skillStatus[s.id]||{}).ts || 0);
+    if (last && last < cutoff) queue.push({ id:s.id, lastTs:last });
+  }
+  state.reverifyQueue = queue;
+  return queue;
+}
+
+/* Legacy accessor — now reads via observation log (with fallback). */
+function skillStatus(id){
+  return deriveStatus(id);
+}
+function setSkillStatus(id, status){
+  addObservation({ skillId:id, status, source:"manual" });
+}
+
+const STATUS_COLORS = { new:"#F3F4F6", emerging:"#FEF3C7", practising:"#FDE68A", mastered:"#DCFCE7", too_hard:"#FEE2E2", already_mastered:"#E5E7EB" };
+const STATUS_LABEL  = { new:"New", emerging:"Emerging", practising:"Practising", mastered:"Mastered ✓", too_hard:"Too hard", already_mastered:"Already mastered" };
+const STATUS_ORDER  = ["new", "emerging", "practising", "mastered"];
 
 function cycleSkillStatus(cur){
   const i = STATUS_ORDER.indexOf(cur || "new");
@@ -4714,50 +5053,57 @@ function recommendedLevel(domKey){
   return 1;
 }
 
-/* Tailored Assessment — research-backed strengths/weaknesses */
+/* Tailored Assessment — research-backed strengths + growth areas.
+   Design decision: split "weak" copy into "growth" — same field role, kinder name. */
 const DOMAIN_GUIDANCE = {
-  gross: { strong:"Strong gross-motor base — protect 90+ min outdoor daily, introduce balance bike + obstacle courses.", weak:"Prioritise daily floor play (Pikler-style), reduce time in containers (jumpers/bouncers), 60+ min outdoor minimum (WHO 2019)." },
-  fine:  { strong:"Strong fine-motor — introduce tripod-grip drawing, large-button frames, threading smaller beads, toddler scissors (Maxine already mastered).", weak:"Daily play-dough kneading, sticker peeling, tongs/tweezers transfer, large-bead threading. Hand strength precedes pre-writing (OT consensus)." },
-  sensory: { strong:"Strong sensory discrimination — Montessori Pink Tower, mystery bag with more abstract objects, smell jars set.", weak:"Daily sensory exposure: textures barefoot, smell jars from kitchen, sound shakers. Sensory base precedes cognitive sorting." },
-  cognitive: { strong:"Strong cognition — sequence games, 'what's missing' with more objects, number sense to 5+, multi-step pretend.", weak:"Start with simple sorts (color, size). One-to-one correspondence to 3. 'What's missing?' with 3 objects. Repeat daily — short and joyful (Diamond UBC EF)." },
-  vocab: { strong:"Strong language — push to 200+ words, sandpaper letters (Dehaene), bilingual storytelling, narrate everything.", weak:"Daily 3+ books, narrate the walk, model 2→3-word combos. 30M-word study: quantity of live talk drives outcomes (Hart-Risley)." },
-  social: { strong:"Strong social-emotional — extend playdates, name subtle emotions (proud/disappointed/curious), Brackett RULER vocabulary.", weak:"Daily emotion-naming, calm jar, time-ins (not time-outs). Co-regulation precedes self-regulation (Perry). Connect before redirect (Siegel)." },
+  gross: { strong:"Strong gross-motor base — protect 90+ min outdoor daily, introduce balance bike + obstacle courses.", growth:"Prioritise daily floor play (Pikler-style), reduce time in containers (jumpers/bouncers), 60+ min outdoor minimum (WHO 2019)." },
+  fine:  { strong:"Strong fine-motor — introduce tripod-grip drawing, large-button frames, threading smaller beads, toddler scissors (Maxine already mastered).", growth:"Daily play-dough kneading, sticker peeling, tongs/tweezers transfer, large-bead threading. Hand strength precedes pre-writing (OT consensus)." },
+  sensory: { strong:"Strong sensory discrimination — Montessori Pink Tower, mystery bag with more abstract objects, smell jars set.", growth:"Daily sensory exposure: textures barefoot, smell jars from kitchen, sound shakers. Sensory base precedes cognitive sorting." },
+  cognitive: { strong:"Strong cognition — sequence games, 'what's missing' with more objects, number sense to 5+, multi-step pretend.", growth:"Start with simple sorts (color, size). One-to-one correspondence to 3. 'What's missing?' with 3 objects. Repeat daily — short and joyful (Diamond UBC EF)." },
+  vocab: { strong:"Strong language — push to 200+ words, sandpaper letters (Dehaene), bilingual storytelling, narrate everything.", growth:"Daily 3+ books, narrate the walk, model 2→3-word combos. 30M-word study: quantity of live talk drives outcomes (Hart-Risley)." },
+  social: { strong:"Strong social-emotional — extend playdates, name subtle emotions (proud/disappointed/curious), Brackett RULER vocabulary.", growth:"Daily emotion-naming, calm jar, time-ins (not time-outs). Co-regulation precedes self-regulation (Perry). Connect before redirect (Siegel)." },
 };
 
 function renderTailoredAssessment(){
   const el = document.getElementById("tailoredAssessment");
   if (!el) return;
-  const stats = DOMAINS.map(d => ({ d, pct: Math.round(domainSkillMastery(d.key)*100) }));
-  const sorted = [...stats].sort((a,b)=>b.pct-a.pct);
-  const strengths = sorted.slice(0, 2);
-  const weaknesses = sorted.slice(-2).reverse();
-  el.innerHTML = `
-    <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">Computed from your skill catalogue (${Object.values(state.skillStatus).filter(x=>x.status==="mastered").length} skills mastered) + ${(state.feedback||[]).length} memory notes. Sources cited.</div>
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px">
-      <div>
-        <div style="font-weight:700; font-size:14px; color:#14532D; margin-bottom:6px">💪 Strengths</div>
-        ${strengths.map(s => `
-          <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:10px; padding:10px; margin-bottom:6px">
-            <div style="font-weight:700">${s.d.emoji} ${escapeHtml(s.d.label)} <span style="color:var(--muted); font-size:12px; font-weight:400">${s.pct}%</span></div>
-            <div style="font-size:13px; margin-top:4px">${escapeHtml(DOMAIN_GUIDANCE[s.d.key].strong)}</div>
-          </div>
-        `).join("")}
+  try {
+    const stats = DOMAINS.map(d => ({ d, pct: Math.round(domainSkillMastery(d.key)*100) }));
+    const sorted = [...stats].sort((a,b)=>b.pct-a.pct);
+    const strengths   = sorted.slice(0, 2);
+    const growthAreas = sorted.slice(-2).reverse();
+    const masteredCount = SKILLS.filter(s => deriveStatus(s.id) === "mastered").length;
+    el.innerHTML = `
+      <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">Computed from your skill catalogue (${masteredCount} skills mastered) + ${(state.feedback||[]).length} memory notes. Sources cited.</div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px">
+        <div>
+          <div style="font-weight:700; font-size:14px; color:#14532D; margin-bottom:6px">💪 Strengths</div>
+          ${strengths.map(s => `
+            <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:10px; padding:10px; margin-bottom:6px">
+              <div style="font-weight:700">${s.d.emoji} ${escapeHtml(s.d.label)} <span style="color:var(--muted); font-size:12px; font-weight:400">${s.pct}%</span></div>
+              <div style="font-size:13px; margin-top:4px">${escapeHtml(DOMAIN_GUIDANCE[s.d.key].strong)}</div>
+            </div>
+          `).join("")}
+        </div>
+        <div>
+          <div style="font-weight:700; font-size:14px; color:#9D174D; margin-bottom:6px">🌱 Areas for growth</div>
+          ${growthAreas.map(s => `
+            <div style="background:#FFF1F2; border:1px solid #FECDD3; border-radius:10px; padding:10px; margin-bottom:6px">
+              <div style="font-weight:700">${s.d.emoji} ${escapeHtml(s.d.label)} <span style="color:var(--muted); font-size:12px; font-weight:400">${s.pct}%</span></div>
+              <div style="font-size:13px; margin-top:4px">${escapeHtml(DOMAIN_GUIDANCE[s.d.key].growth)}</div>
+            </div>
+          `).join("")}
+        </div>
       </div>
-      <div>
-        <div style="font-weight:700; font-size:14px; color:#9D174D; margin-bottom:6px">🌱 Areas for growth</div>
-        ${weaknesses.map(s => `
-          <div style="background:#FFF1F2; border:1px solid #FECDD3; border-radius:10px; padding:10px; margin-bottom:6px">
-            <div style="font-weight:700">${s.d.emoji} ${escapeHtml(s.d.label)} <span style="color:var(--muted); font-size:12px; font-weight:400">${s.pct}%</span></div>
-            <div style="font-size:13px; margin-top:4px">${escapeHtml(DOMAIN_GUIDANCE[s.d.key].weak)}</div>
-          </div>
-        `).join("")}
+      <div style="margin-top:12px; font-size:12px; color:var(--muted); font-style:italic">
+        Recommended difficulty per domain (Vygotsky ZPD): ${DOMAINS.map(d=>`${d.emoji} L${recommendedLevel(d.key)}`).join(" · ")}.
+        Healthy approach: stretch in <em>one</em> area at a time. Avoid over-scheduling. Joy + repetition > pressure (Gopnik, "The Gardener and The Carpenter").
       </div>
-    </div>
-    <div style="margin-top:12px; font-size:12px; color:var(--muted); font-style:italic">
-      Recommended difficulty per domain (Vygotsky ZPD): ${DOMAINS.map(d=>`${d.emoji} L${recommendedLevel(d.key)}`).join(" · ")}.
-      Healthy approach: stretch in <em>one</em> area at a time. Avoid over-scheduling. Joy + repetition > pressure (Gopnik, "The Gardener and The Carpenter").
-    </div>
-  `;
+    `;
+  } catch(err){
+    console.warn("renderTailoredAssessment failed", err);
+    el.innerHTML = `<div class="sub" style="color:var(--muted)">Assessment unavailable — please reload.</div>`;
+  }
 }
 
 /* Memory view */
