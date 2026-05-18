@@ -2248,6 +2248,48 @@ function renderHeader(){
   todayLine.textContent = new Date().toLocaleDateString("en-GB", { weekday:"long", year:"numeric", month:"long", day:"numeric" }) + " · CET";
 }
 
+/* ── View switching ── */
+const ALL_VIEWS = ["mainView","progressView","catalogueView","vocabularyView","mealsView","playlistView","memoryView","overviewView"];
+
+function showView(name){
+  const viewId = {
+    dashboard:  "mainView",
+    progress:   "progressView",
+    catalogue:  "catalogueView",
+    vocabulary: "vocabularyView",
+    meals:      "mealsView",
+    playlist:   "playlistView",
+    memory:     "memoryView",
+    overview:   "overviewView"
+  }[name] || "mainView";
+
+  ALL_VIEWS.forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = (id === viewId) ? "" : "none";
+  });
+
+  /* Update active nav button */
+  document.querySelectorAll(".nav-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.view === name);
+  });
+
+  /* Trigger render for views that need it */
+  if(name === "progress"   && typeof renderProgressView === "function")  renderProgressView();
+  if(name === "vocabulary" && typeof renderVocabTracker === "function")   renderVocabTracker();
+  if(name === "vocabulary" && typeof renderVocabularyBingo === "function") renderVocabularyBingo();
+  if(name === "catalogue"  && typeof renderCatalogueView === "function")  renderCatalogueView();
+  if(name === "meals"      && typeof renderMealsView === "function")      renderMealsView();
+  if(name === "playlist"   && typeof renderPlaylistView === "function")   renderPlaylistView();
+  if(name === "memory"     && typeof renderMemoryView === "function")     renderMemoryView();
+  if(name === "overview"   && typeof renderOverviewView === "function")   renderOverviewView();
+}
+
+/* Nav button click delegation */
+document.addEventListener("click", (e)=>{
+  const b = e.target.closest("button[data-view]");
+  if(b) showView(b.dataset.view);
+});
+
 /* Activity location filter (indoor/outdoor) */
 state.locFilter = state.locFilter || "all";
 document.addEventListener("click", (e)=>{
