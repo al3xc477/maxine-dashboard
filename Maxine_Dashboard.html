@@ -6079,38 +6079,207 @@ function renderVocabTracker(){
     return "";
   };
 
-  // Render categories
-  container.innerHTML = VOCAB_MASTER.map(cat => {
+  // Helper: render one category group of words.
+  // `customByEn` lets us merge user-added words into the bank groups and
+  // tag them with a delete button.
+  function renderGroup(catLabel, words, customByEn){
     const filtered = q
-      ? cat.words.filter(w => w.en.toLowerCase().includes(q) || w.fr.toLowerCase().includes(q))
-      : cat.words;
+      ? words.filter(w => (w.en||"").toLowerCase().includes(q) || (w.fr||"").toLowerCase().includes(q))
+      : words;
     if (!filtered.length) return "";
-    const enC  = filtered.filter(w=>isVMastered(w.en,"en")).length;
-    const frC  = filtered.filter(w=>isVMastered(w.en,"fr")).length;
+    const enC = filtered.filter(w=>isVMastered(w.en,"en")).length;
+    const frC = filtered.filter(w=>isVMastered(w.en,"fr")).length;
     const rows = filtered.map(w => {
       const enOn = isVMastered(w.en,"en");
       const frOn = isVMastered(w.en,"fr");
       const enKey = escapeHtml(w.en);
+      const isCustom = customByEn && customByEn.has(w.en);
+      const emoji = w.em || w.emoji || "🔤";
       return `<div class="vt-word-row${(enOn&&frOn)?" vt-both":""}">
-        <div class="vt-em">${w.em}</div>
+        <div class="vt-em">${emoji}</div>
         <div class="vt-words">
-          <div class="vt-en">${enKey}</div>
-          <div class="vt-fr">${escapeHtml(w.fr)}${genderBadge(w.g)}</div>
+          <div class="vt-en">${enKey}${isCustom ? ' <span style="font-size:10px; background:#FEF3C7; color:#92400E; border-radius:4px; padding:1px 5px; margin-left:4px; font-weight:700">✏️ custom</span>' : ''}</div>
+          <div class="vt-fr">${escapeHtml(w.fr||"")}${genderBadge(w.g)}</div>
         </div>
         <div class="vt-btns">
           <button class="vt-btn ${enOn?"on":"off"}" data-vmword="${enKey}" data-vmlang="en">🇬🇧 ${enOn?"✓ Known":"+ Learn"}</button>
           <button class="vt-btn ${frOn?"on":"off"}" data-vmword="${enKey}" data-vmlang="fr">🇫🇷 ${frOn?"✓ Su":"+ Apprendre"}</button>
+          ${isCustom ? `<button class="vt-btn off" data-vcdel="${enKey}" title="Delete custom word" style="background:#FEE2E2; color:#991B1B">🗑</button>` : ""}
         </div>
       </div>`;
     }).join("");
     return `<div class="vt-theme-group">
       <div class="vt-theme-hd">
-        <h3>${cat.cat}</h3>
+        <h3>${catLabel}</h3>
         <div style="font-size:12px; color:var(--muted)">🇬🇧 ${enC}/${filtered.length} · 🇫🇷 ${frC}/${filtered.length}</div>
       </div>
       ${rows}
     </div>`;
+  }
+
+  // Build a flat de-dup view: VOCAB_MASTER (canonical) + VOCAB_BANK extras
+  // (only words not already in MASTER for that approximate category) + custom.
+  const masterEns = new Set();
+  VOCAB_MASTER.forEach(cat => cat.words.forEach(w => masterEns.add(w.en)));
+
+  // Render VOCAB_MASTER groups (legacy emoji-prefixed cats)
+  const masterHtml = VOCAB_MASTER.map(cat => renderGroup(cat.cat, cat.words, null)).join("");
+
+  // Render VOCAB_BANK groups (new beginner bank); skip words already in MASTER
+  // so we don't double-render. Each bank category may also pick up user-added
+  // custom words tagged with that category.
+  const customByCat = {};
+  (state.vocabCustom || []).forEach(c => {
+    const k = (c.category||"").toLowerCase();
+    (customByCat[k] = customByCat[k] || []).push({ en:c.en, fr:c.fr, em:c.emoji });
+  });
+
+  const bankHtml = VOCAB_BANK.map(cat => {
+    const fresh = cat.words.filter(w => !masterEns.has(w.en));
+    const customs = customByCat[cat.category] || [];
+    const customEns = new Set(customs.map(c => c.en));
+    const merged = fresh.concat(customs);
+    if (!merged.length) return "";
+    return renderGroup(cat.label, merged, customEns);
   }).join("");
+
+  // Render any custom words whose category isn't in VOCAB_BANK under "Custom"
+  const knownCats = new Set(VOCAB_BANK.map(c => c.category));
+  const orphanCustoms = (state.vocabCustom || [])
+    .filter(c => !knownCats.has((c.category||"").toLowerCase()))
+    .map(c => ({ en:c.en, fr:c.fr, em:c.emoji }));
+  const orphanHtml = orphanCustoms.length
+    ? renderGroup("✏️ Custom words", orphanCustoms, new Set(orphanCustoms.map(c=>c.en)))
+    : "";
+
+  container.innerHTML = masterHtml + bankHtml + orphanHtml;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   FEATURE C2 — Add-a-word UI
+   Inputs validated, spell-checked, auto-categorised. Persists to
+   state.vocabCustom and re-renders the tracker.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Build a keyword → category map from VOCAB_BANK so we can guess the
+   category of a new word based on overlap with known words.                 */
+function _vcCategoryFor(en){
+  if (!en) return null;
+  const lower = en.toLowerCase().trim();
+  for (const cat of VOCAB_BANK){
+    for (const w of cat.words){
+      if (w.en.toLowerCase() === lower) return cat.category;
+    }
+  }
+  // Simple suffix heuristics for new words not in the bank.
+  if (/(saurus|fish|bird|cat|dog|bear|frog)$/i.test(lower)) return "animals";
+  if (/(berry|cake|bread|fruit|milk|juice)$/i.test(lower)) return "food";
+  if (/(coat|shirt|hat|shoe|boot|sock)s?$/i.test(lower))   return "clothing";
+  return null;
+}
+
+function _vcPopulateCats(){
+  const sel = document.getElementById("vcCat");
+  if (!sel || sel._populated) return;
+  sel.innerHTML = VOCAB_BANK.map(c => `<option value="${c.category}">${c.label}</option>`).join("")
+    + `<option value="other">📦 Other</option>`;
+  sel._populated = true;
+}
+
+function _vcWire(){
+  _vcPopulateCats();
+  const enInput  = document.getElementById("vcEn");
+  const frInput  = document.getElementById("vcFr");
+  const emInput  = document.getElementById("vcEmoji");
+  const catSel   = document.getElementById("vcCat");
+  const hint     = document.getElementById("vcHint");
+  const error    = document.getElementById("vcError");
+  const addBtn   = document.getElementById("vcAddBtn");
+  if (!addBtn || addBtn._wired) return;
+  addBtn._wired = true;
+
+  // Auto-suggest category as the user types in English
+  enInput && enInput.addEventListener("input", () => {
+    const guess = _vcCategoryFor(enInput.value);
+    if (guess && catSel){
+      const opt = [...catSel.options].find(o => o.value === guess);
+      if (opt && opt.value !== catSel.value){
+        catSel.value = guess;
+        if (hint) hint.textContent = `Looks like ${opt.textContent.replace(/^[\W_]+/, "")} — placed there for now.`;
+      }
+    } else if (hint){
+      hint.textContent = "";
+    }
+  });
+
+  // FR-blank yellow hint
+  frInput && frInput.addEventListener("blur", () => {
+    if (!frInput.value.trim() && hint){
+      hint.style.color = "#92400E";
+      hint.textContent = "💡 French helps Maxine learn bilingually — optional but encouraged.";
+    }
+  });
+
+  addBtn.addEventListener("click", () => {
+    if (!enInput) return;
+    let en = (enInput.value || "").trim();
+    let fr = (frInput?.value || "").trim();
+    const emoji = (emInput?.value || "").trim() || "🔤";
+    const category = catSel?.value || "other";
+    error.textContent = ""; error.style.color = "#9D174D";
+
+    // Validation
+    if (en.length < 2){
+      error.textContent = "English word required (minimum 2 characters).";
+      enInput.focus(); return;
+    }
+    // Normalise: trim + lower first char so it matches VOCAB_BANK style
+    en = en.replace(/\s+/g, " ");
+    en = en.charAt(0).toLowerCase() + en.slice(1);
+    if (fr){
+      fr = fr.replace(/\s+/g, " ");
+      fr = fr.charAt(0).toLowerCase() + fr.slice(1);
+    }
+    // Duplicate check
+    const existing = (state.vocabCustom || []).find(c => c.en.toLowerCase() === en.toLowerCase());
+    if (existing){
+      error.textContent = `"${en}" is already in your custom list.`;
+      return;
+    }
+    state.vocabCustom = state.vocabCustom || [];
+    state.vocabCustom.push({
+      en, fr, emoji, category,
+      addedBy: state.currentUser || "—",
+      addedAt: Date.now(),
+    });
+    saveState(state);
+    enInput.value = ""; if (frInput) frInput.value = ""; if (emInput) emInput.value = "";
+    if (hint) { hint.style.color = "var(--muted)"; hint.textContent = ""; }
+    error.style.color = "#14532D";
+    error.textContent = `✓ Added "${en}" to ${category}.`;
+    renderVocabTracker();
+    showToast(`✓ "${en}" added to vocabulary`);
+  });
+}
+
+/* Custom word delete handler */
+document.addEventListener("click", (e) => {
+  const del = e.target.closest("[data-vcdel]");
+  if (!del) return;
+  const en = del.dataset.vcdel;
+  state.vocabCustom = (state.vocabCustom || []).filter(c => c.en !== en);
+  saveState(state);
+  renderVocabTracker();
+  showToast(`Removed "${en}" from custom words`);
+});
+
+// Wire add-word UI when the Vocabulary view becomes visible
+const _vcInitObserver = new MutationObserver(() => {
+  const view = document.getElementById("vocabularyView");
+  if (view && view.style.display !== "none") _vcWire();
+});
+if (document.getElementById("vocabularyView")){
+  _vcInitObserver.observe(document.getElementById("vocabularyView"), { attributes:true, attributeFilter:["style"] });
 }
 
 /* Master vocab tracker button handler */
