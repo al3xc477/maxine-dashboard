@@ -2979,25 +2979,28 @@ $("clearCustom").addEventListener("click", ()=>{
 });
 
 /* =========================================================
-   AUTO-SYNC — jsonblob.com  (zero-setup, no account needed)
+   AUTO-SYNC  (zero-setup, no account needed)
    ─────────────────────────────────────────────────────────
-   How it works:
-   • First run: app silently creates a cloud slot at jsonblob.com
-   • After every saveState() → auto-push (3 s debounce)
-   • On app open / tab focus → auto-pull & merge
-   • Share link flow:
-       Settings → "Share link" → send via WhatsApp to yourself
-       → open on other device → auto-connected, fully synced
+   Backend cascade (tried in order):
+     1. GitHub Gist API  – anonymous secret gist, full CORS
+     2. jsonblob.com     – original fallback
+   • First run: silently creates a cloud slot
+   • saveState() → auto-push (3 s debounce)
+   • Tab-focus → auto-pull & timestamp-wins merge
+   • Share link: Settings → 📤 → send URL to yourself
    ========================================================= */
 
-const SYNC_BASE    = "https://jsonblob.com/api/jsonBlob";
 const SYNC_ID_KEY  = "maxine-sync-blob-id";
+const SYNC_BKD_KEY = "maxine-sync-backend";   // "gh" | "jb"
 
-let _syncBlobId    = localStorage.getItem(SYNC_ID_KEY) || null;
-let _syncTimer     = null;
-let _syncPushing   = false;
+let _syncBlobId   = localStorage.getItem(SYNC_ID_KEY)  || null;
+let _syncBackend  = localStorage.getItem(SYNC_BKD_KEY) || null;
+let _syncTimer    = null;
+let _syncPushing  = false;
+let _syncOffline  = false;
+let _syncRetryT   = null;
 
-/* ── Helpers ── */
+/* ── UI helpers ── */
 function _syncBadge(txt, bg, color){
   const el = document.getElementById("autoSyncStatusBadge");
   if (el){ el.textContent = txt; el.style.background = bg; el.style.color = color; }
@@ -3006,170 +3009,268 @@ function _syncMsg(html, isOk){
   const el = document.getElementById("autoSyncMsg");
   if (el){
     el.innerHTML = html;
-    el.style.background = isOk ? "#DCFCE7" : "#FEF3C7";
-    el.style.borderColor = isOk ? "#86EFAC" : "#FCD34D";
-    el.style.color = isOk ? "#166534" : "#92400E";
+    el.style.background   = isOk ? "#DCFCE7" : "#FEF3C7";
+    el.style.borderColor  = isOk ? "#86EFAC" : "#FCD34D";
+    el.style.color        = isOk ? "#166534" : "#92400E";
   }
 }
 function _syncShowShareRow(show){
-  const el = document.getElementById("autoSyncShareRow"); if (el) el.style.display = show ? "block" : "none";
+  const el = document.getElementById("autoSyncShareRow");
+  if (el) el.style.display = show ? "block" : "none";
 }
 
-/* ── URL ?sync= param: open a shared link on a new device ── */
+/* ── Fetch with timeout ── */
+async function _ft(url, opts, ms=14000){
+  const ctrl = new AbortController();
+  const tid  = setTimeout(()=>ctrl.abort(), ms);
+  try { return await fetch(url, {...opts, signal: ctrl.signal}); }
+  finally { clearTimeout(tid); }
+}
+
+/* ── Backend implementations ── */
+const _BACKENDS = {
+
+  /* GitHub Gist – anonymous secret gist, CORS confirmed */
+  gh: {
+    BASE: "https://api.github.com/gists",
+    async create(data){
+      const r = await _ft(this.BASE, {
+        method:"POST", mode:"cors",
+        headers:{"Content-Type":"application/json","Accept":"application/vnd.github+json"},
+        body: JSON.stringify({
+          public: false,
+          description: "Maxine Activity Companion — private sync",
+          files: { "maxine-state.json": { content: JSON.stringify(data) } }
+        })
+      });
+      if(!r.ok) throw new Error("GH create HTTP "+r.status);
+      const j = await r.json();
+      if(!j.id) throw new Error("GH: no id in response");
+      return j.id;
+    },
+    async read(id){
+      const r = await _ft(`${this.BASE}/${id}`, {
+        mode:"cors", headers:{"Accept":"application/vnd.github+json"}
+      });
+      if(!r.ok) throw new Error("GH read HTTP "+r.status);
+      const j = await r.json();
+      const content = j.files?.["maxine-state.json"]?.content || j.files?.["maxine-state.json"]?.truncated_content;
+      if(!content) throw new Error("GH: empty gist content");
+      return JSON.parse(content);
+    },
+    /* GitHub anonymous gists can't be PATCHed — create a new gist, update ID */
+    async update(id, data){
+      const newId = await this.create(data);
+      _syncBlobId = newId;
+      localStorage.setItem(SYNC_ID_KEY, newId);
+      return newId;
+    }
+  },
+
+  /* jsonblob.com – fallback */
+  jb: {
+    BASE: "https://jsonblob.com/api/jsonBlob",
+    async create(data){
+      const r = await _ft(this.BASE, {
+        method:"POST", mode:"cors",
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body: JSON.stringify(data)
+      });
+      if(!r.ok) throw new Error("JB create HTTP "+r.status);
+      const loc = r.headers.get("Location")||"";
+      const id  = loc.split("/").pop();
+      if(!id) throw new Error("JB: no Location header");
+      return id;
+    },
+    async read(id){
+      const r = await _ft(`${this.BASE}/${id}`, {
+        mode:"cors", headers:{"Accept":"application/json"}
+      });
+      if(r.status===404){ _syncBlobId=null; localStorage.removeItem(SYNC_ID_KEY); throw new Error("JB: 404"); }
+      if(!r.ok) throw new Error("JB read HTTP "+r.status);
+      return r.json();
+    },
+    async update(id, data){
+      const r = await _ft(`${this.BASE}/${id}`, {
+        method:"PUT", mode:"cors",
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body: JSON.stringify(data)
+      });
+      if(!r.ok) throw new Error("JB update HTTP "+r.status);
+    }
+  }
+};
+
+function _backend(){ return _BACKENDS[_syncBackend] || _BACKENDS.gh; }
+
+/* ── URL ?sync= param ── */
 function _checkSyncUrlParam(){
   try {
     const params = new URLSearchParams(window.location.search);
-    const id = params.get("sync");
-    if (id && id !== _syncBlobId){
-      _syncBlobId = id;
+    const raw = params.get("sync");   // format: "gh:ID" or "jb:ID" or legacy bare ID
+    if(!raw) return false;
+    let bkd="gh", id=raw;
+    if(raw.includes(":")){
+      [bkd, id] = raw.split(":", 2);
+    } else {
+      // legacy bare ID → assume jb (old format was jsonblob)
+      bkd = "jb";
+    }
+    if(id && (id!==_syncBlobId || bkd!==_syncBackend)){
+      _syncBlobId = id; _syncBackend = bkd;
       localStorage.setItem(SYNC_ID_KEY, id);
-      const url = new URL(window.location);
-      url.searchParams.delete("sync");
-      history.replaceState({}, "", url);
-      return true; // was a join-from-link
+      localStorage.setItem(SYNC_BKD_KEY, bkd);
+      const url2 = new URL(window.location);
+      url2.searchParams.delete("sync");
+      history.replaceState({}, "", url2);
+      return true;
     }
   } catch(e){}
   return false;
 }
 
-/* ── Push: save state to blob ── */
+/* ── Push ── */
 async function syncPush(){
-  if (!_syncBlobId || _syncPushing) return;
+  if(!_syncBlobId || _syncPushing) return;
   _syncPushing = true;
   try {
-    const resp = await fetch(`${SYNC_BASE}/${_syncBlobId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify(state)
-    });
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const bkd = _backend();
+    if(bkd.update) await bkd.update(_syncBlobId, state);
     const t = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
-    _syncBadge("🟢 Synced " + t, "#DCFCE7", "#15803D");
-    _syncMsg("🟢 Auto-sync active — last saved at " + t, true);
+    _syncBadge("🟢 Synced "+t, "#DCFCE7", "#15803D");
+    _syncMsg("🟢 Auto-sync active — last saved at "+t, true);
+    _syncOffline = false;
+    if(_syncRetryT){ clearTimeout(_syncRetryT); _syncRetryT=null; }
   } catch(e){
     _syncBadge("⚠️ Sync issue", "#FEF3C7", "#92400E");
     console.warn("Sync push failed:", e);
   } finally { _syncPushing = false; }
 }
 
-/* ── Pull: load latest from blob, merge into state ── */
+/* ── Pull & merge ── */
 async function syncPull(fullReplace){
-  if (!_syncBlobId) return;
+  if(!_syncBlobId) return;
   try {
-    const resp = await fetch(`${SYNC_BASE}/${_syncBlobId}`, {
-      headers: { "Accept": "application/json" }
-    });
-    if (!resp.ok){
-      if (resp.status === 404){ _syncBlobId = null; localStorage.removeItem(SYNC_ID_KEY); }
-      return;
-    }
-    const remote = await resp.json();
-    if (!remote || typeof remote !== "object") return;
-
-    if (fullReplace){
-      // Full replace when joining from a share link
+    const remote = await _backend().read(_syncBlobId);
+    if(!remote || typeof remote !== "object") return;
+    if(fullReplace){
       state = Object.assign({}, state, remote);
     } else {
-      // Smart merge: union vocab/skills, keep newer timestamps for conflicts
       const mergeTS = (local, src) => {
         const out = Object.assign({}, src);
         Object.entries(local||{}).forEach(([k,v])=>{
-          if (!out[k] || (v && v.ts && out[k].ts && v.ts >= out[k].ts)) out[k] = v;
+          if(!out[k] || (v && v.ts && out[k].ts && v.ts >= out[k].ts)) out[k] = v;
         });
         return out;
       };
-      if (remote.vocabMaster)    state.vocabMaster    = mergeTS(state.vocabMaster,    remote.vocabMaster);
-      if (remote.vocabMastered)  state.vocabMastered  = mergeTS(state.vocabMastered,  remote.vocabMastered);
-      if (remote.skillStatus)    state.skillStatus    = mergeTS(state.skillStatus,    remote.skillStatus);
-      if (remote.activityStatus) state.activityStatus = mergeTS(state.activityStatus, remote.activityStatus);
-      if (remote.history){
+      if(remote.vocabMaster)    state.vocabMaster    = mergeTS(state.vocabMaster,    remote.vocabMaster);
+      if(remote.vocabMastered)  state.vocabMastered  = mergeTS(state.vocabMastered,  remote.vocabMastered);
+      if(remote.skillStatus)    state.skillStatus    = mergeTS(state.skillStatus,    remote.skillStatus);
+      if(remote.activityStatus) state.activityStatus = mergeTS(state.activityStatus, remote.activityStatus);
+      if(remote.history){
         const seen = new Set((state.history||[]).map(h=>h.ts));
         const fresh = (remote.history||[]).filter(h=>!seen.has(h.ts));
         state.history = [...(state.history||[]), ...fresh].sort((a,b)=>a.ts-b.ts);
       }
     }
-
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     renderTheme();
-    if (typeof renderProgressView==="function") renderProgressView();
-    if (typeof renderVocabTracker==="function")  renderVocabTracker();
+    if(typeof renderProgressView==="function") renderProgressView();
+    if(typeof renderVocabTracker==="function")  renderVocabTracker();
     renderBasics && renderBasics();
-
   } catch(e){ console.warn("Sync pull failed:", e); }
 }
 
-/* ── Debounced push — called from saveState() ── */
+/* ── Debounced push ── */
 function syncPushDebounced(){
-  if (!_syncBlobId) return;
-  if (_syncTimer) clearTimeout(_syncTimer);
+  if(!_syncBlobId) return;
+  if(_syncTimer) clearTimeout(_syncTimer);
   _syncTimer = setTimeout(syncPush, 3000);
 }
 
-/* ── Create blob on first run ── */
+/* ── Init: create blob or pull existing ── */
 async function syncAutoInit(){
+  if(_syncRetryT){ clearTimeout(_syncRetryT); _syncRetryT=null; }
   const wasJoin = _checkSyncUrlParam();
 
-  if (_syncBlobId){
+  if(_syncBlobId){
     _syncBadge("🟢 Active", "#DCFCE7", "#15803D");
     _syncMsg("🟢 Auto-sync active — pulls latest when you open the app", true);
     _syncShowShareRow(true);
     await syncPull(wasJoin);
-    if (wasJoin){
-      showToast("✅ Connected — all data synced from the other device!");
-    }
+    if(wasJoin) showToast("✅ Connected — all data synced from the other device!");
     return;
   }
 
-  // First run — create a blob
+  /* First run — try GitHub Gist, fall back to jsonblob */
   _syncBadge("⏳ Setting up…", "#FEF3C7", "#92400E");
   _syncMsg("⏳ Creating your private cloud slot…", false);
-  try {
-    const resp = await fetch(SYNC_BASE, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify(state)
-    });
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-    // ID is the last segment of the Location header
-    const loc = resp.headers.get("Location") || "";
-    const id = loc.split("/").pop();
-    if (!id) throw new Error("No blob ID in response");
-    _syncBlobId = id;
-    localStorage.setItem(SYNC_ID_KEY, id);
-    _syncBadge("🟢 Active", "#DCFCE7", "#15803D");
-    _syncMsg("🟢 Auto-sync set up — saves automatically on every change", true);
-    _syncShowShareRow(true);
-  } catch(e){
-    _syncBadge("⚠️ Offline", "#F3F4F6", "#6B7280");
-    _syncMsg("⚠️ Could not connect to cloud (offline?). Data is saved locally — will retry.", false);
-    console.warn("Sync init failed:", e);
+
+  const order = ["gh","jb"];
+  let lastErr;
+  for(const bkdKey of order){
+    const bkd = _BACKENDS[bkdKey];
+    for(let attempt=1; attempt<=2; attempt++){
+      try {
+        const id = await bkd.create(state);
+        _syncBlobId  = id;
+        _syncBackend = bkdKey;
+        localStorage.setItem(SYNC_ID_KEY,  id);
+        localStorage.setItem(SYNC_BKD_KEY, bkdKey);
+        _syncBadge("🟢 Active", "#DCFCE7", "#15803D");
+        _syncMsg("🟢 Auto-sync active — saves on every change", true);
+        _syncShowShareRow(true);
+        _syncOffline = false;
+        return;
+      } catch(e){
+        lastErr = e;
+        console.warn(`Sync init [${bkdKey}] attempt ${attempt} failed:`, e.message);
+        if(attempt < 2) await new Promise(r=>setTimeout(r, 3000));
+      }
+    }
   }
+
+  /* Both backends failed */
+  _syncOffline = true;
+  _syncBadge("⚠️ Offline", "#F3F4F6", "#6B7280");
+  _syncMsg(`⚠️ Could not reach cloud. Data is saved locally.&nbsp;
+    <button onclick="syncAutoInit()" style="margin-left:8px;padding:3px 10px;background:#3B82F6;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">🔄 Retry</button>`, false);
+  console.warn("Sync init failed on all backends:", lastErr);
+  /* Auto-retry in 5 min */
+  _syncRetryT = setTimeout(syncAutoInit, 5*60*1000);
 }
 
 /* ── Share link button ── */
 document.getElementById("autoSyncShareBtn")?.addEventListener("click", async ()=>{
-  if (!_syncBlobId){ showToast("Sync not ready yet — wait a moment."); return; }
-  const url = window.location.origin + window.location.pathname + "?sync=" + _syncBlobId;
-  const done = document.getElementById("autoSyncShareDone");
+  if(!_syncBlobId){ showToast("Sync not ready yet — wait a moment."); return; }
+  const token = (_syncBackend||"jb") + ":" + _syncBlobId;
+  const url   = window.location.origin + window.location.pathname + "?sync=" + encodeURIComponent(token);
+  const done  = document.getElementById("autoSyncShareDone");
   try {
-    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
-    else { const ta=document.createElement("textarea"); ta.value=url; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); }
-    if (done){
-      done.style.display = "block";
-      done.innerHTML = `✅ Link copied!<br><span style="font-size:11px">Paste it in WhatsApp/iMessage to yourself → open on the other device → it connects automatically.</span><br><span style="font-size:10px; color:#6B7280; word-break:break-all; margin-top:4px; display:block">${url}</span>`;
+    if(navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
+    else {
+      const ta=document.createElement("textarea"); ta.value=url;
+      ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    }
+    if(done){
+      done.style.display="block";
+      done.innerHTML=`✅ Link copied!<br>
+        <span style="font-size:11px">Paste in WhatsApp / iMessage to yourself → open on the other device → connects automatically.</span><br>
+        <span style="font-size:10px;color:#6B7280;word-break:break-all;margin-top:4px;display:block">${url}</span>`;
     }
     showToast("📤 Sync link copied — send it to yourself!");
   } catch(e){
-    if (done){ done.style.display="block"; done.innerHTML=`<span style="font-size:11px">Copy this link:<br><span style="word-break:break-all; font-family:monospace">${url}</span></span>`; }
+    if(done){ done.style.display="block"; done.innerHTML=`<span style="font-size:11px">Copy this link:<br><span style="word-break:break-all;font-family:monospace">${url}</span></span>`; }
   }
 });
 
-/* ── Manual pull ── */
+/* ── Manual pull button ── */
 document.getElementById("autoSyncPullBtn")?.addEventListener("click", async ()=>{
-  const btn = document.getElementById("autoSyncPullBtn");
-  const orig = btn.innerHTML; btn.innerHTML = "⏳ Pulling…"; btn.disabled = true;
+  const btn=document.getElementById("autoSyncPullBtn");
+  const orig=btn.innerHTML; btn.innerHTML="⏳ Pulling…"; btn.disabled=true;
   await syncPull(false);
-  btn.innerHTML = orig; btn.disabled = false;
+  btn.innerHTML=orig; btn.disabled=false;
   showToast("🔄 Pulled latest from cloud.");
 });
 
@@ -3178,7 +3279,7 @@ setTimeout(syncAutoInit, 800);
 
 /* ── Auto-pull when user returns to the tab/app ── */
 document.addEventListener("visibilitychange", ()=>{
-  if (document.visibilityState === "visible") syncPull(false);
+  if(document.visibilityState==="visible") syncPull(false);
 });
 
 /* =========================================================
