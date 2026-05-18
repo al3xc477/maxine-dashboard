@@ -1066,6 +1066,28 @@
         </div>
       </div>
 
+      <!-- ── GAME CREATOR ── Tailored activity suggestions per play context ── -->
+      <div class="card" id="gameCreatorCard" style="margin-bottom:14px">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:6px; flex-wrap:wrap">
+          <h2 style="margin:0">🎮 Game Creator</h2>
+          <span class="sub" style="color:var(--muted); font-size:12px">Tailored activities for right now</span>
+        </div>
+        <div id="gcCtxRow" class="gc-ctx-row" role="tablist" aria-label="Play context">
+          <button class="gc-ctx-btn" data-gc-ctx="dollhouse"  role="tab" aria-selected="false">🏠 Dollhouse</button>
+          <button class="gc-ctx-btn" data-gc-ctx="outside"    role="tab" aria-selected="false">🌳 Outside</button>
+          <button class="gc-ctx-btn" data-gc-ctx="drawing"    role="tab" aria-selected="false">🖍️ Drawing</button>
+          <button class="gc-ctx-btn" data-gc-ctx="baby_dolls" role="tab" aria-selected="false">👶 Baby Dolls</button>
+          <button class="gc-ctx-btn" data-gc-ctx="custom"     role="tab" aria-selected="false">✏️ My Activity</button>
+        </div>
+        <div id="gcCustomRow" style="display:none; margin-top:10px">
+          <div style="display:flex; gap:6px">
+            <input id="gcCustomInput" type="text" placeholder="What are you doing? (e.g. bath, garden, kitchen)" style="flex:1; min-width:0; padding:8px 10px; border:1px solid var(--line); border-radius:10px; font-size:14px">
+            <button class="small primary" id="gcCustomGoBtn">Generate</button>
+          </div>
+        </div>
+        <div id="gcResults" class="game-results" aria-live="polite"></div>
+      </div>
+
       <div class="card" style="margin-bottom:14px">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap">
           <h2 style="margin:0">📚 Vocabulary this week</h2>
