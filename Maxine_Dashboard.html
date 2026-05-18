@@ -237,6 +237,50 @@
   .bingo-mastered-chip .wd{ font-weight:700; margin-top:2px }
   .bingo-mastered-chip .fr{ font-style:italic; color:#5C6680; font-size:11px }
 
+  /* Bingo modal — Feature A */
+  #bingoModal .panel{ background:var(--card); }
+  .bingo-modal-cell{
+    aspect-ratio:1/1; background:#fff; border:1px solid var(--line); border-radius:12px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:6px; cursor:pointer; position:relative; user-select:none;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+  }
+  .bingo-modal-cell:hover{ box-shadow: 0 2px 8px rgba(0,0,0,.08) }
+  .bingo-modal-cell:active{ transform:scale(.96) }
+  .bingo-modal-cell .em{ font-size:28px; line-height:1 }
+  .bingo-modal-cell .wd{ font-size:11px; font-weight:700; color:var(--ink); margin-top:4px; text-align:center; line-height:1.15; word-break:break-word }
+  .bingo-modal-cell.known{ background:#F0FDF4; border-color:#86EFAC }
+  .bingo-modal-cell.tapped{ background:#DCFCE7; border-color:#16A34A; transform:scale(.98); animation: bingoPop .35s ease }
+  .bingo-modal-cell.tapped::after{
+    content:"✓"; position:absolute; top:-6px; right:-6px;
+    background:#16A34A; color:#fff; width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;
+    box-shadow:0 2px 6px rgba(22,163,74,.4); animation: bingoCheckPop .25s ease;
+  }
+  @keyframes bingoPop {
+    0%{ transform:scale(1) } 35%{ transform:scale(1.08) } 100%{ transform:scale(.98) }
+  }
+  @keyframes bingoCheckPop {
+    0%{ transform:scale(0) } 60%{ transform:scale(1.25) } 100%{ transform:scale(1) }
+  }
+  @media (max-width: 480px){
+    #bingoGrid{ grid-template-columns: repeat(3, 1fr) !important }
+    .bingo-modal-cell .em{ font-size:24px }
+    .bingo-modal-cell .wd{ font-size:10px }
+  }
+  @media (min-width: 481px) and (max-width: 720px){
+    #bingoGrid{ grid-template-columns: repeat(3, 1fr) !important }
+  }
+  @media (min-width: 721px){
+    #bingoGrid{ grid-template-columns: repeat(4, 1fr) !important }
+  }
+  .bingo-theme-opt{
+    display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:8px;
+    cursor:pointer; font-size:13px; transition:background .12s;
+  }
+  .bingo-theme-opt:hover{ background:#EEF2FF }
+  .bingo-theme-opt.active{ background:#DBEAFE; font-weight:700 }
+
   /* Bingo — mobile-responsive 5×5 */
   @media (max-width:600px){
     .bingo-card{ gap:3px; padding:6px; max-width:100%; }
