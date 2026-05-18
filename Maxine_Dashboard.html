@@ -2497,6 +2497,7 @@ state.history = state.history || [];
 state.quickLog = state.quickLog || {};
 state.weekOverride = state.weekOverride || null;
 state.customTheme = state.customTheme || null;
+state.vocabCustom = Array.isArray(state.vocabCustom) ? state.vocabCustom : [];
 
 /* ── v3.1 Mastery / Observations state ──────────────────────────────────────
    observations    — append-only event log per skill (event sourcing)
