@@ -2889,22 +2889,57 @@ function _bingoRenderCard(){
   grid.innerHTML = "";
   _bingo.drawn.forEach((w, idx) => {
     const [en, fr, em] = w;
+    const emojiSafe = (em || "🔤");
     const word = _bingo.lang === "fr" ? (fr || en) : en;
     const knownEn = (state.vocabMaster||{})[`${en}_en`];
     const knownFr = (state.vocabMaster||{})[`${en}_fr`];
     const alreadyKnown = _bingo.lang === "fr" ? knownFr : knownEn;
+
     const cell = document.createElement("div");
     cell.className = "bingo-modal-cell" + (alreadyKnown ? " known" : "");
     cell.dataset.idx = idx;
     cell.setAttribute("role", "button");
     cell.setAttribute("tabindex", "0");
     cell.setAttribute("aria-pressed", "false");
-    cell.innerHTML = `<div class="em">${em || "🔤"}</div><div class="wd">${escapeHtml(word)}</div>`;
+    cell.setAttribute("aria-label", `${en}${fr ? " / " + fr : ""}`);
+
+    // Photo-first structure. The emoji acts as both the loading placeholder and
+    // the permanent error fallback — if no Wikipedia image is found within 3s
+    // or the <img> fails to load, the emoji stays visible.
+    cell.innerHTML = `
+      <div class="bingo-img-wrap" aria-hidden="true">${emojiSafe}</div>
+      <div class="bingo-check-overlay" aria-hidden="true">✓</div>
+      <div class="bingo-known-badge" aria-hidden="true">✓</div>
+      <div class="bingo-label">${escapeHtml(word)}<span class="bingo-emoji-small">${emojiSafe}</span></div>
+    `;
     cell.addEventListener("click", _bingoOnTap);
     cell.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " "){ e.preventDefault(); _bingoOnTap.call(cell, e); }
     });
     grid.appendChild(cell);
+
+    // Async photo load via the existing Wikipedia fetcher (enhanceWithPhoto's
+    // underlying source). Respect the user's photo preference toggle.
+    if (typeof getWordImage === "function" && state.showPhotos !== false){
+      let settled = false;
+      const timeout = setTimeout(() => { settled = true; /* keep emoji */ }, 3000);
+      getWordImage(en, fr).then(url => {
+        if (settled) return;
+        clearTimeout(timeout);
+        if (!url) return;                  // no image found — keep emoji
+        if (!cell.isConnected) return;     // cell unmounted — bail
+        const wrap = cell.querySelector(".bingo-img-wrap");
+        if (!wrap || wrap.querySelector("img")) return;
+        const img = document.createElement("img");
+        img.alt = en;
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.onload  = () => img.classList.add("loaded");
+        img.onerror = () => { try { img.remove(); } catch(e){} };  // emoji stays
+        img.src = url;
+        wrap.appendChild(img);
+      }).catch(() => { /* keep emoji */ });
+    }
   });
 }
 
