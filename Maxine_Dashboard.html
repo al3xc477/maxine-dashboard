@@ -5648,7 +5648,8 @@ function renderTailoredAssessment(){
           ${stalls.map(s => card(s, "left")).join("") || `<div class="sub" style="color:var(--muted)">No domain is stalling — keep the routine.</div>`}
         </div>
         <div>
-          <div style="font-weight:700; font-size:14px; color:#3730A3; margin-bottom:8px">🚀 Riding the wave</div>
+          <div style="font-weight:700; font-size:14px; color:#3730A3; margin-bottom:2px">🚀 Riding the wave</div>
+          <div class="sub" style="color:var(--muted); font-size:11px; margin-bottom:8px">Natural momentum — domains where she's pulling ahead</div>
           ${momentums.map(m => card(m, "right")).join("") || `<div class="sub" style="color:var(--muted)">Momentum builds with the next session.</div>`}
         </div>
       </div>
