@@ -1016,6 +1016,66 @@
   </div>
 </div>
 
+<!-- ─────────────────────────────────────────────────────────────────────────
+     BINGO MODAL — Dashboard-launched bingo game (Feature A)
+     Never navigates away; 3-screen flow inside one popup.
+     ─────────────────────────────────────────────────────────────────────── -->
+<div class="modal" id="bingoModal" role="dialog" aria-modal="true" aria-labelledby="bingoModalTitle" style="z-index:1000">
+  <div class="panel" id="bingoPanel" style="max-width:520px; max-height:90dvh; border-radius:20px">
+    <!-- Header -->
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px">
+      <h3 id="bingoModalTitle" style="margin:0">🎯 Bingo time!</h3>
+      <button class="small ghost" id="bingoCloseBtn" aria-label="Close bingo">✕</button>
+    </div>
+
+    <!-- Screen 1 — Language picker -->
+    <div id="bingoScreen1" style="display:none">
+      <div class="sub" style="color:var(--muted); font-size:14px; margin-bottom:18px">Maxine, which language are we practising today?</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+        <button class="primary" data-bingo-lang="en" style="min-height:64px; font-size:18px; flex-direction:column; line-height:1.2">
+          <span style="font-size:30px; line-height:1; display:block; margin-bottom:4px">🇬🇧</span>
+          <span>English</span>
+        </button>
+        <button class="primary" data-bingo-lang="fr" style="min-height:64px; font-size:18px; background:#9D174D">
+          <span style="font-size:30px; line-height:1; display:block; margin-bottom:4px">🇫🇷</span>
+          <span>Français</span>
+        </button>
+      </div>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin-top:14px; text-align:center">Your last choice is remembered. Maman uses 🇫🇷, Papa/Sidney use 🇬🇧 (Kuhl, UW I-LABS).</div>
+    </div>
+
+    <!-- Screen 2 — Bingo card -->
+    <div id="bingoScreen2" style="display:none">
+      <div id="bingoMeta" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; font-size:12px; color:var(--muted)">
+        <span><span id="bingoLangChip" class="pill pill-blue" style="margin-right:6px"></span><span id="bingoThemeChip"></span></span>
+        <span id="bingoTapCount" style="font-size:11px"></span>
+      </div>
+      <div id="bingoGrid" style="display:grid; gap:8px; margin-bottom:14px"></div>
+      <!-- Inline theme picker (hidden by default) -->
+      <div id="bingoThemePicker" style="display:none; max-height:200px; overflow:auto; border:1px solid var(--line); border-radius:10px; padding:6px; margin-bottom:10px; background:#FAFBFC"></div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap">
+        <button class="small" id="bingoNewWordsBtn" style="flex:1; min-width:110px">🔄 New words</button>
+        <button class="small" id="bingoChangeThemeBtn" style="flex:1; min-width:110px">🗂 Change theme ▾</button>
+        <button class="small" id="bingoDoneBtn" style="flex:0 0 auto">✓ Done</button>
+      </div>
+    </div>
+
+    <!-- Screen 3 — Session summary -->
+    <div id="bingoScreen3" style="display:none">
+      <div style="text-align:center; padding:14px 0">
+        <div style="font-size:48px; line-height:1; margin-bottom:8px">🎉</div>
+        <div style="font-size:18px; font-weight:700; margin-bottom:4px">Great session!</div>
+        <div class="sub" id="bingoSummaryLine" style="color:var(--muted); font-size:14px"></div>
+      </div>
+      <div id="bingoSummaryWords" style="margin:12px 0; max-height:240px; overflow:auto"></div>
+      <div style="display:flex; gap:8px; margin-top:14px">
+        <button class="primary" id="bingoPlayAgainBtn" style="flex:1">🔁 Play again</button>
+        <button class="small" id="bingoCloseBtn2" style="flex:0 0 auto">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="actModal">
   <div class="panel">
     <h3 id="amTitle">Activity</h3>
