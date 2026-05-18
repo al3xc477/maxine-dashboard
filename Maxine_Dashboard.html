@@ -3152,6 +3152,9 @@ async function cloudAutoSync(silent){
   finally { _autoSyncRunning = false; }
 }
 
+/* ── Directory handle state — declared here so renderCloudSync() can access it ── */
+let _syncDirHandle = null;
+
 /* ── Startup: render UI then auto-sync ── */
 renderCloudSync();
 setTimeout(() => cloudAutoSync(false), 1200);
