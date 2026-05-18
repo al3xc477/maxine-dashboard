@@ -4260,6 +4260,47 @@ const SKILLS = [
   { id:"so-please-thanks", dom:"social", t:"Says please/thank you with reminder", age:"24m+", what:"S'il te plaît / merci", why:"Social conventions.", how:"Always model.", next:"Unprompted", src:"Brackett / Montessori grace & courtesy" },
   { id:"so-separation", dom:"social", t:"Separates at Kita without prolonged distress", age:"24m+", what:"Recovers within minutes after parent leaves", why:"Secure attachment + transition tolerance.", how:"Consistent goodbye ritual.", next:"Stays calm whole day", src:"Bowlby attachment" },
   { id:"so-name-feeling", dom:"social", t:"Names own feeling unprompted", age:"30m+", what:"'I'm angry' / 'Je suis fâchée'", why:"Self-awareness + Name-It-to-Tame-It (Siegel).", how:"Model + wait. Don't put words in mouth.", next:"Names cause of feeling", src:"Siegel-Bryson UCLA" },
+
+  // ── FOUNDATIONAL SKILLS (level 1 · ~12–18m typical) ──────────────────────
+  // These calibrate the baseline — mark what Maxine already has mastered
+  // so domain levels reflect her actual starting point.
+
+  // GROSS MOTOR – early foundation (likely already mastered)
+  { id:"gm-stand-unsup", dom:"gross", t:"Stands unsupported 10+ sec", age:"~12m", what:"Stable independent standing", why:"Vestibular + postural tone foundation for all locomotion (WHO MDS).", how:"Clap game. Stand to reach toy on table.", next:"Walk", src:"WHO Motor Development Study" },
+  { id:"gm-squat-play", dom:"gross", t:"Squats to pick up object and returns to stand", age:"~15m", what:"Controlled squat → stand without support", why:"Core strength + hip mobility + balance transition.", how:"Place toy on floor. She squats, retrieves, stands.", next:"Carry while walking", src:"CDC" },
+  { id:"gm-push-pull", dom:"gross", t:"Pushes and pulls wheeled toys", age:"~12–15m", what:"Sustained push or pull while walking", why:"Proprioceptive feedback + directionality + force control.", how:"Push-along cart, pull-along duck.", next:"Navigates around obstacles", src:"CDC" },
+  { id:"gm-walk-stairs-hand", dom:"gross", t:"Walks up stairs holding one hand", age:"~18m", what:"Both hands free, climbs stairs with one hand held", why:"Step-by-step balance progression.", how:"Staircase at home or park. One hand only.", next:"Alternating feet with rail", src:"CDC" },
+  { id:"gm-dance-rhythm", dom:"gross", t:"Moves to music (bounce, sway, clap)", age:"~18m", what:"Body responds rhythmically to music", why:"Auditory-motor integration + bilateral.", how:"Play music. Dance together.", next:"Clap to beat", src:"AAP / music therapy consensus" },
+
+  // FINE MOTOR – early foundation (likely already mastered)
+  { id:"fm-pincer", dom:"fine", t:"Pincer grasp (thumb + index)", age:"~10–12m", what:"Picks up small objects with 2-finger pincer", why:"Critical fine motor foundation — all tool use depends on it.", how:"Raisins, cereal on tray. She picks up.", next:"In-hand manipulation", src:"Erhardt DPA / OT" },
+  { id:"fm-point", dom:"fine", t:"Points with index finger (declarative)", age:"~12m", what:"Points to share attention, not just to request", why:"Joint attention + communication + fine motor isolation.", how:"Point at pictures in books. Model and wait.", next:"Uses index for pressing buttons", src:"Tomasello 1995 / CDC" },
+  { id:"fm-scribble", dom:"fine", t:"Scribbles spontaneously with crayon", age:"~12–15m", what:"Makes marks on paper", why:"Pre-writing + hand-eye + visual-motor expression.", how:"Crayon + paper. No demonstration needed.", next:"Controlled strokes", src:"OT" },
+  { id:"fm-stack-3", dom:"fine", t:"Stacks 3 blocks without toppling", age:"~18m", what:"Stable 3-block tower", why:"Hand steadiness + visual-spatial sequencing.", how:"Large wooden blocks. No hurry.", next:"Stack 6+", src:"CDC" },
+  { id:"fm-spoon-basic", dom:"fine", t:"Uses spoon with some spill", age:"~18m", what:"Self-feeds with spoon, some mess", why:"Wrist supination + bilateral hold.", how:"Yoghurt or porridge. Messy is fine.", next:"Minimal spill", src:"CDC / OT" },
+
+  // COGNITIVE – early foundation (likely already mastered)
+  { id:"co-obj-perm", dom:"cognitive", t:"Object permanence (finds hidden object)", age:"~10m", what:"Removes cloth to find hidden toy", why:"Foundation of all memory and search (Piaget Sensorimotor stage 6).", how:"Hide toy under cup. Wait. She finds.", next:"Multiple hiding places", src:"Piaget" },
+  { id:"co-cause-effect", dom:"cognitive", t:"Cause-effect: activates toys intentionally", age:"~12m", what:"Pushes button → sound; shakes rattle → noise", why:"Intentional action + learning about consequences (Piaget).", how:"Pop-up toys, musical boxes.", next:"Nesting/stacking", src:"Piaget / CDC" },
+  { id:"co-imitate-simple", dom:"cognitive", t:"Imitates simple actions (clap, bye-bye)", age:"~10–12m", what:"Copies seen gesture with slight delay", why:"Mirror neuron system + social learning foundation (Meltzoff).", how:"Clap, wave, point — wait for her to copy.", next:"Imitate 2-step actions", src:"Meltzoff UW / CDC" },
+  { id:"co-1word-instr", dom:"cognitive", t:"Understands and follows 1-word requests", age:"~12m", what:"'Come', 'No', 'Ball' — responds correctly", why:"Receptive language precursor to 1-step instructions.", how:"Clear, consistent words for key objects/actions.", next:"2-word instructions", src:"CDC" },
+  { id:"co-sort-shape", dom:"cognitive", t:"Shape sorter (3 basic shapes)", age:"~18–24m", what:"Matches circle/square/triangle holes", why:"Visual spatial reasoning + problem-solving persistence.", how:"Classic wooden shape sorter.", next:"Identify shapes by name", src:"Montessori / OT" },
+
+  // SOCIAL – early foundation (likely already mastered)
+  { id:"so-wave-bye", dom:"social", t:"Waves bye-bye spontaneously", age:"~10–12m", what:"Waves when someone leaves without prompt", why:"Social routine + joint attention + proto-communication (Tomasello).", how:"Always wave on goodbye. Wait for her to initiate.", next:"'See you soon!'", src:"Tomasello 1995 / CDC" },
+  { id:"so-point-share", dom:"social", t:"Points to show you something interesting", age:"~12m", what:"Declarative pointing — 'look at this!'", why:"Joint attention — single strongest predictor of language outcome (Tomasello, Carpenter).", how:"Comment on what she points at. Expand her vocabulary.", next:"Points to pictures when named", src:"Tomasello-Carpenter 1998" },
+  { id:"so-back-forth", dom:"social", t:"Back-and-forth interaction 5+ turns", age:"~18m", what:"Sustained reciprocal play or conversation", why:"Serve-and-return interaction builds neural pathways (CDC-Harvard).", how:"Peek-a-boo, hide-seek, sound imitation games.", next:"Turn-taking with objects", src:"CDC / Harvard Center Dev. Child" },
+  { id:"so-attach-secure", dom:"social", t:"Seeks parent when distressed, calms on contact", age:"~12m", what:"Secure attachment base behaviour", why:"Bowlby secure attachment = foundation for social-emotional development.", how:"Consistent response to distress. 'I'm here.'", next:"Co-regulation of bigger emotions", src:"Bowlby attachment theory" },
+
+  // SENSORY – early foundation (likely already mastered)
+  { id:"se-basic-colors", dom:"sensory", t:"Matches 2 basic colors (red/blue)", age:"~18m", what:"Groups or matches same color", why:"Pre-Montessori color discrimination foundation.", how:"Sorting pom-poms by color. Red pile, blue pile.", next:"Matches 3 primary colors", src:"Montessori" },
+  { id:"se-texture-2", dom:"sensory", t:"Discriminates soft vs rough (2 textures)", age:"~18m", what:"Touches and names 2 distinct textures", why:"Tactile discrimination — foundation for stereognosis (Montessori).", how:"Sandpaper and fabric. 'Rough! Smooth!'", next:"3+ textures, eyes closed", src:"Montessori / OT" },
+  { id:"se-sound-react", dom:"sensory", t:"Reacts appropriately to loud/quiet sounds", age:"~12m", what:"Turns toward sudden sound, calms to quiet", why:"Auditory localization + sensory modulation.", how:"Everyday exposure. No desensitization.", next:"Matches paired sound containers", src:"OT sensory integration" },
+
+  // LANGUAGE – early foundation
+  { id:"la-words-10", dom:"vocab", t:"Uses 10+ words with meaning", age:"~15m", what:"10 distinct words in context", why:"Core language emergence — later milestone for bilingual (≤16m acceptable).", how:"Respond to all word attempts as if correct.", next:"50 words", src:"CDC / bilingual adjustment Marchman 2010" },
+  { id:"la-points-pic", dom:"vocab", t:"Points to pictures when named", age:"~15–18m", what:"Points to dog, ball, cup in a picture book when asked", why:"Receptive vocabulary + vocabulary map (Bloom).", how:"Board books. 'Where's the…?'", next:"Names pictures spontaneously", src:"CDC / Bloom 1993" },
+  { id:"la-bilingual-aware", dom:"vocab", t:"Responds to both English and French", age:"~18m+", what:"Shows different-language comprehension (not just one language)", why:"Bilingual language separation emerging — healthy dual system (Genesee).", how:"Test same request in both languages.", next:"Uses words in both languages spontaneously", src:"Genesee McGill / Werker UBC" },
 ];
 
 function skillStatus(id){
