@@ -1030,54 +1030,32 @@
     </div>
 
     <!-- ★ SECONDARY: Cloud sync — works on ALL devices including iPad Safari -->
-    <div id="cloudSyncPanel" style="background:#F0FDF4; border:2px solid #4ADE80; border-radius:14px; padding:14px; margin-bottom:12px">
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
-        <span style="font-size:20px">☁️</span>
-        <div style="font-size:14px; font-weight:800; color:#15803D">Cloud sync — PC, Android &amp; iPad</div>
-        <span style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; background:#DCFCE7; color:#15803D; margin-left:auto">All devices ✓</span>
+    <!-- ☁️ AUTO-SYNC: zero-setup, auto-creates cloud slot, no account needed -->
+    <div id="autoSyncPanel" style="background:#F0FDF4; border:2px solid #4ADE80; border-radius:14px; padding:14px; margin-bottom:12px">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
+        <span style="font-size:22px">☁️</span>
+        <div style="flex:1">
+          <div style="font-size:14px; font-weight:800; color:#15803D">Auto-sync — all devices</div>
+          <div style="font-size:11px; color:#059669">Saves automatically after every change · No account needed</div>
+        </div>
+        <div id="autoSyncStatusBadge" style="font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; background:#FEF3C7; color:#92400E; white-space:nowrap">⏳ Starting…</div>
       </div>
 
-      <!-- ── CONNECTED state ── -->
-      <div id="cloudSyncConnected" style="display:none">
-        <div style="background:#DCFCE7; border:1px solid #86EFAC; border-radius:8px; padding:10px 12px; margin-bottom:8px">
-          <div style="font-size:12px; font-weight:700; color:#15803D; margin-bottom:6px" id="cloudSyncStatusMsg">🟢 Auto-sync active</div>
-          <div style="font-size:11px; color:#166534; margin-bottom:6px">Your sync code — share it with other devices (they enter it once):</div>
-          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap">
-            <code id="cloudSyncCodeDisplay" style="flex:1; font-size:12px; font-weight:700; background:#fff; padding:5px 8px; border-radius:6px; border:1px solid #86EFAC; color:#15803D; word-break:break-all; min-width:0"></code>
-            <button class="small primary" id="cloudSyncCopyCodeBtn" style="font-size:11px; padding:4px 10px; flex:0 0 auto">📋 Copy code</button>
+      <!-- Status + share row -->
+      <div id="autoSyncBody">
+        <div id="autoSyncMsg" style="font-size:12px; color:#166534; margin-bottom:10px; padding:8px 10px; background:#DCFCE7; border-radius:8px; border:1px solid #86EFAC">⏳ Setting up cloud sync…</div>
+        <div id="autoSyncShareRow" style="display:none">
+          <div style="font-size:12px; color:#374151; margin-bottom:8px; line-height:1.5">
+            <strong>To add another device (iPad, phone…):</strong><br>
+            Tap <em>Share link</em> below → send it to yourself (WhatsApp, iMessage, email) → open it on the other device → connected.
           </div>
-        </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap">
-          <button class="small primary" id="cloudSyncPushBtn" style="font-size:12px">☁️ Push this device → cloud</button>
-          <button class="small" id="cloudSyncLoadBtn" style="font-size:12px">📥 Load cloud → this device</button>
-          <button class="small ghost" id="cloudSyncDisconnectBtn" style="font-size:12px">✕ Disconnect</button>
-        </div>
-      </div>
-
-      <!-- ── NOT CONNECTED: Step 1 — get API key ── -->
-      <div id="cloudSyncStep1">
-        <div style="background:#ECFDF5; border:1px solid #6EE7B7; border-radius:8px; padding:10px 12px; margin-bottom:8px">
-          <div style="font-size:12px; font-weight:700; color:#065F46; margin-bottom:4px">Step 1 — Get your free API key <span style="font-weight:400; color:#059669">(one-time, 30 seconds)</span></div>
-          <div style="font-size:12px; color:#065F46; line-height:1.5; margin-bottom:8px">
-            JSONBin.io stores Maxine's progress securely in the cloud. <strong>Free account, no credit card.</strong>
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            <button class="small primary" id="autoSyncShareBtn" style="font-size:13px; padding:7px 14px">📤 Share link to this device</button>
+            <button class="small" id="autoSyncPullBtn" style="font-size:12px">🔄 Pull latest now</button>
           </div>
-          <a href="https://jsonbin.io" target="_blank" rel="noopener" style="display:inline-block; padding:6px 14px; background:#15803D; color:#fff; border-radius:8px; font-size:12px; font-weight:700; text-decoration:none">1. Open jsonbin.io →</a>
-          <div style="font-size:11px; color:#065F46; margin-top:8px">Sign up free → Dashboard → copy your <strong>Master Key</strong></div>
-        </div>
-        <div style="font-size:12px; font-weight:600; color:#166534; margin-bottom:4px">2. Paste your Master Key here:</div>
-        <div style="display:flex; gap:6px; margin-bottom:6px">
-          <input id="cloudApiKeyInput" type="password" placeholder="$2a$10$…" style="flex:1; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:12px; font-family:monospace" />
-          <button class="small primary" id="cloudSyncCreateBtn" style="font-size:12px; flex:0 0 auto">✨ Create sync code</button>
-        </div>
-        <div style="border-top:1px solid #BBF7D0; margin:10px 0 8px"></div>
-        <div style="font-size:12px; font-weight:600; color:#166534; margin-bottom:4px">Already have a sync code from another device?</div>
-        <div style="display:flex; gap:6px">
-          <input id="cloudSyncCodeInput" type="text" placeholder="Paste full sync code here…" style="flex:1; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:12px; font-family:monospace" />
-          <button class="small" id="cloudSyncConnectBtn" style="font-size:12px; flex:0 0 auto">Connect</button>
+          <div id="autoSyncShareDone" style="display:none; margin-top:8px; font-size:12px; background:#DBEAFE; color:#1E40AF; border-radius:6px; padding:7px 10px; border:1px solid #93C5FD"></div>
         </div>
       </div>
-
-      <div id="cloudSyncError" style="display:none; font-size:11px; color:#DC2626; margin-top:8px; padding:6px 8px; background:#FEF2F2; border-radius:6px; border:1px solid #FECACA"></div>
     </div>
 
     <!-- Option B: Folder sync (Chrome/Edge on PC or Android — bonus) -->
