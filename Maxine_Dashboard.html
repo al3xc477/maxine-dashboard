@@ -4120,10 +4120,10 @@ function renderProgressView(){
       const s=statusOf(t.w,d.key,i);
       if(s&&(s.status==="mastered"||s.status==="already_mastered")) actDone++;
     }));
-    // Next ZPD + stretch skills
+    // Next ZPD + stretch skills (exclude already_mastered too)
     const recLv = recommendedLevel(d.key);
     const nextSkills = SKILLS
-      .filter(s=>s.dom===d.key && skillStatus(s.id)!=="mastered")
+      .filter(s=>s.dom===d.key && skillStatus(s.id)!=="mastered" && skillStatus(s.id)!=="already_mastered")
       .sort((a,b)=>skillLevel(a)-skillLevel(b))
       .filter(s=>skillLevel(s)>=recLv)
       .slice(0,3);
@@ -4135,25 +4135,31 @@ function renderProgressView(){
         <span style="font-size:22px; line-height:1; flex:0 0 auto">${d.emoji}</span>
         <div style="flex:1; min-width:0">
           <div style="font-weight:700; font-size:14px">${d.label}</div>
-          <div style="font-size:12px; color:var(--muted)">${mSkills}/${ds.length} milestones · ${actDone}/${actTotal} activities</div>
+          <div style="font-size:12px; color:var(--muted)">${mSkills}/${ds.length} milestones · ${actDone}/${actTotal} activities${dlv.norm?` · <em>${escapeHtml(dlv.norm)}</em>`:""}</div>
         </div>
         <span style="font-size:12px; font-weight:700; color:${dlv.color}; background:${dlv.bg}; padding:4px 10px; border-radius:8px; white-space:nowrap; flex:0 0 auto">${dlv.label}</span>
         <span id="${detailId}_arrow" style="color:var(--muted); font-size:12px; flex:0 0 auto">▾</span>
       </div>
       <div id="${detailId}" style="display:none; margin-top:2px; padding:14px 14px 10px; border:1px solid var(--line); border-top:none; border-radius:0 0 10px 10px; background:${dlv.bg}22">
-        <div style="font-size:13px; color:${ratio>=0.5?'#166534':'#92400E'}; line-height:1.55; margin-bottom:10px">
-          <strong>Assessment:</strong> ${ratio>=0.5 ? (DOMAIN_GUIDANCE[d.key]?.strong||"") : (DOMAIN_GUIDANCE[d.key]?.weak||"")}
+        <div style="font-size:13px; color:${dlv.score>=3?'#166534':'#92400E'}; line-height:1.55; margin-bottom:10px">
+          <strong>Assessment:</strong> ${dlv.score>=3 ? (DOMAIN_GUIDANCE[d.key]?.strong||"") : (DOMAIN_GUIDANCE[d.key]?.weak||"")}
         </div>
+        ${dlv.src ? `<div style="font-size:11px; color:var(--muted); margin-bottom:8px; font-style:italic">📊 ${escapeHtml(dlv.src)}</div>` : ""}
         ${nextSkills.length ? `
           <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px">🎯 Next skills to practise (ZPD)</div>
           <div style="display:flex; flex-direction:column; gap:5px">
-            ${nextSkills.map(s=>`
+            ${nextSkills.map(s=>{
+              const isZpd = skillLevel(s)===recLv;
+              return `
               <div style="background:var(--card); border-radius:8px; padding:8px 10px; border:1px solid var(--line)">
-                <div style="font-size:13px; font-weight:600">${escapeHtml(s.t)} <span style="font-size:11px; color:var(--muted); font-weight:400; margin-left:4px">${escapeHtml(s.age||"")}</span></div>
+                <div style="font-size:13px; font-weight:600">${escapeHtml(s.t)}
+                  <span style="font-size:10px; font-weight:400; margin-left:4px; padding:1px 5px; border-radius:4px; background:${isZpd?'#D1FAE5':'#FEF3C7'}; color:${isZpd?'#065F46':'#92400E'}">${isZpd?'⭐ ZPD':'🌱 Stretch'}</span>
+                  <span style="font-size:11px; color:var(--muted); font-weight:400; margin-left:4px">${escapeHtml(s.age||"")}</span>
+                </div>
                 ${s.how ? `<div style="font-size:12px; color:var(--muted); margin-top:2px">💡 ${escapeHtml(s.how)}</div>` : ""}
                 ${s.next ? `<div style="font-size:11px; color:#2563EB; margin-top:2px">→ Then: ${escapeHtml(s.next)}</div>` : ""}
               </div>
-            `).join("")}
+            `}).join("")}
           </div>
           <div style="font-size:11px; color:var(--muted); margin-top:8px; font-style:italic">Sources: ${[...new Set(nextSkills.map(s=>s.src).filter(Boolean))].join(", ") || "CDC/AAP milestones"}</div>
         ` : `<div style="font-size:13px; color:#166534">🌟 All tracked milestone skills mastered!</div>`}
