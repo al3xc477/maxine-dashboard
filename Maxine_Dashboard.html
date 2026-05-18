@@ -5941,6 +5941,92 @@ function stretchSkills(){
   }).slice(0, 6);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   IMPROVEMENT 1 — computeReadinessSnapshot()
+   Pure read of current state. Returns mastered/emerging sets, top-3 frontier
+   per domain, up to 5 nextChallenges (status "new", all prereqs mastered,
+   tier > current average), and any skills newly mastered since the last
+   stored snapshot.
+
+   Design decisions (documented inline so the why survives a refactor):
+   · Snapshot ⇄ localStorage: we store BOTH the mastered-id set AND a
+     `dismissed` flag, so the "newly mastered" banner survives re-renders
+     until the user dismisses it (the spec was ambiguous between
+     "update on every compute" and "update on dismiss" — this hybrid keeps
+     the banner sticky while still committing the new mastery list).
+   · Prereqs default to [] (the legacy SKILLS shape has no prereqs field),
+     so existing skills with no prereqs trivially pass the gate. This is
+     intentional: the prereq machinery activates only for the new skills
+     that opt in.
+   · `currentTier()` already exists (v3.1) as the highest tier with ≥50%
+     mastered — we use the average mastered tier here (different signal)
+     so "nextChallenges" reaches reasonably past the current edge.            */
+function computeReadinessSnapshot(){
+  const masteredIds = new Set();
+  const emergingIds = new Set();
+  SKILLS.forEach(s => {
+    const st = deriveStatus(s.id);
+    if (st === "mastered" || st === "already_mastered") masteredIds.add(s.id);
+    if (st === "emerging") emergingIds.add(s.id);
+  });
+
+  // Top-3 frontier skills per domain — filter the no-arg helper output.
+  const frontierByDomain = {};
+  let allFrontier = [];
+  try { allFrontier = frontierSkills(); } catch(e){ allFrontier = []; }
+  DOMAINS.forEach(d => {
+    frontierByDomain[d.key] = allFrontier.filter(s => s.dom === d.key).slice(0, 3);
+  });
+
+  // Average tier across mastered skills (falls back to currentTier()).
+  let tierSum = 0, n = 0;
+  SKILLS.forEach(s => { if (masteredIds.has(s.id)){ tierSum += tierOf(s); n++; } });
+  const avgTier = n > 0 ? (tierSum / n) : (typeof currentTier === "function" ? currentTier() : 0);
+
+  // Next challenges: status "new", every prereq mastered, tier > avgTier.
+  const nextChallenges = SKILLS
+    .filter(s => {
+      if (deriveStatus(s.id) !== "new") return false;
+      const pr = Array.isArray(s.prereqs) ? s.prereqs : [];
+      if (!pr.every(p => masteredIds.has(p))) return false;
+      return tierOf(s) > avgTier;
+    })
+    .sort((a,b) => tierOf(a) - tierOf(b))
+    .slice(0, 5);
+
+  // Compare against the persisted snapshot to flag newly mastered skills.
+  let stored = { mastered: [], dismissed: false };
+  try {
+    const raw = localStorage.getItem("maxine-last-snapshot");
+    if (raw){
+      const parsed = JSON.parse(raw);
+      // Backwards-compatible: previous shape was a bare array of IDs.
+      stored = Array.isArray(parsed) ? { mastered: parsed, dismissed: false } : parsed;
+    }
+  } catch(e){}
+  const lastMastered = new Set(stored.mastered || []);
+  const unlockedSinceLastView = [...masteredIds].filter(id => !lastMastered.has(id));
+
+  return {
+    masteredIds, emergingIds, frontierByDomain, nextChallenges,
+    unlockedSinceLastView,
+    _bannerDismissed: !!stored.dismissed && unlockedSinceLastView.length === 0,
+  };
+}
+
+/* Commit the current mastered set to localStorage. Used by the dismiss
+   button (writes with dismissed:true) and by the snapshot itself when no
+   new unlocks exist (writes silently so the next render starts fresh).      */
+function _persistReadinessSnapshot(masteredIds, dismissed){
+  try {
+    localStorage.setItem("maxine-last-snapshot", JSON.stringify({
+      mastered: [...masteredIds],
+      dismissed: !!dismissed,
+      ts: Date.now(),
+    }));
+  } catch(e){}
+}
+
 /* Re-verify queue: mastered skills not re-observed in >reverifyAfterDays.
    Auto-refreshed; result stored on state.reverifyQueue for sync visibility.   */
 function refreshReverifyQueue(){
