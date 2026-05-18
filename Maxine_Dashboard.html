@@ -3014,8 +3014,18 @@ const STORAGE_FBASE_NS  = "maxine-fbase-ns";
 const SYNC_ID_KEY       = "maxine-sync-blob-id";    // kept for legacy URL ?sync=
 const SYNC_BKD_KEY      = "maxine-sync-backend";
 
-let _fbUrl    = localStorage.getItem(STORAGE_FBASE_URL) || null;  // e.g. https://X-rtdb.firebaseio.com
-let _fbNs     = localStorage.getItem(STORAGE_FBASE_NS)  || null;  // UUID namespace
+/* ── Hardcoded family Firebase (zero-setup) ── */
+const DEFAULT_FB_URL = "https://maxine-sync-default-rtdb.europe-west1.firebasedatabase.app";
+const DEFAULT_FB_NS  = "maxine-family";
+
+/* Auto-configure on first load if not already set */
+if(!localStorage.getItem(STORAGE_FBASE_URL)){
+  localStorage.setItem(STORAGE_FBASE_URL, DEFAULT_FB_URL);
+  localStorage.setItem(STORAGE_FBASE_NS,  DEFAULT_FB_NS);
+}
+
+let _fbUrl    = localStorage.getItem(STORAGE_FBASE_URL) || DEFAULT_FB_URL;
+let _fbNs     = localStorage.getItem(STORAGE_FBASE_NS)  || DEFAULT_FB_NS;
 let _syncTimer    = null;
 let _syncPushing  = false;
 let _syncOffline  = false;
