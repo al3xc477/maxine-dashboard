@@ -4755,6 +4755,29 @@ function domainXp(domKey){
   return _v31Cache.domXp[domKey] = sum;
 }
 
+/* XP → developmental level (1-5). 500 XP per level, capped at L5.
+   Design decision: 500 XP / level matches typical per-domain XP density
+   given the keystone×1.5 + tierMultiplier doubling formula (a child with
+   ~5 mastered T3 keystones in a domain = L1→L2 transition).               */
+function xpToLevel(xp){
+  const lv = Math.min(5, Math.floor((xp||0)/500) + 1);
+  const PRESETS = {
+    5: { label:"🌟 Expert L5",     color:"#14532D", bg:"#DCFCE7" },
+    4: { label:"🟢 Advancing L4",  color:"#166534", bg:"#BBF7D0" },
+    3: { label:"🟡 Developing L3", color:"#854D0E", bg:"#FEF3C7" },
+    2: { label:"🔵 Emerging L2",   color:"#1D4ED8", bg:"#DBEAFE" },
+    1: { label:"⚪ Foundation L1", color:"#374151", bg:"#F3F4F6" },
+  };
+  return Object.assign({ score: lv }, PRESETS[lv]);
+}
+
+/* XP remaining to the next level (or 0 if already at L5). */
+function xpToNext(xp){
+  const cur = Math.min(5, Math.floor((xp||0)/500) + 1);
+  if (cur >= 5) return 0;
+  return 500 - ((xp||0) % 500);
+}
+
 /* Current developmental tier — highest tier where the child has mastered ≥50%
    of skills in that tier (across all domains). Used to compute frontier.       */
 function currentTier(){
