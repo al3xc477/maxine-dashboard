@@ -4038,37 +4038,50 @@ function renderProgressView(){
         : `<span style="color:#166534; font-size:11px">🏆 +500 concept milestone!</span>`;
 
   stats.innerHTML = `
-    <div class="prog-card" style="grid-column:1/-1; padding:16px; background:linear-gradient(135deg,#F0FDF4,#FAFAFA)">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:12px">
+    <div class="prog-card" style="grid-column:1/-1; padding:16px; background:linear-gradient(135deg,#F0FDF4,#FAFAFA); border:2px solid #BBF7D0">
+      <!-- Header row -->
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:10px">
         <div>
-          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:2px">Overall assessment</div>
-          <div style="font-size:20px; font-weight:800; color:var(--ink)">${theme.emoji} W${theme.w} · ${escapeHtml(theme.title)}</div>
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:2px">Holistic Assessment</div>
+          <div style="font-size:18px; font-weight:800; color:var(--ink)">${theme.emoji} W${theme.w} · ${escapeHtml(theme.title)}</div>
+          <div style="font-size:11px; color:var(--muted); margin-top:2px">Fischer Skill Theory · MacArthur-Bates CDI · Vygotsky ZPD${recentDays>0?` · ${recentDays} active session days tracked`:""}</div>
         </div>
-        <span style="font-size:13px; font-weight:700; color:${overallLv.color}; background:${overallLv.bg}; padding:4px 12px; border-radius:8px">${overallLv.label}</span>
+        <span style="font-size:13px; font-weight:700; color:${overallLv.color}; background:${overallLv.bg}; padding:5px 14px; border-radius:10px; align-self:flex-start">${overallLv.label}</span>
       </div>
 
-      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px">
+      <!-- Domain chips row -->
+      <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px">
         ${domSummary.map(x=>`
-          <span style="display:inline-flex; align-items:center; gap:4px; background:${x.lv.bg}; color:${x.lv.color}; border-radius:8px; padding:3px 9px; font-size:12px; font-weight:600; cursor:pointer" onclick="toggleDomDetail('${x.d.key}'); sjScrollTo('sec-prog-domains',null)">
-            ${x.d.emoji} ${x.d.label} · ${x.lv.label.replace(/^\S+\s*/,"")}
+          <span style="display:inline-flex; align-items:center; gap:4px; background:${x.lv.bg}; color:${x.lv.color}; border-radius:8px; padding:3px 9px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${x.lv.color}33" onclick="toggleDomDetail('${x.d.key}'); sjScrollTo('sec-prog-domains',null)" title="${x.lv.norm||''}">
+            ${x.d.emoji} ${x.d.label}<span style="font-weight:400; margin-left:2px; opacity:.85">${x.lv.label.replace(/^\S+\s*/,"")}</span>
           </span>`).join("")}
       </div>
 
-      <!-- Vocab milestone row -->
-      <div onclick="showView('vocabulary')" style="cursor:pointer; display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:14px; padding:8px 12px; background:rgba(252,231,243,.5); border:1px solid #FBCFE8; border-radius:8px">
+      <!-- Vocab milestone row (clickable) -->
+      <div onclick="showView('vocabulary')" style="cursor:pointer; display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px; padding:8px 12px; background:rgba(252,231,243,.5); border:1px solid #FBCFE8; border-radius:8px">
         <span style="font-size:14px">📚</span>
-        <span style="font-size:13px; font-weight:700; color:#9D174D">${vmKnownEn}</span><span style="font-size:12px; color:var(--muted)">🇬🇧 English</span>
+        <span style="font-size:13px; font-weight:700; color:#9D174D">${vmKnownEn}</span><span style="font-size:12px; color:var(--muted)">🇬🇧</span>
         <span style="font-size:12px; color:var(--muted)">·</span>
-        <span style="font-size:13px; font-weight:700; color:#9D174D">${vmKnownFr}</span><span style="font-size:12px; color:var(--muted)">🇫🇷 French</span>
+        <span style="font-size:13px; font-weight:700; color:#9D174D">${vmKnownFr}</span><span style="font-size:12px; color:var(--muted)">🇫🇷</span>
         <span style="font-size:12px; color:var(--muted)">·</span>
-        <span style="font-size:12px; color:var(--muted)">${bodyKnownEn}/${bodyTotal} body parts</span>
+        <span style="font-size:12px; font-weight:600; color:${vocabLv.color}; background:${vocabLv.bg}; border-radius:6px; padding:1px 7px">${vmConceptual} concepts · ${vocabLv.label.replace(/^\S+\s*/,"")}</span>
+        ${vmConceptual > 0 ? `<span style="font-size:11px; color:var(--muted)">${bodyKnownEn}/${bodyTotal} body parts</span>` : ""}
         ${vocabMilestone}
-        <span style="font-size:11px; color:#9D174D; margin-left:auto">→ See vocabulary</span>
+        <span style="font-size:11px; color:#9D174D; margin-left:auto">→ Vocabulary</span>
       </div>
 
+      <!-- Activity stats bar -->
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px">
+        <span style="font-size:12px; background:#DCFCE7; color:#14532D; border-radius:6px; padding:2px 9px">✅ ${mastered} mastered</span>
+        <span style="font-size:12px; background:#DBEAFE; color:#1D4ED8; border-radius:6px; padding:2px 9px">⏳ ${practising} practising</span>
+        ${tooHard ? `<span style="font-size:12px; background:#FEF3C7; color:#92400E; border-radius:6px; padding:2px 9px">💛 ${tooHard} too hard</span>` : ""}
+        <span style="font-size:12px; background:#F3F4F6; color:#374151; border-radius:6px; padding:2px 9px">${totalActs} total activities</span>
+      </div>
+
+      <!-- Focus + Strength panels -->
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
         <div style="background:rgba(254,243,199,.5); border:1px solid #FCD34D; border-radius:8px; padding:10px">
-          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#92400E; margin-bottom:6px">🎯 Focus this week</div>
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#92400E; margin-bottom:6px">🎯 ZPD focus areas</div>
           ${focusAreas.map(x=>{
             const g = DOMAIN_GUIDANCE[x.d.key];
             return `<div style="margin-bottom:6px">
@@ -4076,16 +4089,18 @@ function renderProgressView(){
               <div style="font-size:12px; color:#78350F; line-height:1.4">${g ? g.weak : ""}</div>
             </div>`;
           }).join("")}
-          ${nextActs.length ? `<div style="margin-top:8px; font-size:12px; border-top:1px dashed #FCD34D; padding-top:6px">
-            <span style="color:#92400E; font-weight:600">Next skills: </span>${nextActs.join(" · ")}
-          </div>` : ""}
+          ${nextActs.length ? `
+            <div style="margin-top:8px; border-top:1px dashed #FCD34D; padding-top:6px; display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:11px; font-weight:700; color:#92400E; text-transform:uppercase; letter-spacing:.06em">Next skills (ZPD)</span>
+              ${nextActs.map(a=>`<div style="font-size:12px; line-height:1.4">${a}</div>`).join("")}
+            </div>` : ""}
         </div>
         <div style="background:rgba(220,252,231,.5); border:1px solid #86EFAC; border-radius:8px; padding:10px">
           <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#14532D; margin-bottom:6px">✨ Building on strengths</div>
           <div style="font-size:12px; font-weight:700; margin-bottom:4px">${strengthArea.d.emoji} ${strengthArea.d.label} <span style="font-weight:400; color:${strengthArea.lv.color}; background:${strengthArea.lv.bg}; border-radius:5px; padding:1px 5px">${strengthArea.lv.label}</span></div>
           <div style="font-size:12px; color:#166534; line-height:1.4">${DOMAIN_GUIDANCE[strengthArea.d.key]?.strong||""}</div>
-          ${practising ? `<div style="margin-top:8px; font-size:12px; color:#166534">⏳ ${practising} ${practising===1?"activity":"activities"} in progress</div>` : ""}
-          ${tooHard ? `<div style="font-size:12px; color:#B45309">💛 ${tooHard} marked too hard — step back one level</div>` : ""}
+          ${strengthArea.lv.norm ? `<div style="margin-top:6px; font-size:11px; color:#166534; font-style:italic">📊 ${escapeHtml(strengthArea.lv.norm)}</div>` : ""}
+          ${tooHard ? `<div style="margin-top:6px; font-size:12px; color:#B45309">💛 ${tooHard} marked too hard — revisit previous level</div>` : ""}
         </div>
       </div>
     </div>
