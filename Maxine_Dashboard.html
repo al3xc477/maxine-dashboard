@@ -2651,6 +2651,24 @@ state.pendingGenerations = Array.isArray(state.pendingGenerations) ? state.pendi
 state.reverifyQueue      = Array.isArray(state.reverifyQueue)      ? state.reverifyQueue      : [];
 state.coachingPicks      = Array.isArray(state.coachingPicks)      ? state.coachingPicks      : [];
 
+/* Orphan-observation scrub (Improvement 2 PART A).
+   Targeted removal — only the 3 specific retired skill IDs.
+   Design decision: a generic "if skillId not in SKILLS, delete" filter would
+   wipe legitimate non-SKILLS observations like `vocab-cat_en` (used by the
+   Game Creator + Bingo paths), so we delete only the known-retired IDs.       */
+(function scrubRetiredObservations(){
+  const RETIRED = new Set(["la-words-10", "la-words-50", "la-words-200"]);
+  if (!Array.isArray(state.observations)) return;
+  const before = state.observations.length;
+  state.observations = state.observations.filter(o => !o || !RETIRED.has(o.skillId));
+  if (state.skillStatus){
+    for (const id of RETIRED){ delete state.skillStatus[id]; }
+  }
+  if (before !== state.observations.length && typeof saveState === "function"){
+    saveState(state);  // silent persist
+  }
+})();
+
 /* One-shot migration: legacy state.skillStatus → state.observations.
    Idempotent — adds a synthetic "import" observation per legacy entry only once.   */
 (function migrateSkillStatusToObservations(){
