@@ -4130,19 +4130,10 @@ function renderMasteryXpView(){
     const tier = currentTier();
     if (tierLabel) tierLabel.textContent = `Current tier: T${tier}`;
 
-    // XP tiles per domain
-    tilesEl.innerHTML = DOMAINS.map(d => {
-      const xp = domainXp(d.key);
-      const ds = SKILLS.filter(s => s.dom === d.key);
-      const mastered = ds.filter(s => deriveStatus(s.id) === "mastered").length;
-      return `
-        <div class="prog-card" style="text-align:left">
-          <div class="lbl">${d.emoji} ${escapeHtml(d.label)}</div>
-          <div class="big" style="font-size:28px">${xp}<span style="font-size:14px; color:var(--muted); font-weight:600"> XP</span></div>
-          <div class="sub">${mastered}/${ds.length} mastered · ${ds.filter(s=>!!s.keystone).length} keystone${ds.filter(s=>!!s.keystone).length===1?'':'s'}</div>
-        </div>
-      `;
-    }).join("");
+    // Design decision: per-domain XP tiles removed — the Domain mastery cards
+    // below now carry Level + XP + progress-to-next, so duplicating them here
+    // would just be visual noise. Placeholder element is kept hidden.
+    tilesEl.innerHTML = "";
 
     // Frontier skills
     const fs = frontierSkills();
