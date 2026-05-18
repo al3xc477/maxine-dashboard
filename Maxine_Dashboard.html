@@ -6188,6 +6188,93 @@ function drawSkillCatalogue(){
   const fs = (document.getElementById("skillStatus") || {}).value || "";
   const ft = ((document.getElementById("skillSearch") || {}).value || "").toLowerCase();
 
+  // ── Improvement 1: readiness snapshot (banner + Ready-to-try chips) ──
+  let snap = null;
+  try { snap = computeReadinessSnapshot(); } catch(err){ console.warn("computeReadinessSnapshot failed", err); }
+
+  // Newly-mastered banner — only visible when there are new unlocks AND the
+  // user hasn't dismissed yet. Dismiss writes the snapshot to localStorage
+  // with dismissed:true so the banner stays hidden until the NEXT new unlock.
+  const bannerEl = document.getElementById("catUnlockBanner");
+  if (bannerEl){
+    if (snap && snap.unlockedSinceLastView.length > 0 && !snap._bannerDismissed){
+      const labels = snap.unlockedSinceLastView
+        .map(id => SKILLS.find(s => s.id === id))
+        .filter(Boolean)
+        .map(s => s.t)
+        .slice(0, 8);
+      const more = snap.unlockedSinceLastView.length > labels.length
+        ? ` and ${snap.unlockedSinceLastView.length - labels.length} more`
+        : "";
+      bannerEl.style.display = "";
+      bannerEl.className = "cat-unlock-banner";
+      bannerEl.innerHTML = `
+        <div class="cub-emoji">🎉</div>
+        <div class="cub-body">
+          <div class="cub-title">${snap.unlockedSinceLastView.length} skill${snap.unlockedSinceLastView.length===1?"":"s"} newly mastered since last visit!</div>
+          <div class="cub-list">${labels.map(t => escapeHtml(t)).join(" · ")}${more}</div>
+        </div>
+        <button class="cub-dismiss" id="cubDismissBtn">Dismiss</button>
+      `;
+    } else {
+      bannerEl.style.display = "none";
+      bannerEl.innerHTML = "";
+      // If there are no new unlocks, silently commit the current mastered set
+      // so a future genuine unlock can flip the banner back on.
+      if (snap && snap.unlockedSinceLastView.length === 0){
+        _persistReadinessSnapshot(snap.masteredIds, false);
+      }
+    }
+  }
+
+  // "Ready to try →" chip row — top of catalogue card, just below filters.
+  const readyEl = document.getElementById("catReadyRow");
+  if (readyEl){
+    const chips = (snap && snap.nextChallenges) || [];
+    if (chips.length){
+      readyEl.style.display = "";
+      readyEl.className = "cat-ready-row";
+      readyEl.innerHTML = `
+        <div class="crr-label">Ready to try →</div>
+        <div class="crr-chips">
+          ${chips.map(s => `
+            <button class="crr-chip" data-readyid="${escapeHtml(s.id)}">
+              <span class="crr-dot dom-${escapeHtml(s.dom)}"></span>
+              ${escapeHtml(s.t)}
+            </button>`).join("")}
+        </div>
+      `;
+    } else {
+      readyEl.style.display = "none";
+      readyEl.innerHTML = "";
+    }
+  }
+
+  // ── Improvement 2 PART B: vocab stat card (live count) ──
+  // Shown when no domain filter is active OR when filter === "vocab".
+  const vocabCard = document.getElementById("catVocabStat");
+  if (vocabCard){
+    const showVocab = (!fd || fd === "vocab");
+    vocabCard.style.display = showVocab ? "" : "none";
+    if (showVocab){
+      const cnt = Object.keys(state.vocabMaster || {}).length;
+      const cntEl = document.getElementById("catVocabCount");
+      if (cntEl) cntEl.textContent = String(cnt);
+    }
+  }
+
+  // ── Improvement 3: hidden-skill toggle label + counter ──
+  const hidBtn   = document.getElementById("skillHiddenToggle");
+  const hidCount = document.getElementById("skillHiddenCount");
+  const hiddenTotal = SKILLS.filter(s => s.hidden === true).length;
+  if (hidBtn){
+    hidBtn.textContent = _catShowHidden ? "🚫 Hide hidden" : "👁 Show hidden";
+    hidBtn.classList.toggle("primary", _catShowHidden);
+  }
+  if (hidCount){
+    hidCount.textContent = hiddenTotal > 0 ? `${hiddenTotal} hidden` : "";
+  }
+
   // Domain summary pills — clickable filter
   const summary = document.getElementById("skillSummary");
   if (summary){
