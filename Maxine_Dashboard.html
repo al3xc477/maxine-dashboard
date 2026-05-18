@@ -3007,7 +3007,8 @@ function openSettings(){
   const pa = document.getElementById("syncPasteArea"); if(pa) pa.style.display="none";
   const pt = document.getElementById("syncPasteText"); if(pt) pt.value="";
   const ea = document.getElementById("cloudSyncEnterArea"); if(ea) ea.style.display="none";
-  // (auto-sync panel renders itself via syncAutoInit)
+  // Re-render the auto-sync panel each time settings opens so it reflects the latest status
+  if (typeof _renderSyncPanel === "function") _renderSyncPanel();
   renderSyncStatus();
   setModal.classList.add("open");
 }
@@ -3239,11 +3240,11 @@ function syncPushDebounced(){
   _syncTimer = setTimeout(syncPush, 3000);
 }
 
-/* ── Init ── */
+/* ── Init ── Firebase is hardcoded, so this just pulls latest and renders. */
 async function syncAutoInit(){
   if(_syncRetryT){clearTimeout(_syncRetryT);_syncRetryT=null;}
 
-  /* Check for ?d= URL-pack import */
+  /* Check for ?d= URL-pack import (one-time legacy transfer) */
   const didUnpack = _unpackUrl();
   if(didUnpack){
     renderTheme();
@@ -3252,80 +3253,36 @@ async function syncAutoInit(){
     showToast("✅ Data imported — all progress restored!");
   }
 
-  /* Check for ?fbase= Firebase config share */
-  const wasJoin = _checkFbaseUrlParam();
-
-  /* Render the sync panel based on Firebase config status */
   _renderSyncPanel();
-
-  if(!_fbUrl || !_fbNs){
-    _syncBadge("⚙️ Setup needed","#FEF3C7","#92400E");
-    _syncShowShareRow(false);
-    return;
-  }
-
-  /* Firebase configured — pull latest */
   _syncBadge("⏳ Connecting…","#FEF3C7","#92400E");
   _syncMsg("⏳ Connecting to Firebase…",false);
-  await syncPull(wasJoin);
+  await syncPull(false);
   _syncBadge("🟢 Active","#DCFCE7","#15803D");
-  _syncMsg("🟢 Firebase sync active — saves on every change",true);
-  _syncShowShareRow(true);
+  _syncMsg("🟢 Firebase sync active · saves on every change",true);
   _syncOffline=false;
-  if(wasJoin) showToast("✅ Sync connected — all data loaded!");
 }
 
-/* ── Render the sync panel in Settings ── */
+/* ── Render the sync panel in Settings ──
+   Firebase URL/namespace are hardcoded above (DEFAULT_FB_URL / DEFAULT_FB_NS),
+   so _fbUrl is always truthy. Panel shows the connected status plus a Pull. */
 function _renderSyncPanel(){
   const panel = document.getElementById("autoSyncBody");
   if(!panel) return;
-
-  if(!_fbUrl){
-    /* Show setup wizard */
-    panel.innerHTML = `
-    <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:12px;font-size:12px;color:#92400E">
-      <div style="font-weight:800;font-size:13px;margin-bottom:6px">⚙️ Set up real-time sync (3 minutes, once)</div>
-      <div style="line-height:1.6;margin-bottom:10px">
-        <strong>1.</strong> Go to <a href="https://console.firebase.google.com" target="_blank" style="color:#1D4ED8;font-weight:700">console.firebase.google.com</a><br>
-        <strong>2.</strong> Add project → name it <em>maxine-sync</em> → Create<br>
-        <strong>3.</strong> Build → <strong>Realtime Database</strong> → Create database → <strong>Start in test mode</strong> → Next<br>
-        <strong>4.</strong> Copy the database URL (looks like <code style="font-size:10px">https://maxine-sync-xxxxx-default-rtdb…firebaseio.com</code>)<br>
-        <strong>5.</strong> Paste it below:
-      </div>
-      <input id="fbUrlInput" type="url" placeholder="https://your-project-default-rtdb.firebaseio.com"
-        style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #FED7AA;border-radius:8px;font-size:12px;margin-bottom:8px"
-        value="${_fbUrl||''}">
-      <button onclick="_fbSaveUrl()" style="width:100%;padding:9px;background:#EA580C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Save & Start Sync</button>
-      <div id="fbSetupMsg" style="margin-top:6px;font-size:11px"></div>
-    </div>`;
-  } else {
-    /* Firebase configured — show status + share */
-    panel.innerHTML = `
+  panel.innerHTML = `
+    <div style="font-size:13px;font-weight:800;color:#166534;margin-bottom:8px">🟢 Connected · ${_fbNs}</div>
     <div id="autoSyncMsg" style="font-size:12px;color:#166534;margin-bottom:10px;padding:8px 10px;background:#DCFCE7;border-radius:8px;border:1px solid #86EFAC">
       ⏳ Connecting to Firebase…
     </div>
-    <div id="autoSyncShareRow">
-      <div style="font-size:12px;color:#374151;margin-bottom:8px;line-height:1.5">
-        <strong>Add another device:</strong> tap Share → send URL to yourself → open on the other device.
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="small primary" id="autoSyncShareBtn" style="font-size:13px;padding:7px 14px">📤 Share to other device</button>
-        <button class="small" id="autoSyncPullBtn" style="font-size:12px">🔄 Pull now</button>
-        <button class="small ghost" onclick="_fbReset()" style="font-size:11px;color:#EF4444">✕ Disconnect</button>
-      </div>
-      <div id="autoSyncShareDone" style="display:none;margin-top:8px;font-size:12px;background:#DBEAFE;color:#1E40AF;border-radius:6px;padding:7px 10px;border:1px solid #93C5FD"></div>
-    </div>`;
-    /* Re-attach button listeners */
-    setTimeout(()=>{
-      document.getElementById("autoSyncShareBtn")?.addEventListener("click", _fbShare);
-      document.getElementById("autoSyncPullBtn")?.addEventListener("click", async()=>{
-        const btn=document.getElementById("autoSyncPullBtn");
-        const orig=btn.innerHTML; btn.innerHTML="⏳…"; btn.disabled=true;
-        await syncPull(false); btn.innerHTML=orig; btn.disabled=false;
-        showToast("🔄 Pulled latest.");
-      });
-    }, 50);
-  }
+    <button class="small primary" id="autoSyncPullBtn" style="font-size:13px;padding:7px 14px">🔄 Pull latest now</button>`;
+  setTimeout(()=>{
+    document.getElementById("autoSyncPullBtn")?.addEventListener("click", async()=>{
+      const btn=document.getElementById("autoSyncPullBtn");
+      const orig=btn.innerHTML; btn.innerHTML="⏳ Pulling…"; btn.disabled=true;
+      await syncPull(false);
+      btn.innerHTML=orig; btn.disabled=false;
+      showToast("🔄 Pulled latest.");
+    });
+  }, 50);
 }
 
 window._fbSaveUrl = async function(){
@@ -3445,6 +3402,9 @@ window._sobTransfer = async function(){
     if(out && url){ out.style.display="block"; out.style.color="#FCA5A5"; out.textContent="Copy this: " + url.substring(0,60)+"…"; }
   }
 };
+
+/* ── Kick off auto-sync on page load ── */
+syncAutoInit();
 
 </script>
 </body>
