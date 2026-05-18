@@ -5600,9 +5600,8 @@ const SKILLS = [
   { id:"co-pretend", dom:"cognitive", t:"Multi-step pretend play", age:"24–30m", what:"Feed doll → put to sleep → cover with blanket", why:"Symbolic thinking + sequencing.", how:"Set up scenarios.", next:"Role swapping", src:"Piaget pre-operational" },
   { id:"co-puzzle-6", dom:"cognitive", t:"Completes 6-piece knobbed puzzle", age:"24–30m", what:"Independent puzzle solve", why:"Visual-spatial reasoning.", how:"Knobbed wooden puzzles.", next:"More pieces, no knob", src:"Montessori / OT" },
 
-  // LANGUAGE (note: vocabulary words are tracked separately in Bingo)
-  { id:"la-words-50", dom:"vocab", t:"Says 50+ words", age:"~24m", what:"50 distinct spoken words", why:"Major language milestone.", how:"Read 3+ books/day. Live human voice. Narrate.", next:"200+ words", src:"Kuhl I-LABS / Fernald Stanford" },
-  { id:"la-words-200", dom:"vocab", t:"Says 200+ words", age:"~30m", what:"Vocabulary explosion", why:"Predicts school readiness (Hart-Risley).", how:"Continue reading, narrating, expanding her phrases.", next:"500+", src:"Hart-Risley 1995" },
+  // LANGUAGE (vocabulary counts are tracked live via state.vocabMaster — see
+  // the read-only vocab stat card in the catalogue header, not as skills here).
   { id:"la-2word", dom:"vocab", keystone:true, t:"Uses 2-word combinations", age:"~21m", what:"'more milk', 'encore lait'", why:"Pre-grammar emerging.", how:"Model 2-3 word phrases.", next:"3-word sentences", src:"CDC" },
   { id:"la-3word", dom:"vocab", keystone:true, t:"Uses 3-word sentences", age:"~30m", what:"'I want milk', 'maman donne ballon'", why:"Syntax developing.", how:"Expand her 2-word phrases with one more word.", next:"4+ word sentences", src:"CDC" },
   { id:"la-why", dom:"vocab", t:"Asks 'why?'", age:"~30m+", what:"Inquiry-driven questions", why:"Theory-building.", how:"Answer briefly, then invite more questions.", next:"Asks how/when/where", src:"Gopnik" },
