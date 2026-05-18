@@ -2521,8 +2521,293 @@ function openVocabModal(){
   };
   document.getElementById("vocabModal").classList.add("open");
 }
-on("vocabExpandBtn", "click", ()=>{ showView("vocabulary"); });
+// Feature A: the dashboard "🎲 Bingo" button now opens the bingo modal
+// instead of navigating to the Vocabulary view (mobile-first quick play).
+on("vocabExpandBtn", "click", ()=>{ openBingoModal(); });
+// "See all vocabulary →" link still navigates to the full view.
 on("vocabTabLink",   "click", ()=>{ showView("vocabulary"); });
+
+/* ─────────────────────────────────────────────────────────────────────────
+   FEATURE A — Bingo modal (3-screen: lang → grid → summary)
+   Persists last language in localStorage["bingo-lang"] so subsequent opens
+   skip straight to screen 2. Theme can be overridden bingo-only (does NOT
+   modify state.customTheme — global app theme stays put).
+   ───────────────────────────────────────────────────────────────────────── */
+const _bingo = {
+  lang: null,            // "en" | "fr"
+  themeW: null,          // numeric ISO week
+  drawn: [],             // [[en,fr,em], ...] currently shown cells
+  tappedKeys: new Set(), // keys "en_lang" tapped this session
+  shownPool: new Set(),  // word EN keys already shown this session (rotation)
+  prevFocus: null,
+};
+
+/* Add a word to the master tracker AND log an observation event.
+   Used by the bingo modal — single source of truth for mastery state.        */
+function addVocabMastery(wordEn, lang, opts){
+  if (!wordEn || !lang) return;
+  state.vocabMaster = state.vocabMaster || {};
+  const key = `${wordEn}_${lang}`;
+  if (!state.vocabMaster[key]){
+    state.vocabMaster[key] = { ts: Date.now(), by: (opts && opts.by) || state.currentUser || "—" };
+  }
+  // v3.1 observation log (event-sourced)
+  state.observations = state.observations || [];
+  state.observations.push({
+    skillId: `vocab-${key}`,
+    status:  "mastered",
+    by:      (opts && opts.by) || state.currentUser || "—",
+    source:  (opts && opts.source) || "bingo",
+    ts:      Date.now(),
+    notes:   (opts && opts.notes) || `${wordEn} (${lang}) via bingo`,
+  });
+  saveState(state);
+}
+
+/* Choose how many cells to draw based on viewport (3×2 / 3×3 / 4×3). */
+function _bingoCellCount(){
+  const w = window.innerWidth || 360;
+  if (w < 480) return 6;
+  if (w < 720) return 9;
+  return 12;
+}
+
+/* Draw N words from the current theme; cycle if exhausted; fall back to
+   previous theme(s) if the current one has fewer words than the grid size. */
+function _bingoDrawWords(themeW, count){
+  let pool = (typeof vocabFor === "function") ? vocabFor(themeW) : [];
+  pool = pool.filter(w => Array.isArray(w) && w.length >= 2);
+  // If theme too small, top up with previous themes
+  if (pool.length < count){
+    const sortedThemes = THEMES.map(t=>t.w).filter(w=>w!==themeW).sort((a,b)=>b-a);
+    for (const w of sortedThemes){
+      const extra = vocabFor(w).filter(x => Array.isArray(x) && x.length >= 2);
+      pool = pool.concat(extra);
+      if (pool.length >= count) break;
+    }
+  }
+  // Filter out words already shown this session; if everything's been shown
+  // reset the rotation so we cycle back.
+  let candidates = pool.filter(([en]) => !_bingo.shownPool.has(en));
+  if (candidates.length < count){
+    _bingo.shownPool.clear();
+    candidates = pool.slice();
+  }
+  // Shuffle + take
+  for (let i = candidates.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+  const drawn = candidates.slice(0, count);
+  drawn.forEach(([en]) => _bingo.shownPool.add(en));
+  return drawn;
+}
+
+function openBingoModal(){
+  const modal = document.getElementById("bingoModal");
+  if (!modal) return;
+  _bingo.prevFocus = document.activeElement;
+  _bingo.tappedKeys = new Set();
+  _bingo.shownPool = new Set();
+
+  // Resolve theme — bingo-specific override > current app theme
+  let themeW;
+  try {
+    const ov = localStorage.getItem("bingo-theme-override");
+    if (ov && THEMES.find(t => String(t.w) === String(ov))) themeW = parseInt(ov, 10);
+  } catch(e){}
+  if (!themeW) themeW = (pickTheme() || {}).w || THEMES[0].w;
+  _bingo.themeW = themeW;
+
+  // Resolve language — last choice if available, otherwise show picker
+  let savedLang = null;
+  try { savedLang = localStorage.getItem("bingo-lang"); } catch(e){}
+  if (savedLang === "en" || savedLang === "fr"){
+    _bingo.lang = savedLang;
+    _bingoShowScreen(2);
+  } else {
+    _bingoShowScreen(1);
+  }
+  modal.classList.add("open");
+  // Move focus to the first interactive element of the visible screen
+  setTimeout(() => {
+    const visible = modal.querySelector("[id^='bingoScreen']:not([style*='display:none'])");
+    if (visible){
+      const btn = visible.querySelector("button");
+      if (btn) btn.focus();
+    }
+  }, 30);
+}
+
+function _bingoShowScreen(n){
+  for (const i of [1,2,3]){
+    const el = document.getElementById(`bingoScreen${i}`);
+    if (el) el.style.display = (i === n) ? "" : "none";
+  }
+  if (n === 2) _bingoRenderCard();
+  if (n === 3) _bingoRenderSummary();
+}
+
+function _bingoSelectLang(lang){
+  _bingo.lang = lang;
+  try { localStorage.setItem("bingo-lang", lang); } catch(e){}
+  _bingoShowScreen(2);
+}
+
+function _bingoRenderCard(){
+  const grid = document.getElementById("bingoGrid");
+  const langChip = document.getElementById("bingoLangChip");
+  const themeChip = document.getElementById("bingoThemeChip");
+  const tapCount = document.getElementById("bingoTapCount");
+  if (!grid) return;
+
+  const theme = THEMES.find(t => t.w === _bingo.themeW) || THEMES[0];
+  if (langChip) langChip.textContent = _bingo.lang === "fr" ? "🇫🇷 Français" : "🇬🇧 English";
+  if (themeChip) themeChip.textContent = `${theme.emoji} W${theme.w} · ${theme.title}`;
+
+  const count = _bingoCellCount();
+  _bingo.drawn = _bingoDrawWords(theme.w, count);
+  if (tapCount) tapCount.textContent = `${_bingo.tappedKeys.size} tapped`;
+
+  grid.innerHTML = "";
+  _bingo.drawn.forEach((w, idx) => {
+    const [en, fr, em] = w;
+    const word = _bingo.lang === "fr" ? (fr || en) : en;
+    const knownEn = (state.vocabMaster||{})[`${en}_en`];
+    const knownFr = (state.vocabMaster||{})[`${en}_fr`];
+    const alreadyKnown = _bingo.lang === "fr" ? knownFr : knownEn;
+    const cell = document.createElement("div");
+    cell.className = "bingo-modal-cell" + (alreadyKnown ? " known" : "");
+    cell.dataset.idx = idx;
+    cell.setAttribute("role", "button");
+    cell.setAttribute("tabindex", "0");
+    cell.setAttribute("aria-pressed", "false");
+    cell.innerHTML = `<div class="em">${em || "🔤"}</div><div class="wd">${escapeHtml(word)}</div>`;
+    cell.addEventListener("click", _bingoOnTap);
+    cell.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " "){ e.preventDefault(); _bingoOnTap.call(cell, e); }
+    });
+    grid.appendChild(cell);
+  });
+}
+
+function _bingoOnTap(){
+  const idx = parseInt(this.dataset.idx, 10);
+  const w = _bingo.drawn[idx]; if (!w) return;
+  const [en] = w;
+  const key = `${en}_${_bingo.lang}`;
+  if (_bingo.tappedKeys.has(key)) return; // one tap per cell per session
+  _bingo.tappedKeys.add(key);
+  this.classList.add("tapped");
+  this.setAttribute("aria-pressed", "true");
+  addVocabMastery(en, _bingo.lang, { source:"bingo" });
+  const tapCount = document.getElementById("bingoTapCount");
+  if (tapCount) tapCount.textContent = `${_bingo.tappedKeys.size} tapped`;
+  // Auto-advance to summary when all cells tapped
+  if (_bingo.tappedKeys.size >= _bingo.drawn.length){
+    setTimeout(() => _bingoShowScreen(3), 450);
+  }
+}
+
+function _bingoToggleThemePicker(){
+  const picker = document.getElementById("bingoThemePicker");
+  if (!picker) return;
+  if (picker.style.display === "none" || !picker.style.display){
+    picker.innerHTML = THEMES.map(t => {
+      const active = t.w === _bingo.themeW ? " active" : "";
+      return `<div class="bingo-theme-opt${active}" data-theme-w="${t.w}">
+        <span style="font-size:18px">${t.emoji}</span>
+        <span style="flex:1">W${t.w} · ${escapeHtml(t.title)}</span>
+      </div>`;
+    }).join("");
+    picker.style.display = "";
+  } else {
+    picker.style.display = "none";
+  }
+}
+
+function _bingoSetTheme(w){
+  _bingo.themeW = w;
+  _bingo.shownPool = new Set();
+  try { localStorage.setItem("bingo-theme-override", String(w)); } catch(e){}
+  const picker = document.getElementById("bingoThemePicker");
+  if (picker) picker.style.display = "none";
+  _bingoRenderCard();
+}
+
+function _bingoRenderSummary(){
+  const line = document.getElementById("bingoSummaryLine");
+  const wordsEl = document.getElementById("bingoSummaryWords");
+  const langLabel = _bingo.lang === "fr" ? "French" : "English";
+  if (line) line.textContent = `Maxine touched ${_bingo.tappedKeys.size} ${langLabel} word${_bingo.tappedKeys.size === 1 ? "" : "s"} this session.`;
+  if (!wordsEl) return;
+  if (!_bingo.tappedKeys.size){
+    wordsEl.innerHTML = `<div class="sub" style="color:var(--muted); text-align:center; font-size:13px">No words tapped yet — give it another go!</div>`;
+    return;
+  }
+  // Categorise tapped words as "new" vs "already known before this session"
+  const tappedNow = [..._bingo.tappedKeys];
+  const lines = tappedNow.map(key => {
+    const en = key.split("_")[0];
+    const word = _bingo.drawn.find(w => w[0] === en);
+    if (!word) return "";
+    const [enW, frW, em] = word;
+    // "new" if no observation existed for this word_lang pair before today
+    return `<div style="display:flex; gap:8px; align-items:center; padding:6px 8px; border-bottom:1px dashed var(--line); font-size:13px">
+      <span style="font-size:22px">${em || "🔤"}</span>
+      <span style="flex:1"><strong>${escapeHtml(enW)}</strong> <span style="color:var(--muted)">· ${escapeHtml(frW || "")}</span></span>
+      <span style="font-size:10px; background:#DCFCE7; color:#14532D; padding:2px 6px; border-radius:4px; font-weight:700">✓ ${_bingo.lang === "fr" ? "🇫🇷" : "🇬🇧"}</span>
+    </div>`;
+  }).filter(Boolean).join("");
+  wordsEl.innerHTML = lines;
+}
+
+function _bingoClose(){
+  const modal = document.getElementById("bingoModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  if (_bingo.prevFocus && typeof _bingo.prevFocus.focus === "function"){
+    try { _bingo.prevFocus.focus(); } catch(e){}
+  }
+}
+
+/* Bingo modal wiring — delegated event handlers */
+document.addEventListener("click", (e) => {
+  // Outside-click close
+  if (e.target && e.target.id === "bingoModal"){ _bingoClose(); return; }
+  // Close buttons
+  if (e.target.closest("#bingoCloseBtn, #bingoCloseBtn2")){ _bingoClose(); return; }
+  // Language picker
+  const langBtn = e.target.closest("[data-bingo-lang]");
+  if (langBtn){ _bingoSelectLang(langBtn.dataset.bingoLang); return; }
+  // Action buttons
+  if (e.target.closest("#bingoNewWordsBtn")){ _bingoRenderCard(); return; }
+  if (e.target.closest("#bingoChangeThemeBtn")){ _bingoToggleThemePicker(); return; }
+  if (e.target.closest("#bingoDoneBtn")){ _bingoShowScreen(3); return; }
+  if (e.target.closest("#bingoPlayAgainBtn")){
+    _bingo.tappedKeys = new Set();
+    _bingoShowScreen(2);
+    return;
+  }
+  const themeOpt = e.target.closest("[data-theme-w]");
+  if (themeOpt){ _bingoSetTheme(parseInt(themeOpt.dataset.themeW, 10)); return; }
+});
+
+// Escape key close
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const modal = document.getElementById("bingoModal");
+  if (modal && modal.classList.contains("open")) _bingoClose();
+});
+
+// Re-render on resize so the grid columns match the new viewport
+window.addEventListener("resize", () => {
+  const modal = document.getElementById("bingoModal");
+  if (modal && modal.classList.contains("open")){
+    const s2 = document.getElementById("bingoScreen2");
+    if (s2 && s2.style.display !== "none") _bingoRenderCard();
+  }
+});
 on("photoToggleBtn", "click", ()=>{
   state.showPhotos = !state.showPhotos;
   saveState(state);
