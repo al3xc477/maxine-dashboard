@@ -753,6 +753,22 @@
 
   <!-- SKILL CATALOGUE VIEW -->
   <section id="catalogueView" style="display:none">
+    <!-- Newly-mastered banner (Improvement 1) — populated by drawSkillCatalogue. -->
+    <div id="catUnlockBanner" style="display:none"></div>
+    <!-- Vocabulary stat card (Improvement 2 PART B) — live count from state.vocabMaster. -->
+    <div id="catVocabStat" class="card" style="display:none; margin-bottom:14px; background:#FFF7F3; border-style:dashed">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.07em">📚 Vocabulary</div>
+          <div style="display:flex; align-items:baseline; gap:6px; margin-top:2px">
+            <span id="catVocabCount" style="font-size:28px; font-weight:800; color:#9D174D; line-height:1">0</span>
+            <span style="font-size:12px; color:var(--muted); font-style:italic">words mastered (live)</span>
+          </div>
+          <div class="sub" style="color:var(--muted); font-size:11px; margin-top:2px">Tracked separately from skills — auto-counts each bingo / vocab-tracker tap.</div>
+        </div>
+        <button class="small" id="catVocabGoBtn" style="font-size:12px">View full vocabulary →</button>
+      </div>
+    </div>
     <div class="card" style="margin-bottom:14px">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap">
         <div>
@@ -761,9 +777,11 @@
         </div>
         <button class="small" id="catResetBtn">↺ Reset all to New</button>
       </div>
-      <div style="margin-top:12px; display:flex; gap:6px; flex-wrap:wrap">
+      <div style="margin-top:12px; display:flex; gap:6px; flex-wrap:wrap; align-items:center">
         <button class="small primary" id="skillViewSmart">🎯 Smart view (ZPD)</button>
         <button class="small" id="skillViewAll">📋 All skills</button>
+        <button class="small" id="skillHiddenToggle">👁 Show hidden</button>
+        <span id="skillHiddenCount" class="sub" style="color:var(--muted); font-size:11px; margin-left:4px"></span>
       </div>
       <div id="skillFocusBanner" class="skill-focus-banner" style="display:none; margin-top:10px"></div>
       <div class="cat-filter" style="margin-top:10px">
@@ -780,6 +798,9 @@
         <input type="text" id="skillSearch" placeholder="Search skill..." />
       </div>
       <div id="skillSummary" style="margin-top:12px; display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:8px"></div>
+      <!-- "Ready to try →" chip row (Improvement 1). Sits below filters and
+           above the skill list so it acts as an actionable bridge. -->
+      <div id="catReadyRow" style="display:none; margin-top:12px"></div>
     </div>
     <div class="card" style="padding:0">
       <div id="skillsList" style="display:flex; flex-direction:column"></div>
