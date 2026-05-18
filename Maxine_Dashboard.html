@@ -237,36 +237,74 @@
   .bingo-mastered-chip .wd{ font-weight:700; margin-top:2px }
   .bingo-mastered-chip .fr{ font-style:italic; color:#5C6680; font-size:11px }
 
-  /* Bingo modal — Feature A */
+  /* Bingo modal — Feature A (photo-first redesign) */
   #bingoModal .panel{ background:var(--card); }
+  /* Outer cell: image-on-top + label-below stack. .bingo-modal-cell is kept
+     as the outer class to avoid colliding with the legacy .bingo-cell rules
+     used by the vocab-view bingo card above. */
   .bingo-modal-cell{
-    aspect-ratio:1/1; background:#fff; border:1px solid var(--line); border-radius:12px;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:6px; cursor:pointer; position:relative; user-select:none;
-    transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+    position:relative; border-radius:12px; overflow:hidden; cursor:pointer;
+    border:2px solid var(--line); background:var(--card);
+    display:flex; flex-direction:column; user-select:none;
+    transition: transform .15s, border-color .2s, box-shadow .15s;
   }
-  .bingo-modal-cell:hover{ box-shadow: 0 2px 8px rgba(0,0,0,.08) }
+  .bingo-modal-cell:hover{ box-shadow:0 2px 8px rgba(0,0,0,.08) }
   .bingo-modal-cell:active{ transform:scale(.96) }
-  .bingo-modal-cell .em{ font-size:28px; line-height:1 }
-  .bingo-modal-cell .wd{ font-size:11px; font-weight:700; color:var(--ink); margin-top:4px; text-align:center; line-height:1.15; word-break:break-word }
-  .bingo-modal-cell.known{ background:#F0FDF4; border-color:#86EFAC }
-  .bingo-modal-cell.tapped{ background:#DCFCE7; border-color:#16A34A; transform:scale(.98); animation: bingoPop .35s ease }
-  .bingo-modal-cell.tapped::after{
-    content:"✓"; position:absolute; top:-6px; right:-6px;
-    background:#16A34A; color:#fff; width:22px; height:22px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;
-    box-shadow:0 2px 6px rgba(22,163,74,.4); animation: bingoCheckPop .25s ease;
+  .bingo-modal-cell.known{ border-color: var(--good); }
+  .bingo-modal-cell.tapped{ border-color: var(--good); animation: bingoPop .35s ease; }
+
+  .bingo-img-wrap{
+    width:100%; aspect-ratio:1; position:relative;
+    background:var(--gross);  /* soft pastel while loading */
+    display:flex; align-items:center; justify-content:center;
+    font-size:38px; line-height:1;
   }
+  .bingo-img-wrap img{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    opacity:0; transition: opacity .3s ease;
+  }
+  .bingo-img-wrap img.loaded{ opacity:1; }
+
+  .bingo-check-overlay{
+    display:none; position:absolute; inset:0;
+    background:rgba(22,163,74,.45);
+    align-items:center; justify-content:center;
+    font-size:36px; color:#fff; font-weight:800;
+    text-shadow:0 2px 4px rgba(0,0,0,.25);
+  }
+  .bingo-modal-cell.tapped .bingo-check-overlay{ display:flex; animation: bingoCheckPop .25s ease; }
+
+  .bingo-known-badge{
+    display:none; position:absolute; top:4px; right:4px;
+    background:var(--good); color:#fff;
+    border-radius:50%; width:20px; height:20px;
+    font-size:11px; align-items:center; justify-content:center;
+    font-weight:800; box-shadow:0 2px 4px rgba(22,163,74,.35); z-index:2;
+  }
+  .bingo-modal-cell.known .bingo-known-badge{ display:flex; }
+
+  .bingo-label{
+    padding:5px 4px 6px;
+    font-size:12px; font-weight:600;
+    text-align:center; color:var(--ink);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .bingo-emoji-small{
+    font-size:13px; margin-left:3px; opacity:.7;
+  }
+
   @keyframes bingoPop {
-    0%{ transform:scale(1) } 35%{ transform:scale(1.08) } 100%{ transform:scale(.98) }
+    0%{ transform:scale(1) } 35%{ transform:scale(1.08) } 100%{ transform:scale(1) }
   }
   @keyframes bingoCheckPop {
     0%{ transform:scale(0) } 60%{ transform:scale(1.25) } 100%{ transform:scale(1) }
   }
   @media (max-width: 480px){
     #bingoGrid{ grid-template-columns: repeat(3, 1fr) !important }
-    .bingo-modal-cell .em{ font-size:24px }
-    .bingo-modal-cell .wd{ font-size:10px }
+    .bingo-img-wrap{ font-size:32px }
+    .bingo-label{ font-size:11px }
   }
   @media (min-width: 481px) and (max-width: 720px){
     #bingoGrid{ grid-template-columns: repeat(3, 1fr) !important }
