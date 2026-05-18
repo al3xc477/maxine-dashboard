@@ -511,8 +511,9 @@
         <h2 style="margin:0">⭐ Mastery XP &amp; Frontier</h2>
         <span class="sub" id="masteryTierLabel" style="color:var(--muted); font-size:12px"></span>
       </div>
-      <div class="sub" style="color:var(--muted); font-size:13px; margin:6px 0 12px">XP grows with status depth × tier difficulty (keystones bonus ×1.5). Frontier shows the 1-2 skills per domain at her current edge.</div>
-      <div id="masteryXpTiles" class="prog-grid" style="margin-bottom:10px"></div>
+      <div class="sub" style="color:var(--muted); font-size:13px; margin:6px 0 12px">Per-domain XP, level, and progress to next level are shown on the cards in "Domain mastery" below. This panel surfaces the 1-2 frontier skills per domain at her current edge, plus any mastered skills due for a re-check.</div>
+      <!-- masteryXpTiles intentionally retained as an empty placeholder for downstream code/checks; the per-domain XP info is rendered on the Domain mastery cards instead. -->
+      <div id="masteryXpTiles" style="display:none"></div>
       <div id="frontierBanner"></div>
       <div id="reverifyBanner" style="margin-top:10px"></div>
     </div>
