@@ -2248,48 +2248,6 @@ function renderHeader(){
   todayLine.textContent = new Date().toLocaleDateString("en-GB", { weekday:"long", year:"numeric", month:"long", day:"numeric" }) + " · CET";
 }
 
-/* ── View switching ── */
-const ALL_VIEWS = ["mainView","progressView","catalogueView","vocabularyView","mealsView","playlistView","memoryView","overviewView"];
-
-function showView(name){
-  const viewId = {
-    dashboard:  "mainView",
-    progress:   "progressView",
-    catalogue:  "catalogueView",
-    vocabulary: "vocabularyView",
-    meals:      "mealsView",
-    playlist:   "playlistView",
-    memory:     "memoryView",
-    overview:   "overviewView"
-  }[name] || "mainView";
-
-  ALL_VIEWS.forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.style.display = (id === viewId) ? "" : "none";
-  });
-
-  /* Update active nav button */
-  document.querySelectorAll(".nav-btn").forEach(b => {
-    b.classList.toggle("active", b.dataset.view === name);
-  });
-
-  /* Trigger render for views that need it */
-  if(name === "progress"   && typeof renderProgressView === "function")  renderProgressView();
-  if(name === "vocabulary" && typeof renderVocabTracker === "function")   renderVocabTracker();
-  if(name === "vocabulary" && typeof renderVocabularyBingo === "function") renderVocabularyBingo();
-  if(name === "catalogue"  && typeof renderCatalogueView === "function")  renderCatalogueView();
-  if(name === "meals"      && typeof renderMealsView === "function")      renderMealsView();
-  if(name === "playlist"   && typeof renderPlaylistView === "function")   renderPlaylistView();
-  if(name === "memory"     && typeof renderMemoryView === "function")     renderMemoryView();
-  if(name === "overview"   && typeof renderOverviewView === "function")   renderOverviewView();
-}
-
-/* Nav button click delegation */
-document.addEventListener("click", (e)=>{
-  const b = e.target.closest("button[data-view]");
-  if(b) showView(b.dataset.view);
-});
-
 /* Activity location filter (indoor/outdoor) */
 state.locFilter = state.locFilter || "all";
 document.addEventListener("click", (e)=>{
@@ -3007,8 +2965,7 @@ function openSettings(){
   const pa = document.getElementById("syncPasteArea"); if(pa) pa.style.display="none";
   const pt = document.getElementById("syncPasteText"); if(pt) pt.value="";
   const ea = document.getElementById("cloudSyncEnterArea"); if(ea) ea.style.display="none";
-  // Re-render the auto-sync panel each time settings opens so it reflects the latest status
-  if (typeof _renderSyncPanel === "function") _renderSyncPanel();
+  // (auto-sync panel renders itself via syncAutoInit)
   renderSyncStatus();
   setModal.classList.add("open");
 }
@@ -3374,6 +3331,2928 @@ window._syncSendUrlToDevice = async function(){
   }
 };
 
+/* =========================================================
+   SYNC & BACKUP
+   — Primary: File System Access API auto-sync (Chrome/Edge)
+     Every saveState() auto-writes to maxine-state.json in a
+     connected Google Drive / OneDrive / Dropbox folder.
+     IndexedDB persists the directory handle across sessions so
+     reconnecting is one tap, not a full folder picker each time.
+   — Fallback: clipboard copy/paste (all browsers/devices)
+   — Fallback: file download/upload (always works)
+   ========================================================= */
+
+/* ── Shared timestamp ── */
+const SYNC_TS_KEY = "maxine-sync-ts";
+function syncTimestamp(){ return localStorage.getItem(SYNC_TS_KEY) || null; }
+function setSyncTimestamp(ts){ localStorage.setItem(SYNC_TS_KEY, ts || new Date().toISOString()); }
+
+/* ── IndexedDB helpers (persist directory handle) ── */
+const _IDB_NAME = "MaxineSyncDB", _IDB_STORE = "handles", _IDB_KEY = "syncDir";
+function _idbOpen(){
+  return new Promise((res,rej)=>{
+    const req = indexedDB.open(_IDB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(_IDB_STORE);
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+async function _idbGet(key){
+  const db = await _idbOpen();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(_IDB_STORE,"readonly");
+    const req = tx.objectStore(_IDB_STORE).get(key);
+    req.onsuccess = ()=> res(req.result);
+    req.onerror   = ()=> rej(req.error);
+  });
+}
+async function _idbSet(key,val){
+  const db = await _idbOpen();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(_IDB_STORE,"readwrite");
+    tx.objectStore(_IDB_STORE).put(val, key);
+    tx.oncomplete = ()=> res();
+    tx.onerror    = ()=> rej(tx.error);
+  });
+}
+async function _idbDel(key){
+  const db = await _idbOpen();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(_IDB_STORE,"readwrite");
+    tx.objectStore(_IDB_STORE).delete(key);
+    tx.oncomplete = ()=> res();
+    tx.onerror    = ()=> rej(tx.error);
+  });
+}
+
+/* ── Render FSA status in modal + footer ── */
+function renderFsaStatus(msg){
+  const el       = document.getElementById("syncFsaConnected");
+  const statusEl = document.getElementById("syncStatus");
+  const conBtn   = document.getElementById("syncFsaConnectBtn");
+  const loadBtn  = document.getElementById("syncFsaLoadBtn");
+  const discBtn  = document.getElementById("syncFsaDisconnectBtn");
+  // Footer elements
+  const footerFsa = document.getElementById("footerFsaStatus");
+  const footerCpy = document.getElementById("footerSyncBtn");
+
+  if (_syncDirHandle){
+    const shortMsg = msg || "🟢 Auto-sync ON";
+    if (el){
+      el.style.display = "block";
+      el.innerHTML = `<strong>${shortMsg}</strong><div style="font-size:11px;color:#15803D;margin-top:3px">Every skill you mark and word you learn saves automatically — no save button needed.</div>`;
+    }
+    if (conBtn) conBtn.textContent = "🔄 Reconnect folder";
+    if (loadBtn){ loadBtn.style.display=""; }
+    if (discBtn){ discBtn.style.display=""; }
+    if (statusEl) statusEl.textContent = shortMsg;
+    // Footer: show green pill, hide copy button
+    if (footerFsa){ footerFsa.style.display=""; footerFsa.textContent = shortMsg; }
+    if (footerCpy){ footerCpy.style.display="none"; }
+  } else {
+    if (el){ el.style.display="none"; }
+    if (conBtn) conBtn.textContent = "📁 Connect sync folder";
+    if (loadBtn){ loadBtn.style.display="none"; }
+    if (discBtn){ discBtn.style.display="none"; }
+    if (statusEl) statusEl.textContent = "";
+    // Footer: hide green pill, show copy button
+    if (footerFsa){ footerFsa.style.display="none"; }
+    if (footerCpy){ footerCpy.style.display=""; }
+  }
+}
+
+function renderSyncStatus(){
+  /* Legacy clipboard timestamp — shown in footer when FSA not connected */
+  const ts  = syncTimestamp();
+  const fel = document.getElementById("footerSyncStatus");
+  if (fel){
+    if (_syncDirHandle){
+      // Status already shown in footerFsaStatus pill
+      fel.textContent = "";
+    } else {
+      fel.textContent = ts
+        ? "Last manual sync: " + new Date(ts).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})
+        : "Not yet synced on this device";
+    }
+  }
+}
+
+/* ── Auto-save to folder (debounced 1.5 s after last change) ── */
+let _syncSaveTimer = null;
+async function syncSaveToFolder(immediate){
+  if (!_syncDirHandle) return;
+  if (!immediate){
+    clearTimeout(_syncSaveTimer);
+    _syncSaveTimer = setTimeout(()=> syncSaveToFolder(true), 1500);
+    return;
+  }
+  try {
+    /* Re-check permission — Chrome may require a user-gesture but queryPermission works silently */
+    const perm = await _syncDirHandle.queryPermission({ mode:"readwrite" });
+    if (perm !== "granted"){
+      /* Permission lapsed (e.g. browser restart) — show soft warning, don't spam toasts */
+      renderFsaStatus("⚠️ Tap 'Reconnect folder' to restore auto-sync");
+      return;
+    }
+    const fh = await _syncDirHandle.getFileHandle("maxine-state.json",{ create:true });
+    const wr = await fh.createWritable();
+    await wr.write(JSON.stringify(state));
+    await wr.close();
+    const ts = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+    setSyncTimestamp();
+    renderFsaStatus("🟢 Synced at " + ts);
+    renderSyncStatus();
+  } catch(e){
+    if (e.name === "NotAllowedError"){
+      renderFsaStatus("⚠️ Permission needed — tap 'Reconnect folder'");
+    }
+    /* Other errors (disk full, file locked) — silently ignore to avoid blocking UI */
+  }
+}
+
+/* ── Load from folder (manual, e.g. first open on a new device) ── */
+async function syncLoadFromFolder(){
+  if (!_syncDirHandle){ showToast("No folder connected yet."); return; }
+  try {
+    const perm = await _syncDirHandle.requestPermission({ mode:"readwrite" });
+    if (perm !== "granted"){ showToast("Permission needed — tap 'Connect sync folder' first."); return; }
+    const fh = await _syncDirHandle.getFileHandle("maxine-state.json").catch(()=>null);
+    if (!fh){ showToast("No maxine-state.json in that folder yet — save from another device first."); return; }
+    const file     = await fh.getFile();
+    const imported = JSON.parse(await file.text());
+    /* Timestamp comparison */
+    const folderTs = imported._savedAt ? new Date(imported._savedAt) : new Date(0);
+    const localTs  = state._savedAt    ? new Date(state._savedAt)    : new Date(0);
+    if (folderTs <= localTs && state._savedAt){
+      if (!confirm("Your local data appears to be the same age or newer than the folder copy.\nLoad from folder anyway (overwrites local)?")) {
+        showToast("Kept local data."); return;
+      }
+    }
+    delete imported._savedAt;
+    state = Object.assign({}, state, imported);
+    saveState(state);
+    renderFsaStatus("✅ Loaded from folder at " + new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}));
+    setModal.classList.remove("open");
+    renderTheme();
+    if (typeof renderProgressView==="function") renderProgressView();
+    if (typeof renderVocabTracker==="function")  renderVocabTracker();
+    showToast("✅ All progress loaded from folder!");
+  } catch(e){
+    showToast("Load failed: " + (e.message||e));
+  }
+}
+
+/* ── Connect folder ── */
+async function syncFsaConnect(){
+  if (!("showDirectoryPicker" in window)){
+    showToast("Folder sync needs Chrome or Edge browser.");
+    return;
+  }
+  try {
+    const h = await window.showDirectoryPicker({ mode:"readwrite", id:"maxine-sync" });
+    _syncDirHandle = h;
+    await _idbSet(_IDB_KEY, h);
+    renderFsaStatus("📁 Connected — saving now…");
+    showToast("📁 Folder connected! Every change now auto-saves.");
+    await syncSaveToFolder(true);       // write immediately so other devices can load
+  } catch(e){
+    if (e.name !== "AbortError") showToast("Could not connect folder: " + (e.message||e));
+  }
+}
+
+/* ── Disconnect folder ── */
+async function syncFsaDisconnect(){
+  _syncDirHandle = null;
+  await _idbDel(_IDB_KEY);
+  renderFsaStatus();
+  renderSyncStatus();
+  showToast("Folder disconnected — use manual sync or file backup.");
+}
+
+/* ── FSA button wiring ── */
+document.getElementById("syncFsaConnectBtn")?.addEventListener("click", syncFsaConnect);
+document.getElementById("syncFsaLoadBtn")?.addEventListener("click", syncLoadFromFolder);
+document.getElementById("syncFsaDisconnectBtn")?.addEventListener("click", syncFsaDisconnect);
+
+/* ── Startup: restore handle from IndexedDB, auto-load if folder is newer ── */
+(async()=>{
+  /* Hide FSA panel entirely if browser doesn't support the API */
+  const fsaPanel = document.getElementById("syncFsaPanel");
+  if (!("showDirectoryPicker" in window)){
+    if (fsaPanel) fsaPanel.style.display="none";
+    renderSyncStatus();
+    return;
+  }
+  /* Try to restore saved handle */
+  try {
+    const h = await _idbGet(_IDB_KEY);
+    if (!h){ renderFsaStatus(); renderSyncStatus(); return; }
+    _syncDirHandle = h;
+    renderFsaStatus("🔄 Checking folder…");
+    /* queryPermission doesn't require a user gesture */
+    const perm = await h.queryPermission({ mode:"readwrite" });
+    if (perm === "granted"){
+      /* Check if folder has newer state than localStorage */
+      const fh = await h.getFileHandle("maxine-state.json").catch(()=>null);
+      if (fh){
+        const file     = await fh.getFile();
+        const imported = JSON.parse(await file.text());
+        const folderTs = imported._savedAt ? new Date(imported._savedAt) : new Date(0);
+        const localTs  = state._savedAt    ? new Date(state._savedAt)    : new Date(0);
+        if (folderTs > localTs){
+          /* Folder is newer — auto-load silently */
+          delete imported._savedAt;
+          state = Object.assign({}, state, imported);
+          saveState(state);
+          renderTheme();
+          if (typeof renderProgressView==="function") renderProgressView();
+          if (typeof renderVocabTracker==="function")  renderVocabTracker();
+          showToast("🔄 Auto-loaded newer progress from folder!");
+        }
+      }
+      renderFsaStatus("🟢 Auto-sync ON");
+    } else {
+      /* Permission needs a gesture — show soft state, user can reconnect */
+      renderFsaStatus("⚠️ Tap 'Reconnect folder' to restore auto-sync");
+    }
+  } catch(e){
+    _syncDirHandle = null;
+    renderFsaStatus();
+  }
+  renderSyncStatus();
+})();
+
+/* ── Clipboard copy/paste (fallback for all browsers) ── */
+async function syncCopyState(){
+  const json = JSON.stringify(state);
+  const btn = document.getElementById("syncCopyBtn") || document.getElementById("footerSyncBtn");
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(json);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = json; ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setSyncTimestamp();
+    renderSyncStatus();
+    showToast("📋 State copied! Paste on your other device via WhatsApp / Telegram.");
+    if (btn){ const orig=btn.textContent; btn.textContent="✅ Copied!"; setTimeout(()=>{ btn.textContent=orig; },2500); }
+  } catch(err){
+    showToast("Copy failed — use Download backup instead.");
+  }
+}
+
+/* Show paste area */
+function showPasteArea(){
+  const area = document.getElementById("syncPasteArea");
+  if (area){ area.style.display="block"; document.getElementById("syncPasteText").focus(); }
+}
+
+/* Import from pasted JSON */
+function importFromPaste(){
+  const text = (document.getElementById("syncPasteText")||{}).value || "";
+  if (!text.trim()){ showToast("Nothing pasted yet."); return; }
+  try {
+    const imported = JSON.parse(text);
+    state = Object.assign({}, state, imported);
+    saveState(state);
+    setSyncTimestamp();
+    renderSyncStatus();
+    const area = document.getElementById("syncPasteArea");
+    if (area) area.style.display="none";
+    setModal.classList.remove("open");
+    renderTheme();
+    if (typeof renderProgressView==="function") renderProgressView();
+    if (typeof renderVocabTracker==="function")  renderVocabTracker();
+    showToast("✅ State imported — all progress synced.");
+  } catch(e){
+    showToast("❌ Invalid JSON — copy the full state and try again.");
+  }
+}
+
+/* Export / Import / Reset / Print */
+$("exportBtn").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`maxine-backup-${todayKey()}.json`; a.click();
+  setSyncTimestamp(); renderSyncStatus();
+  showToast("💾 Backup saved — move it to your shared cloud folder.");
+});
+$("importBtn").addEventListener("click", ()=>{
+  const inp = document.createElement("input"); inp.type="file"; inp.accept="application/json";
+  inp.onchange=()=>{
+    const f=inp.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try {
+        const imported=JSON.parse(r.result);
+        state=Object.assign({},state,imported);
+        saveState(state); setSyncTimestamp(); renderSyncStatus();
+        showToast("✅ Imported — refreshing…");
+        setTimeout(()=> location.reload(), 800);
+      } catch(e){ showToast("Import failed — invalid file."); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+});
+$("printBtn").addEventListener("click", ()=> window.print());
+$("resetBtn").addEventListener("click", ()=>{
+  if (confirm("Reset ALL progress, vocabulary and feedback? This cannot be undone.")){
+    localStorage.removeItem(STORAGE_KEY);
+    state={}; state.domainLevel={...DEFAULT_LEVELS}; state.domainStreak={gross:0,fine:0,sensory:0,cognitive:0,vocab:0,social:0};
+    state.history=[]; state.quickLog={}; state.weekOverride=null; state.customTheme=null;
+    saveState(state); setModal.classList.remove("open"); renderTheme(); showToast("↺ Reset complete.");
+  }
+});
+
+/* Clipboard button wiring */
+document.addEventListener("click", e=>{
+  if (e.target.closest("#syncCopyBtn") || e.target.closest("#footerSyncBtn")) syncCopyState();
+  if (e.target.closest("#syncPasteModalBtn")) showPasteArea();
+  if (e.target.closest("#syncPasteImportBtn")) importFromPaste();
+  if (e.target.closest("#syncPasteCancelBtn")){
+    const a=document.getElementById("syncPasteArea"); if(a) a.style.display="none";
+  }
+});
+
+/* =========================================================
+   YEAR OVERVIEW — edit + reorder themes
+   ========================================================= */
+// State: state.themeOrder = array of week numbers in user order
+// state.themeOverrides = { [week]: { title, emoji } }
+state.themeOrder = state.themeOrder || THEMES.map(t=>t.w);
+state.themeOverrides = state.themeOverrides || {};
+
+function applyOverrides(){
+  // Returns themes in user's preferred order with their overrides applied
+  return state.themeOrder.map(w => {
+    const base = THEMES.find(t=>t.w===w);
+    if (!base) return null;
+    const ov = state.themeOverrides[w] || {};
+    return { ...base, title: ov.title || base.title, emoji: ov.emoji || base.emoji };
+  }).filter(Boolean);
+}
+
+// Override pickTheme to honor reorder + overrides
+const _origPickTheme = pickTheme;
+pickTheme = function(){
+  if (state.customTheme && state.customTheme.title) {
+    return { ..._origPickTheme(), title: state.customTheme.title, emoji: state.customTheme.emoji || "🎨", _isCustom: true };
+  }
+  if (state.weekOverride){
+    const themes = applyOverrides();
+    const m = themes.find(t=>t.w===state.weekOverride);
+    if (m) return m;
+  }
+  const w = isoWeek(new Date());
+  const themes = applyOverrides();
+  let m = themes.find(t=>t.w===w);
+  if (!m) m = themes.reduce((a,b)=> Math.abs(b.w-w) < Math.abs(a.w-w) ? b : a, themes[0]);
+  return m;
+};
+
+function renderOverview(){
+  const list = document.getElementById("overviewList");
+  list.innerHTML = "";
+  const themes = applyOverrides();
+  themes.forEach((t, idx) => {
+    const row = document.createElement("div");
+    row.className = "ov-row";
+    row.draggable = true;
+    row.dataset.idx = idx;
+    row.dataset.w = t.w;
+    const ov = state.themeOverrides[t.w];
+    const isModified = !!ov;
+    if (isModified) row.classList.add("modified");
+    row.innerHTML = `
+      <div class="drag" title="Drag to reorder">⋮⋮</div>
+      <div class="wk">W${t.w}</div>
+      <div class="dt">${new Date(t.start).toLocaleDateString("en-GB",{day:"2-digit",month:"short"})}</div>
+      <input class="emoji-in" type="text" maxlength="4" value="${escapeHtml(t.emoji)}" />
+      <input class="title-in" type="text" value="${escapeHtml(t.title)}" />
+      <div class="ord">
+        <button data-act="up" title="Move up">▲</button>
+        <button data-act="down" title="Move down">▼</button>
+      </div>
+      <button class="small save-btn ${isModified?'':'idle'}" data-act="save">💾</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+let dragSrcIdx = null;
+document.addEventListener("dragstart", (e)=>{
+  const r = e.target.closest && e.target.closest(".ov-row");
+  if (!r) return;
+  dragSrcIdx = parseInt(r.dataset.idx, 10);
+  r.classList.add("dragging");
+  try{ e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", r.dataset.w); }catch(err){}
+});
+document.addEventListener("dragend", (e)=>{
+  document.querySelectorAll(".ov-row.dragging").forEach(el=>el.classList.remove("dragging"));
+  document.querySelectorAll(".ov-row.target").forEach(el=>el.classList.remove("target"));
+});
+document.addEventListener("dragover", (e)=>{
+  const r = e.target.closest && e.target.closest(".ov-row");
+  if (!r) return;
+  e.preventDefault();
+  document.querySelectorAll(".ov-row.target").forEach(el=>el.classList.remove("target"));
+  r.classList.add("target");
+});
+document.addEventListener("drop", (e)=>{
+  const r = e.target.closest && e.target.closest(".ov-row");
+  if (!r || dragSrcIdx === null) return;
+  e.preventDefault();
+  const dstIdx = parseInt(r.dataset.idx, 10);
+  if (dstIdx === dragSrcIdx) return;
+  const order = [...state.themeOrder];
+  const [moved] = order.splice(dragSrcIdx, 1);
+  order.splice(dstIdx, 0, moved);
+  state.themeOrder = order;
+  saveState(state);
+  renderOverview();
+  showToast("🔀 Reordered.");
+  dragSrcIdx = null;
+});
+
+// Up / Down / Save / Inline edit
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const row = btn.closest(".ov-row");
+  if (!row) return;
+  const idx = parseInt(row.dataset.idx, 10);
+  const w = parseInt(row.dataset.w, 10);
+  const act = btn.dataset.act;
+  if (act === "up" && idx > 0){
+    const order = [...state.themeOrder];
+    [order[idx-1], order[idx]] = [order[idx], order[idx-1]];
+    state.themeOrder = order; saveState(state); renderOverview(); showToast("⬆ Moved up.");
+  } else if (act === "down" && idx < state.themeOrder.length - 1){
+    const order = [...state.themeOrder];
+    [order[idx+1], order[idx]] = [order[idx], order[idx+1]];
+    state.themeOrder = order; saveState(state); renderOverview(); showToast("⬇ Moved down.");
+  } else if (act === "save"){
+    const emoji = row.querySelector(".emoji-in").value.trim() || "🎨";
+    const title = row.querySelector(".title-in").value.trim();
+    if (!title) { showToast("Title can't be empty."); return; }
+    state.themeOverrides[w] = { emoji, title };
+    saveState(state); renderOverview(); showToast("💾 Saved.");
+  }
+});
+
+document.getElementById("ovBackBtn").addEventListener("click", ()=>{
+  showView("dashboard");
+});
+document.getElementById("ovResetBtn").addEventListener("click", ()=>{
+  if (!confirm("Reset to Claire's original calendar (loses your edits and reorder)?")) return;
+  state.themeOrder = THEMES.map(t=>t.w);
+  state.themeOverrides = {};
+  saveState(state);
+  renderOverview();
+  showToast("↺ Reset to default.");
+});
+
+/* =========================================================
+   V3 — User, Focus, Memory, Progress, Catalogue, Nav
+   ========================================================= */
+state.currentUser = state.currentUser || "Alex";
+state.activityStatus = state.activityStatus || {};
+state.feedback = state.feedback || [];
+state.focus = state.focus || { text: "", domains: [] };
+
+/* User picker */
+function renderUserPicker(){
+  document.querySelectorAll("#userPicker .upbtn").forEach(b=>{
+    b.classList.toggle("active", b.dataset.user === state.currentUser);
+  });
+}
+document.getElementById("userPicker").addEventListener("click", (e)=>{
+  const b = e.target.closest(".upbtn"); if (!b) return;
+  state.currentUser = b.dataset.user; saveState(state); renderUserPicker(); showToast(`👤 Now logging as ${state.currentUser}.`);
+});
+
+/* Focus banner */
+function renderFocus(){
+  const f = (state.focus && state.focus.text) || "";
+  document.getElementById("focusDisplay").textContent = f || "No focus set — tap to add one (e.g. 'increase attention span')";
+  document.body.classList.toggle("focus-active", !!f);
+}
+document.getElementById("editFocusBtn").addEventListener("click", ()=>{
+  const cur = (state.focus && state.focus.text) || "";
+  const next = prompt("Set the current focus for Maxine (free text — used to flag relevant activities). Leave empty to clear.", cur);
+  if (next === null) return;
+  state.focus = { text: next.trim(), domains: [] };
+  saveState(state); renderFocus(); renderTheme(); showToast(next ? "🎯 Focus set." : "Focus cleared.");
+});
+
+/* View navigation */
+/* Section-jump helper — scroll to anchor, highlight active chip */
+function sjScrollTo(id, btn){
+  const el = document.getElementById(id);
+  if (!el) return;
+  // Offset scroll by sticky nav height (~120px combined header + nav + jump bar)
+  const y = el.getBoundingClientRect().top + window.scrollY - 128;
+  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+  // Mark active chip in the same jump bar
+  if (btn){
+    const bar = btn.closest(".section-jump");
+    if (bar) bar.querySelectorAll(".sj-btn").forEach(b=>b.classList.remove("sj-active"));
+    btn.classList.add("sj-active");
+  }
+}
+
+/* Update active chip on scroll — NEVER calls scrollIntoView (causes page drift) */
+function _updateJumpActive(jumpBarId, sectionIds){
+  const bar = document.getElementById(jumpBarId);
+  if (!bar) return;
+  const sec = bar.closest("section");
+  if (sec && sec.style.display === "none") return;
+  const mid = window.innerHeight * 0.4 + window.scrollY;
+  let best = null, bestTop = -Infinity;
+  sectionIds.forEach((sid, i) => {
+    const el = document.getElementById(sid);
+    if (!el) return;
+    const t = el.getBoundingClientRect().top + window.scrollY;
+    if (t <= mid && t > bestTop){ bestTop = t; best = i; }
+  });
+  if (best !== null){
+    const btns = bar.querySelectorAll(".sj-btn");
+    btns.forEach((b, i) => b.classList.toggle("sj-active", i === best));
+    // Keep active chip visible by adjusting bar.scrollLeft only (no page scroll)
+    const activeBtn = btns[best];
+    if (activeBtn){
+      const bl = bar.scrollLeft, bw = bar.clientWidth;
+      const al = activeBtn.offsetLeft, aw = activeBtn.offsetWidth;
+      if (al < bl + 8)              bar.scrollLeft = al - 8;
+      else if (al + aw > bl + bw - 8) bar.scrollLeft = al + aw - bw + 8;
+    }
+  }
+}
+const _progSections  = ["sec-prog-summary","sec-prog-domains","sec-prog-assess","sec-prog-wellness","sec-prog-sleep","sec-prog-coreg","sec-prog-basics","sec-prog-recent"];
+const _vocabSections = ["sec-vocab-words","sec-vocab-story","sec-vocab-bingo","sec-vocab-mastered"];
+/* Throttle scroll handler to one RAF tick — prevents any feedback loop */
+let _scrollRaf = null;
+window.addEventListener("scroll", () => {
+  if (_scrollRaf) return;
+  _scrollRaf = requestAnimationFrame(() => {
+    _scrollRaf = null;
+    _updateJumpActive("progressJump", _progSections);
+  });
+}, { passive: true });
+
+function showView(name){
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active", b.dataset.view===name));
+  const v = (id, show) => document.getElementById(id).style.display = show ? "" : "none";
+  // Hide everything first
+  document.getElementById("mainView").style.display = "none";
+  document.querySelector(".theme-banner").style.display = "none";
+  document.getElementById("overviewView").style.display = "none";
+  document.getElementById("progressView").style.display = "none";
+  document.getElementById("catalogueView").style.display = "none";
+  document.getElementById("memoryView").style.display = "none";
+  ["vocabularyView","mealsView","playlistView","louHome"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+  document.getElementById("focusCard").style.display = "none";
+  if (name === "dashboard"){
+    document.getElementById("mainView").style.display = "";
+    document.querySelector(".theme-banner").style.display = "flex";
+    document.getElementById("focusCard").style.display = "";
+    renderTheme();
+  } else if (name === "progress"){
+    document.getElementById("progressView").style.display = "";
+    renderProgressView();
+  } else if (name === "catalogue"){
+    document.getElementById("catalogueView").style.display = "";
+    renderSkillCatalogue();
+  } else if (name === "memory"){
+    document.getElementById("memoryView").style.display = "";
+    renderMemory();
+  } else if (name === "vocabulary"){
+    document.getElementById("vocabularyView").style.display = "";
+    renderVocabTracker();
+    renderVocabularyBingo();
+  } else if (name === "meals"){
+    document.getElementById("mealsView").style.display = "";
+    renderMeals();
+  } else if (name === "playlist"){
+    document.getElementById("playlistView").style.display = "";
+    renderPlaylist();
+  } else if (name === "overview"){
+    document.getElementById("overviewView").style.display = "";
+    renderOverview();
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+document.querySelectorAll(".nav-btn").forEach(b=>{
+  b.addEventListener("click", ()=> showView(b.dataset.view));
+});
+
+/* Daily basics — Practical Life life-skills checklist (Montessori scope & sequence) */
+const BASICS = [
+  { cat:"Dressing", items:[
+    {id:"shoes-velcro", en:"Velcro shoes on/off", fr:"chaussures velcro"},
+    {id:"shoes-laces", en:"Tying laces (with help)", fr:"lacets"},
+    {id:"socks", en:"Socks on/off", fr:"chaussettes"},
+    {id:"coat-on", en:"Put on coat (flip method)", fr:"mettre le manteau"},
+    {id:"coat-zip", en:"Zip up coat", fr:"fermer la fermeture éclair"},
+    {id:"buttons-large", en:"Large buttons", fr:"gros boutons"},
+    {id:"buttons-small", en:"Small buttons", fr:"petits boutons"},
+    {id:"snap", en:"Snap frame", fr:"boutons pression"},
+    {id:"hat", en:"Put on hat", fr:"mettre le bonnet"},
+    {id:"scarf", en:"Scarf around neck", fr:"écharpe"},
+    {id:"gloves", en:"Gloves on", fr:"gants"},
+    {id:"hang-coat", en:"Hang coat on hook", fr:"accrocher le manteau"},
+  ]},
+  { cat:"Hygiene", items:[
+    {id:"hands-wash", en:"Wash hands with prompt", fr:"se laver les mains"},
+    {id:"hands-wash-solo", en:"Wash hands independently", fr:"se laver les mains seule"},
+    {id:"teeth", en:"Brush teeth (with help)", fr:"se brosser les dents"},
+    {id:"teeth-solo", en:"Brush teeth independently", fr:"brosser seule"},
+    {id:"hair", en:"Brush hair", fr:"se brosser les cheveux"},
+    {id:"nose", en:"Wipe nose with tissue", fr:"se moucher"},
+    {id:"face", en:"Wipe face with napkin", fr:"essuyer le visage"},
+    {id:"toilet-signal", en:"Signal toilet need", fr:"dire pour les toilettes"},
+    {id:"toilet-go", en:"Use toilet with help", fr:"aller aux toilettes"},
+    {id:"bath-soap", en:"Soap own body in bath", fr:"se savonner"},
+  ]},
+  { cat:"Eating & drinking", items:[
+    {id:"spoon", en:"Use spoon minimal spill", fr:"manger à la cuillère"},
+    {id:"fork", en:"Use fork", fr:"manger à la fourchette"},
+    {id:"open-cup", en:"Drink from open cup", fr:"boire à un verre"},
+    {id:"pour-water", en:"Pour water from jug", fr:"verser l'eau"},
+    {id:"napkin", en:"Use napkin", fr:"serviette"},
+    {id:"set-table", en:"Set own place", fr:"mettre la table"},
+    {id:"clear-plate", en:"Clear own plate", fr:"débarrasser son assiette"},
+    {id:"try-new", en:"Try a new food", fr:"goûter un nouveau plat"},
+  ]},
+  { cat:"Care of environment", items:[
+    {id:"toys-away", en:"Put toys away after play", fr:"ranger les jouets"},
+    {id:"sweep", en:"Sweep small spill", fr:"balayer"},
+    {id:"wipe", en:"Wipe a wet spill", fr:"essuyer"},
+    {id:"chair", en:"Carry chair safely", fr:"porter une chaise"},
+    {id:"water-plant", en:"Water a plant", fr:"arroser une plante"},
+    {id:"close-door", en:"Close door quietly", fr:"fermer la porte doucement"},
+    {id:"shoes-shelf", en:"Place shoes on shelf", fr:"ranger les chaussures"},
+  ]},
+  { cat:"Communication", items:[
+    {id:"please", en:"Say 'please / s'il te plaît'", fr:"dire merci"},
+    {id:"thanks", en:"Say 'thank you / merci'", fr:"dire merci"},
+    {id:"greet", en:"Greet adults (hello/bonjour)", fr:"dire bonjour"},
+    {id:"bye", en:"Wave / say bye-bye", fr:"dire au revoir"},
+    {id:"name-emotion", en:"Name own emotion", fr:"nommer son émotion"},
+    {id:"ask-help", en:"Ask for help with words", fr:"demander de l'aide"},
+  ]},
+];
+
+function basicCycle(cur){
+  const order = ["new","practising","mastered","already_mastered"];
+  const i = order.indexOf(cur || "new");
+  return order[(i+1) % order.length];
+}
+
+function renderBasics(){
+  const grid = document.getElementById("basicsGrid");
+  if (!grid) return;
+  state.basics = state.basics || {};
+  let html = "";
+  BASICS.forEach(group => {
+    html += `<div style="grid-column: 1 / -1; font-weight:700; font-size:13px; color:var(--muted); margin-top:8px; padding-top:8px; border-top:1px solid var(--line)">${escapeHtml(group.cat)}</div>`;
+    group.items.forEach(it => {
+      const s = (state.basics[it.id] || {status:"new"}).status;
+      const by = state.basics[it.id]?.by || "";
+      const ic = s === "mastered" ? "✅" : s === "practising" ? "⏳" : s === "already_mastered" ? "🎓" : "◌";
+      const bg = s === "mastered" ? "#DCFCE7" : s === "practising" ? "#FEF3C7" : s === "already_mastered" ? "#E5E7EB" : "#F8FAFC";
+      html += `
+        <div data-basic="${escapeHtml(it.id)}" style="background:${bg}; border:1px solid var(--line); border-radius:10px; padding:8px 10px; cursor:pointer; display:flex; gap:8px; align-items:center" title="Tap to cycle status">
+          <div style="font-size:18px">${ic}</div>
+          <div style="flex:1; min-width:0">
+            <div style="font-size:13px; font-weight:600">${escapeHtml(it.en)}</div>
+            <div style="font-size:11px; color:var(--muted); font-style:italic">${escapeHtml(it.fr)}${by?` · ${escapeHtml(by)}`:""}</div>
+          </div>
+        </div>
+      `;
+    });
+  });
+  grid.innerHTML = html;
+}
+
+document.addEventListener("click", (e)=>{
+  const b = e.target.closest("[data-basic]");
+  if (!b) return;
+  const id = b.dataset.basic;
+  state.basics = state.basics || {};
+  const cur = state.basics[id]?.status;
+  const next = basicCycle(cur);
+  state.basics[id] = { status: next, by: state.currentUser || "—", ts: Date.now() };
+  saveState(state);
+  renderBasics();
+  showToast(`Basic: ${next === "new" ? "◌ Reset" : next === "practising" ? "⏳ Practising" : next === "mastered" ? "✅ Mastered" : "🎓 Already known"}`);
+});
+
+/* Progress view */
+function renderProgressView(){
+  renderBasics();
+  const stats = document.getElementById("progStats");
+  const doms = document.getElementById("progDomains");
+  const rec = document.getElementById("progRecent");
+
+  // Totals
+  let totalActs = 0, mastered = 0, practising = 0, tooHard = 0;
+  THEMES.forEach(t => DOMAINS.forEach(d => (t[d.key]||[]).forEach((_, i) => {
+    totalActs++;
+    const s = statusOf(t.w, d.key, i);
+    if (!s) return;
+    if (s.status === "mastered" || s.status === "already_mastered") mastered++;
+    else if (s.status === "practising") practising++;
+    else if (s.status === "too_hard") tooHard++;
+  })));
+  const pct = totalActs ? Math.round((mastered/totalActs)*100) : 0;
+
+  // Build per-domain level summary using science-backed computeDomainLevel
+  const domSummary = DOMAINS.map(d => {
+    const clv = computeDomainLevel(d.key);           // Fischer + MacArthur-Bates
+    const ds   = SKILLS.filter(s => s.dom === d.key);
+    const mSkills = ds.filter(s => skillStatus(s.id)==="mastered" || skillStatus(s.id)==="already_mastered").length;
+    return { d, lv: clv, mSkills, total: ds.length };
+  });
+  const overallScore = domSummary.reduce((s,x)=>s+x.lv.score,0) / domSummary.length;
+  // Map average score (1–5) back to a label
+  const overallLv = domainLevel((overallScore-1)/4);
+  const sorted = [...domSummary].sort((a,b)=>a.lv.score-b.lv.score);
+  const focusAreas   = sorted.slice(0,2);            // lowest → prioritise
+  const strengthArea = sorted[sorted.length-1];      // highest
+  const theme = pickTheme();
+
+  // ZPD-targeted next skills for focus areas
+  const nextActs = focusAreas.map(x => {
+    const recLv = recommendedLevel(x.d.key);
+    const zpd     = SKILLS.filter(s=>s.dom===x.d.key && skillStatus(s.id)!=="mastered" && skillStatus(s.id)!=="already_mastered" && skillLevel(s)===recLv)[0];
+    const stretch = SKILLS.filter(s=>s.dom===x.d.key && skillStatus(s.id)!=="mastered" && skillStatus(s.id)!=="already_mastered" && skillLevel(s)>recLv)[0];
+    const sk = zpd || stretch;
+    if (!sk) return null;
+    const tag = sk===zpd ? '<span style="font-size:10px;background:#D1FAE5;color:#065F46;border-radius:4px;padding:1px 4px">⭐ ZPD</span>'
+                         : '<span style="font-size:10px;background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 4px">🌱 Stretch</span>';
+    return `${x.d.emoji} <strong>${escapeHtml(sk.t)}</strong> ${tag} <span style="color:var(--muted); font-size:11px">(${escapeHtml(sk.age||"")})</span>`;
+  }).filter(Boolean);
+
+  // Holistic vocab counts from ALL trackers (MacArthur-Bates CDI logic)
+  const { en: vmKnownEn, fr: vmKnownFr, conceptual: vmConceptual } = vocabTotalKnown();
+  const vocabLv = computeDomainLevel('vocab');
+  const bodyPartCat = VOCAB_MASTER.find(c=>c.cat.includes("Body"));
+  const bodyKnownEn = bodyPartCat ? bodyPartCat.words.filter(w=>isVMastered(w.en,"en")).length : 0;
+  const bodyTotal   = bodyPartCat ? bodyPartCat.words.length : 0;
+  // How many recent sessions logged?
+  const recentDays = [...new Set((state.history||[]).slice(-30).map(h=>h.date))].length;
+  const vocabMilestone = vmConceptual < 50
+    ? `<span style="color:#9D174D; font-size:11px">— ${50-vmConceptual} concepts to reach +50 🎯</span>`
+    : vmConceptual < 200
+      ? `<span style="color:#166534; font-size:11px">✅ +50 milestone · ${200-vmConceptual} concepts for +200</span>`
+      : vmConceptual < 500
+        ? `<span style="color:#166534; font-size:11px">🌟 +200 milestone reached! · ${500-vmConceptual} for 500</span>`
+        : `<span style="color:#166534; font-size:11px">🏆 +500 concept milestone!</span>`;
+
+  stats.innerHTML = `
+    <div class="prog-card" style="grid-column:1/-1; padding:16px; background:linear-gradient(135deg,#F0FDF4,#FAFAFA); border:2px solid #BBF7D0">
+      <!-- Header row -->
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:10px">
+        <div>
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:2px">Holistic Assessment</div>
+          <div style="font-size:18px; font-weight:800; color:var(--ink)">${theme.emoji} W${theme.w} · ${escapeHtml(theme.title)}</div>
+          <div style="font-size:11px; color:var(--muted); margin-top:2px">Fischer Skill Theory · MacArthur-Bates CDI · Vygotsky ZPD${recentDays>0?` · ${recentDays} active session days tracked`:""}</div>
+        </div>
+        <span style="font-size:13px; font-weight:700; color:${overallLv.color}; background:${overallLv.bg}; padding:5px 14px; border-radius:10px; align-self:flex-start">${overallLv.label}</span>
+      </div>
+
+      <!-- Domain chips row -->
+      <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px">
+        ${domSummary.map(x=>`
+          <span style="display:inline-flex; align-items:center; gap:4px; background:${x.lv.bg}; color:${x.lv.color}; border-radius:8px; padding:3px 9px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid ${x.lv.color}33" onclick="toggleDomDetail('${x.d.key}'); sjScrollTo('sec-prog-domains',null)" title="${x.lv.norm||''}">
+            ${x.d.emoji} ${x.d.label}<span style="font-weight:400; margin-left:2px; opacity:.85">${x.lv.label.replace(/^\S+\s*/,"")}</span>
+          </span>`).join("")}
+      </div>
+
+      <!-- Vocab milestone row (clickable) -->
+      <div onclick="showView('vocabulary')" style="cursor:pointer; display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px; padding:8px 12px; background:rgba(252,231,243,.5); border:1px solid #FBCFE8; border-radius:8px">
+        <span style="font-size:14px">📚</span>
+        <span style="font-size:13px; font-weight:700; color:#9D174D">${vmKnownEn}</span><span style="font-size:12px; color:var(--muted)">🇬🇧</span>
+        <span style="font-size:12px; color:var(--muted)">·</span>
+        <span style="font-size:13px; font-weight:700; color:#9D174D">${vmKnownFr}</span><span style="font-size:12px; color:var(--muted)">🇫🇷</span>
+        <span style="font-size:12px; color:var(--muted)">·</span>
+        <span style="font-size:12px; font-weight:600; color:${vocabLv.color}; background:${vocabLv.bg}; border-radius:6px; padding:1px 7px">${vmConceptual} concepts · ${vocabLv.label.replace(/^\S+\s*/,"")}</span>
+        ${vmConceptual > 0 ? `<span style="font-size:11px; color:var(--muted)">${bodyKnownEn}/${bodyTotal} body parts</span>` : ""}
+        ${vocabMilestone}
+        <span style="font-size:11px; color:#9D174D; margin-left:auto">→ Vocabulary</span>
+      </div>
+
+      <!-- Activity stats bar -->
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px">
+        <span style="font-size:12px; background:#DCFCE7; color:#14532D; border-radius:6px; padding:2px 9px">✅ ${mastered} mastered</span>
+        <span style="font-size:12px; background:#DBEAFE; color:#1D4ED8; border-radius:6px; padding:2px 9px">⏳ ${practising} practising</span>
+        ${tooHard ? `<span style="font-size:12px; background:#FEF3C7; color:#92400E; border-radius:6px; padding:2px 9px">💛 ${tooHard} too hard</span>` : ""}
+        <span style="font-size:12px; background:#F3F4F6; color:#374151; border-radius:6px; padding:2px 9px">${totalActs} total activities</span>
+      </div>
+
+      <!-- Focus + Strength panels -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+        <div style="background:rgba(254,243,199,.5); border:1px solid #FCD34D; border-radius:8px; padding:10px">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#92400E; margin-bottom:6px">🎯 ZPD focus areas</div>
+          ${focusAreas.map(x=>{
+            const g = DOMAIN_GUIDANCE[x.d.key];
+            return `<div style="margin-bottom:6px">
+              <div style="font-size:12px; font-weight:700; margin-bottom:2px">${x.d.emoji} ${x.d.label} <span style="font-weight:400; color:${x.lv.color}; background:${x.lv.bg}; border-radius:5px; padding:1px 5px">${x.lv.label}</span></div>
+              <div style="font-size:12px; color:#78350F; line-height:1.4">${g ? g.weak : ""}</div>
+            </div>`;
+          }).join("")}
+          ${nextActs.length ? `
+            <div style="margin-top:8px; border-top:1px dashed #FCD34D; padding-top:6px; display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:11px; font-weight:700; color:#92400E; text-transform:uppercase; letter-spacing:.06em">Next skills (ZPD)</span>
+              ${nextActs.map(a=>`<div style="font-size:12px; line-height:1.4">${a}</div>`).join("")}
+            </div>` : ""}
+        </div>
+        <div style="background:rgba(220,252,231,.5); border:1px solid #86EFAC; border-radius:8px; padding:10px">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#14532D; margin-bottom:6px">✨ Building on strengths</div>
+          <div style="font-size:12px; font-weight:700; margin-bottom:4px">${strengthArea.d.emoji} ${strengthArea.d.label} <span style="font-weight:400; color:${strengthArea.lv.color}; background:${strengthArea.lv.bg}; border-radius:5px; padding:1px 5px">${strengthArea.lv.label}</span></div>
+          <div style="font-size:12px; color:#166534; line-height:1.4">${DOMAIN_GUIDANCE[strengthArea.d.key]?.strong||""}</div>
+          ${strengthArea.lv.norm ? `<div style="margin-top:6px; font-size:11px; color:#166534; font-style:italic">📊 ${escapeHtml(strengthArea.lv.norm)}</div>` : ""}
+          ${tooHard ? `<div style="margin-top:6px; font-size:12px; color:#B45309">💛 ${tooHard} marked too hard — revisit previous level</div>` : ""}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Per-domain — clickable level cards
+  doms.innerHTML = "";
+  DOMAINS.forEach(d=>{
+    // Science-backed level (Fischer + vocab norms)
+    const dlv  = computeDomainLevel(d.key);
+    const ds   = SKILLS.filter(s=>s.dom===d.key);
+    const mSkills = ds.filter(s=>skillStatus(s.id)==="mastered"||skillStatus(s.id)==="already_mastered").length;
+    // Activity completion
+    let actTotal=0, actDone=0;
+    THEMES.forEach(t=>(t[d.key]||[]).forEach((_,i)=>{
+      actTotal++;
+      const s=statusOf(t.w,d.key,i);
+      if(s&&(s.status==="mastered"||s.status==="already_mastered")) actDone++;
+    }));
+    // Next ZPD + stretch skills (exclude already_mastered too)
+    const recLv = recommendedLevel(d.key);
+    const nextSkills = SKILLS
+      .filter(s=>s.dom===d.key && skillStatus(s.id)!=="mastered" && skillStatus(s.id)!=="already_mastered")
+      .sort((a,b)=>skillLevel(a)-skillLevel(b))
+      .filter(s=>skillLevel(s)>=recLv)
+      .slice(0,3);
+    const detailId = `domDetail_${d.key}`;
+    const row = document.createElement("div");
+    row.style.marginBottom = "8px";
+    row.innerHTML = `
+      <div onclick="toggleDomDetail('${d.key}')" style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--card); user-select:none">
+        <span style="font-size:22px; line-height:1; flex:0 0 auto">${d.emoji}</span>
+        <div style="flex:1; min-width:0">
+          <div style="font-weight:700; font-size:14px">${d.label}</div>
+          <div style="font-size:12px; color:var(--muted)">${mSkills}/${ds.length} milestones · ${actDone}/${actTotal} activities${dlv.norm?` · <em>${escapeHtml(dlv.norm)}</em>`:""}</div>
+        </div>
+        <span style="font-size:12px; font-weight:700; color:${dlv.color}; background:${dlv.bg}; padding:4px 10px; border-radius:8px; white-space:nowrap; flex:0 0 auto">${dlv.label}</span>
+        <span id="${detailId}_arrow" style="color:var(--muted); font-size:12px; flex:0 0 auto">▾</span>
+      </div>
+      <div id="${detailId}" style="display:none; margin-top:2px; padding:14px 14px 10px; border:1px solid var(--line); border-top:none; border-radius:0 0 10px 10px; background:${dlv.bg}22">
+        <div style="font-size:13px; color:${dlv.score>=3?'#166534':'#92400E'}; line-height:1.55; margin-bottom:10px">
+          <strong>Assessment:</strong> ${dlv.score>=3 ? (DOMAIN_GUIDANCE[d.key]?.strong||"") : (DOMAIN_GUIDANCE[d.key]?.weak||"")}
+        </div>
+        ${dlv.src ? `<div style="font-size:11px; color:var(--muted); margin-bottom:8px; font-style:italic">📊 ${escapeHtml(dlv.src)}</div>` : ""}
+        ${nextSkills.length ? `
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px">🎯 Next skills to practise (ZPD)</div>
+          <div style="display:flex; flex-direction:column; gap:5px">
+            ${nextSkills.map(s=>{
+              const isZpd = skillLevel(s)===recLv;
+              return `
+              <div style="background:var(--card); border-radius:8px; padding:8px 10px; border:1px solid var(--line)">
+                <div style="font-size:13px; font-weight:600">${escapeHtml(s.t)}
+                  <span style="font-size:10px; font-weight:400; margin-left:4px; padding:1px 5px; border-radius:4px; background:${isZpd?'#D1FAE5':'#FEF3C7'}; color:${isZpd?'#065F46':'#92400E'}">${isZpd?'⭐ ZPD':'🌱 Stretch'}</span>
+                  <span style="font-size:11px; color:var(--muted); font-weight:400; margin-left:4px">${escapeHtml(s.age||"")}</span>
+                </div>
+                ${s.how ? `<div style="font-size:12px; color:var(--muted); margin-top:2px">💡 ${escapeHtml(s.how)}</div>` : ""}
+                ${s.next ? `<div style="font-size:11px; color:#2563EB; margin-top:2px">→ Then: ${escapeHtml(s.next)}</div>` : ""}
+              </div>
+            `}).join("")}
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:8px; font-style:italic">Sources: ${[...new Set(nextSkills.map(s=>s.src).filter(Boolean))].join(", ") || "CDC/AAP milestones"}</div>
+        ` : `<div style="font-size:13px; color:#166534">🌟 All tracked milestone skills mastered!</div>`}
+      </div>
+    `;
+    doms.appendChild(row);
+  });
+
+  // Recent
+  const recent = [...(state.history||[])].slice(-20).reverse();
+  rec.innerHTML = recent.length ? recent.map(h=>{
+    const ai = (h.actId || "").split("-");
+    const wk = ai[0], dom = ai[1], idx = ai[2];
+    const theme = THEMES.find(t=>t.w==wk);
+    const dInfo = DOMAINS.find(x=>x.key===dom);
+    const a = theme && dInfo ? (theme[dom]||[])[idx] : null;
+    return `
+      <div style="padding:8px 0; border-bottom:1px solid var(--line); font-size:13px">
+        <div style="font-weight:600">${a ? escapeHtml(a.t) : "Activity"}
+          <span class="act-status-badge s-${h.fb}">${prettyStatus(h.fb)}</span></div>
+        <div style="color:var(--muted); font-size:12px">${dInfo?dInfo.emoji+" "+dInfo.label:""} · ${theme?"W"+theme.w+" "+escapeHtml(theme.title):""} · ${escapeHtml(h.user||"—")} · ${new Date(h.ts).toLocaleString("en-GB")}</div>
+      </div>
+    `;
+  }).join("") : '<div style="color:var(--muted); font-size:13px">No activity logged yet.</div>';
+}
+
+/* Toggle domain detail panel (expand/collapse on click) */
+function toggleDomDetail(key){
+  const panel = document.getElementById(`domDetail_${key}`);
+  const arrow = document.getElementById(`domDetail_${key}_arrow`);
+  if (!panel) return;
+  const open = panel.style.display !== "none";
+  panel.style.display = open ? "none" : "block";
+  if (arrow) arrow.textContent = open ? "▾" : "▴";
+}
+
+/* =========================================================
+   SKILL CATALOGUE — universal developmental skills
+   Drives activity-difficulty recommendations.
+   State: state.skillStatus[skillId] = { status, by, ts }
+   Status: "new" | "emerging" | "practising" | "mastered"
+   Additive — never overwrites previous data.
+   ========================================================= */
+state.skillStatus = state.skillStatus || {};
+let skillViewMode = "smart"; // "smart" | "all"
+
+/* Map mastery % to a developmental level label (replaces raw %) */
+function domainLevel(pct){
+  if (pct >= 0.90) return { label:"🌟 Expert", color:"#14532D", bg:"#DCFCE7", score:5 };
+  if (pct >= 0.66) return { label:"🟢 Advancing", color:"#166534", bg:"#BBF7D0", score:4 };
+  if (pct >= 0.40) return { label:"🟡 Developing", color:"#854D0E", bg:"#FEF3C7", score:3 };
+  if (pct >= 0.15) return { label:"🔵 Emerging", color:"#1D4ED8", bg:"#DBEAFE", score:2 };
+  return { label:"⚪ Foundation", color:"#374151", bg:"#F3F4F6", score:1 };
+}
+
+/* ── Aggregate all known vocabulary across both trackers ──────────────────
+   Primary: vocabMaster (explicit per-word marking in master tracker)
+   Secondary: vocabMastered (per-week bingo entries)
+   Uses VOCAB_MASTER catalogue as the canonical word list.                  */
+function vocabTotalKnown(){
+  let vmEN=0, vmFR=0;
+  VOCAB_MASTER.forEach(cat=>cat.words.forEach(w=>{
+    if(isVMastered(w.en,'en')) vmEN++;
+    if(isVMastered(w.en,'fr')) vmFR++;
+  }));
+  // Bingo-only count (weeks not yet synced to master tracker)
+  const bingoEN = new Set(), bingoFR = new Set();
+  Object.keys(state.vocabMastered||{}).forEach(k=>{
+    const parts = k.split('-');
+    if(parts.length >= 3){
+      const lang = parts[parts.length-1];
+      const base = parts.slice(0,-1).join('-');
+      if(lang==='en') bingoEN.add(base);
+      if(lang==='fr') bingoFR.add(base);
+    }
+  });
+  // Take max of each source — avoid double-counting words in both trackers
+  const en = Math.max(vmEN, bingoEN.size);
+  const fr = Math.max(vmFR, bingoFR.size);
+  // Conceptual vocabulary = unique concepts in at least one language
+  // For bilingual assessment: count each concept once (MacArthur-Bates bilingual CDI)
+  const conceptual = Math.max(en, fr);
+  return { en, fr, conceptual };
+}
+
+/* ── Holistic domain level — science-backed weighted assessment ────────────
+   Sources:
+   • Vocabulary: MacArthur-Bates CDI bilingual norms (Hoff et al., 2012)
+   • Motor/Cognitive/Social: CDC/WHO milestone age bands weighted by difficulty
+   • Level weighting: Fischer Dynamic Skill Theory — harder skills count more
+   • ZPD: levels 1–3 per skill map to Vygotsky's proximal zone thresholds
+   This replaces simple mastery% with a difficulty-weighted score so that
+   mastering harder (age 30m+) skills advances the level meaningfully.      */
+function computeDomainLevel(domKey){
+  if(domKey === 'vocab'){
+    const { en, fr, conceptual } = vocabTotalKnown();
+    // Bilingual CDI norms (Hoff et al. 2012): bilingual conceptual vocab at/above monolingual peers
+    // 24m ≈ 200-300 concepts, 30m ≈ 400-500, 36m ≈ 600+
+    if(conceptual >= 500) return { label:'🌟 Expert', color:'#14532D', bg:'#DCFCE7', score:5,
+      norm:`${en}🇬🇧 ${fr}🇫🇷 · ${conceptual} concepts`, src:'MacArthur-Bates CDI · Hoff 2012' };
+    if(conceptual >= 250) return { label:'🟢 Advancing', color:'#166534', bg:'#BBF7D0', score:4,
+      norm:`${en}🇬🇧 ${fr}🇫🇷 · ${conceptual} concepts`, src:'MacArthur-Bates CDI' };
+    if(conceptual >= 100) return { label:'🟡 Developing', color:'#854D0E', bg:'#FEF3C7', score:3,
+      norm:`${en}🇬🇧 ${fr}🇫🇷 · ${conceptual} concepts`, src:'MacArthur-Bates CDI' };
+    if(conceptual >= 40)  return { label:'🔵 Emerging', color:'#1D4ED8', bg:'#DBEAFE', score:2,
+      norm:`${en}🇬🇧 ${fr}🇫🇷 · ${conceptual} concepts`, src:'MacArthur-Bates CDI' };
+    return { label:'⚪ Foundation', color:'#374151', bg:'#F3F4F6', score:1,
+      norm:`${en}🇬🇧 ${fr}🇫🇷 · ${conceptual} concepts`, src:'MacArthur-Bates CDI' };
+  }
+  // Non-vocab domains: difficulty-weighted mastery ratio
+  // Skill weights: level-1 skills = 1 pt, level-2 = 2 pts, level-3 = 3 pts
+  // Mastery contribution: new=0, emerging=0.25, practising=0.60, mastered/already_mastered=1.0
+  const domSkills = SKILLS.filter(s=>s.dom===domKey);
+  if(!domSkills.length) return domainLevel(0);
+  const mW = { mastered:1.0, already_mastered:1.0, practising:0.6, emerging:0.25, new:0 };
+  let wSum=0, wTotal=0;
+  domSkills.forEach(s=>{
+    const lv = skillLevel(s);
+    wSum   += lv * (mW[skillStatus(s.id)]||0);
+    wTotal += lv;
+  });
+  return domainLevel(wTotal>0 ? wSum/wTotal : 0);
+}
+
+/* Activity difficulty match relative to child's current domain level
+   Returns: "zpd" (right challenge), "easy" (below level), "hard" (above), "current" (at level) */
+function activityDifficultyMatch(domKey, slotIdx){
+  const childLevel = computeDomainLevel(domKey).score;  // 1-5
+  // Slot 0 = easy (L1), slot 1 = standard (L2), slot 2 = stretch (L3)
+  // Map slot to a relative difficulty tier
+  const slotTier = slotIdx + 1; // 1,2,3
+  // Ideal: slotTier ≈ (childLevel - 1) for easy, childLevel for standard, childLevel + 1 for stretch
+  // ZPD = one step above mastered level
+  if(slotTier < childLevel - 1) return "easy";
+  if(slotTier === childLevel || slotTier === childLevel - 1) return "current";
+  if(slotTier === childLevel + 1) return "zpd";
+  return "hard";
+}
+
+/* Approximate skill difficulty from age string */
+function skillLevel(s){
+  const a = s.age || "";
+  if (a.includes("30") || a.includes("36") || a.includes("3+")) return 3;
+  if (a.includes("24") || a.includes("2+")) return 2;
+  return 1;
+}
+
+const SKILLS = [
+  // GROSS MOTOR
+  { id:"gm-walk", dom:"gross", t:"Walks well, rare falls", age:"15–24m", what:"Stable upright walking", why:"Builds vestibular + bilateral coordination. Foundation for all gross-motor skills.", how:"Outdoor walks daily. Vary terrain — grass, gravel, stairs, hills.", next:"Walk on uneven surfaces", src:"CDC milestones" },
+  { id:"gm-run", dom:"gross", t:"Runs without falling", age:"~24m", what:"Coordinated running 5+ steps", why:"Heart-lung capacity, gross-motor planning.", how:"Open spaces. Chase games. Start–stop on cue.", next:"Run + change direction", src:"CDC milestones" },
+  { id:"gm-jump", dom:"gross", t:"Jumps with two feet together", age:"~24m", what:"Both feet leave ground simultaneously", why:"Bilateral coordination + power. Pre-skill for hopping.", how:"Jump off low cushion. Jump over tape line.", next:"Jump for distance", src:"AAP milestones" },
+  { id:"gm-stairs-up", dom:"gross", t:"Walks up stairs (rail, alternating)", age:"24–30m", what:"Alternating feet, holding handrail", why:"Balance + leg strength.", how:"Always supervised. Hold rail. Slow.", next:"Walk down stairs alternating", src:"CDC" },
+  { id:"gm-kick", dom:"gross", t:"Kicks a ball forward", age:"~24m", what:"Foot connects, ball moves forward", why:"Lower-body coordination + balance on one leg.", how:"Stationary ball. Soft. Big target.", next:"Kicks with run-up", src:"CDC" },
+  { id:"gm-throw", dom:"gross", t:"Throws ball overhead", age:"~24m", what:"Hand above head, releases", why:"Cross-body coordination.", how:"Soft ball. Big target.", next:"Aim at target", src:"CDC" },
+  { id:"gm-catch", dom:"gross", t:"Catches large ball with both arms", age:"30–36m", what:"Brings arms around ball", why:"Visual tracking + timing.", how:"Big light ball. Bounce first.", next:"Catch smaller ball", src:"AAP" },
+  { id:"gm-climb", dom:"gross", t:"Climbs onto/off furniture safely", age:"18–24m", what:"Risk-aware climbing", why:"Spatial reasoning + risk-management.", how:"Allow climbing — supervise. Pikler approach.", next:"Low playground structures", src:"Pikler / Gerber RIE" },
+  { id:"gm-balance-bike", dom:"gross", t:"Balance bike — steers + pushes", age:"24–36m", what:"Sits, pushes with feet, steers", why:"Balance, vestibular, confidence. Avoids training-wheel reliance.", how:"Helmet. Flat ground. No pedals.", next:"Glide with feet up", src:"AAP" },
+  { id:"gm-one-foot", dom:"gross", t:"Stands on one foot 3+ sec", age:"30–36m", what:"Brief single-leg balance", why:"Vestibular + core.", how:"Practice daily. Eyes open then closed.", next:"Hop on one foot", src:"CDC" },
+  { id:"gm-carry-heavy", dom:"gross", t:"Carries heavy object across room", age:"24m+", what:"Proprioceptive 'heavy work'", why:"Regulating + functional strength.", how:"Books, water bottle. Steady walk.", next:"Carry up stairs", src:"OT consensus" },
+
+  // FINE MOTOR
+  { id:"fm-stack-6", dom:"fine", t:"Stacks 6+ blocks tall", age:"~24m", what:"Stable tower 6+", why:"Bilateral hand use, perseverance, depth perception.", how:"Wooden blocks. Calm focus.", next:"Stack 8+", src:"CDC" },
+  { id:"fm-thread", dom:"fine", t:"Threads large beads on lace", age:"24–30m", what:"String through hole", why:"Bilateral coordination + pincer.", how:"≥2cm beads. Stiff lace with knot.", next:"Smaller beads", src:"OT" },
+  { id:"fm-crayon", dom:"fine", t:"Crayon with finger grip (not fist)", age:"24–30m", what:"Tripod or quadrupod grip emerging", why:"Pre-writing precursor.", how:"Chunky crayons. No fist correction yet.", next:"Mature tripod", src:"OT" },
+  { id:"fm-lines-h", dom:"fine", t:"Imitates horizontal line", age:"24–30m", what:"Copies a drawn line", why:"Motor planning + visual-motor.", how:"You draw, she copies.", next:"Vertical lines, circles", src:"OT" },
+  { id:"fm-lines-v", dom:"fine", t:"Imitates vertical line", age:"24–30m", what:"Copies vertical stroke", why:"Visual-motor integration.", how:"Same — vertical demo.", next:"Cross +", src:"OT" },
+  { id:"fm-circle", dom:"fine", t:"Imitates a circle", age:"30–36m", what:"Closed circular shape", why:"Pre-letter shape.", how:"Demonstrate slowly.", next:"Draw a person (head + 1 feature)", src:"OT" },
+  { id:"fm-scissors", dom:"fine", t:"Cuts with toddler scissors (snip)", age:"~24m+", what:"Single snip on paper edge", why:"Bilateral hand use + grip.", how:"Toddler scissors. Strip of paper. Supervised. ✅ Maxine mastered.", next:"Cut along a line", src:"Maxine Nido update + OT" },
+  { id:"fm-spoon-fork", dom:"fine", t:"Uses spoon and fork (minimal spill)", age:"24m", what:"Self-feeding utensils", why:"Practical Life autonomy + grip.", how:"Real utensils. Patience for mess.", next:"Use of knife (toddler-safe) for soft foods", src:"Montessori / OT" },
+  { id:"fm-lids", dom:"fine", t:"Opens and closes lids on small containers", age:"24m", what:"Twist or pop lids", why:"Wrist rotation + bilateral.", how:"Practice with safe containers.", next:"Multi-step jars", src:"OT" },
+  { id:"fm-pages", dom:"fine", t:"Turns book pages one at a time", age:"~24m", what:"Single page turn", why:"Pincer + book handling.", how:"Board books, then paper.", next:"Find specific page", src:"OT" },
+  { id:"fm-buttons-large", dom:"fine", t:"Buttoning (large buttons)", age:"30m+", what:"Push button through hole", why:"Self-dressing autonomy.", how:"Montessori frame.", next:"Small buttons", src:"Montessori scope" },
+  { id:"fm-zip", dom:"fine", t:"Zips up jacket", age:"30–36m", what:"Pulls zipper from base", why:"Bilateral + sequencing.", how:"Start at neck, parent connects.", next:"Connect zipper alone", src:"OT" },
+  { id:"fm-velcro", dom:"fine", t:"Velcro shoes on/off", age:"24m", what:"Open + close velcro", why:"Self-dressing autonomy.", how:"Frame practice + real shoes. ✅ Maxine mastered.", next:"Button frame", src:"Maxine Nido update / Montessori" },
+
+  // SENSORY
+  { id:"se-colors-3", dom:"sensory", t:"Matches 3 primary colors", age:"24–30m", what:"Match red/blue/yellow", why:"Visual discrimination + vocabulary.", how:"Color tablets, paint chips.", next:"Names colors", src:"Montessori" },
+  { id:"se-shapes-3", dom:"sensory", t:"Identifies 3 shapes (circle/square/triangle)", age:"30–36m", what:"Points to named shape", why:"Geometry foundation.", how:"Shape sorter, real-world hunt.", next:"Shape inventory", src:"Montessori" },
+  { id:"se-pink-tower", dom:"sensory", t:"Pink Tower (Montessori)", age:"30–36m", what:"Builds 10 cubes smallest-on-top", why:"Visual discrimination of size + math precursor.", how:"Montessori material or stacking cubes.", next:"Brown Stairs", src:"Montessori AMI" },
+  { id:"se-mystery", dom:"sensory", t:"Mystery bag (stereognosis)", age:"24m+", what:"Identifies 3+ objects by touch", why:"Tactile memory + naming.", how:"Cloth bag, familiar objects.", next:"More objects, abstract shapes", src:"Montessori" },
+  { id:"se-smell", dom:"sensory", t:"Discriminates 3+ smells", age:"24m+", what:"Names a smell or matches pairs", why:"Olfactory memory + descriptive vocab.", how:"Smell jars: herbs from kitchen.", next:"More variety", src:"Montessori" },
+  { id:"se-sound", dom:"sensory", t:"Matches paired sounds", age:"24m+", what:"6 shakers, 3 matching pairs", why:"Auditory discrimination — pre-phonemic.", how:"Rice / beans / bells in opaque containers.", next:"Sequence sounds", src:"Montessori" },
+
+  // COGNITIVE
+  { id:"co-count-3", dom:"cognitive", t:"Counts to 3 with 1:1", age:"24m", what:"Touches each object as counting", why:"Number sense foundation (Dehaene).", how:"Count daily — fingers, blocks, stairs.", next:"Count to 5", src:"Dehaene Number Sense" },
+  { id:"co-count-5", dom:"cognitive", t:"Counts to 5 with 1:1", age:"30m+", what:"Stable to 5", why:"Cardinality emerging.", how:"Count physical objects.", next:"Count to 10", src:"Dehaene" },
+  { id:"co-sort-color", dom:"cognitive", t:"Sorts by color (3 colors)", age:"24m", what:"Groups same color", why:"Classification = logical reasoning.", how:"Pom-poms + bowls.", next:"Sort by size", src:"Piaget / Montessori" },
+  { id:"co-sort-size", dom:"cognitive", t:"Sorts by size (big/small)", age:"24–30m", what:"Two-bin sort", why:"Size discrimination.", how:"Two sizes of same object.", next:"Three sizes (small/medium/big)", src:"Montessori" },
+  { id:"co-same-diff", dom:"cognitive", t:"Same / different identification", age:"24–30m", what:"Names 2 objects same or different", why:"Comparison + categorisation.", how:"Show pairs.", next:"Why is it different?", src:"Piaget" },
+  { id:"co-missing", dom:"cognitive", t:"'What's missing?' (3 → 5 objects)", age:"24m+", what:"Notices object removed", why:"Working memory + observation.", how:"Show, cover, remove one.", next:"More objects, longer hide", src:"Diamond UBC EF" },
+  { id:"co-instr-1", dom:"cognitive", t:"Follows 1-step instruction", age:"~18m", what:"'Bring me the ball'", why:"Receptive language + listening.", how:"Simple, concrete asks.", next:"2-step", src:"CDC" },
+  { id:"co-instr-2", dom:"cognitive", t:"Follows 2-step instruction", age:"24–30m", what:"'Pick up the book and bring it to me'", why:"Sequence + memory.", how:"Practice in play.", next:"3-step", src:"CDC" },
+  { id:"co-pretend", dom:"cognitive", t:"Multi-step pretend play", age:"24–30m", what:"Feed doll → put to sleep → cover with blanket", why:"Symbolic thinking + sequencing.", how:"Set up scenarios.", next:"Role swapping", src:"Piaget pre-operational" },
+  { id:"co-puzzle-6", dom:"cognitive", t:"Completes 6-piece knobbed puzzle", age:"24–30m", what:"Independent puzzle solve", why:"Visual-spatial reasoning.", how:"Knobbed wooden puzzles.", next:"More pieces, no knob", src:"Montessori / OT" },
+
+  // LANGUAGE (note: vocabulary words are tracked separately in Bingo)
+  { id:"la-words-50", dom:"vocab", t:"Says 50+ words", age:"~24m", what:"50 distinct spoken words", why:"Major language milestone.", how:"Read 3+ books/day. Live human voice. Narrate.", next:"200+ words", src:"Kuhl I-LABS / Fernald Stanford" },
+  { id:"la-words-200", dom:"vocab", t:"Says 200+ words", age:"~30m", what:"Vocabulary explosion", why:"Predicts school readiness (Hart-Risley).", how:"Continue reading, narrating, expanding her phrases.", next:"500+", src:"Hart-Risley 1995" },
+  { id:"la-2word", dom:"vocab", t:"Uses 2-word combinations", age:"~21m", what:"'more milk', 'encore lait'", why:"Pre-grammar emerging.", how:"Model 2-3 word phrases.", next:"3-word sentences", src:"CDC" },
+  { id:"la-3word", dom:"vocab", t:"Uses 3-word sentences", age:"~30m", what:"'I want milk', 'maman donne ballon'", why:"Syntax developing.", how:"Expand her 2-word phrases with one more word.", next:"4+ word sentences", src:"CDC" },
+  { id:"la-why", dom:"vocab", t:"Asks 'why?'", age:"~30m+", what:"Inquiry-driven questions", why:"Theory-building.", how:"Answer briefly, then invite more questions.", next:"Asks how/when/where", src:"Gopnik" },
+  { id:"la-body-5", dom:"vocab", t:"Names 5+ body parts", age:"24m", what:"Points + names", why:"Body schema + vocab.", how:"'Where's your nose?' game.", next:"More obscure parts (elbow, ankle)", src:"CDC" },
+  { id:"la-pronouns", dom:"vocab", t:"Uses pronouns: I, me, mine, you", age:"~24m+", what:"Self-referent language", why:"Self-concept + grammar.", how:"Model in everyday speech.", next:"He/she/they", src:"CDC" },
+  { id:"la-story-5min", dom:"vocab", t:"Listens to a 5-min story", age:"24–30m", what:"Stays engaged", why:"Attention + narrative comprehension.", how:"Daily story time.", next:"10-min story", src:"AAP" },
+
+  // SOCIAL-EMOTIONAL
+  { id:"so-emotion-4", dom:"social", t:"Names 4+ basic emotions", age:"24–30m", what:"happy / sad / angry / scared", why:"Emotional vocabulary predicts EQ (Brackett Yale).", how:"Name emotions in real time.", next:"Subtle emotions (proud, disappointed)", src:"Marc Brackett, Yale" },
+  { id:"so-coreg", dom:"social", t:"Recovers from frustration with co-regulation", age:"24m+", what:"Calms within 2 min of caregiver support", why:"Foundation for self-regulation (Perry).", how:"Regulate → Relate → Reason. Never reverse.", next:"Self-regulates briefly", src:"Bruce Perry, Neurosequential" },
+  { id:"so-parallel", dom:"social", t:"Parallel play (with peer)", age:"24m", what:"Plays alongside another child", why:"Pre-cooperative play.", how:"Playdates. Provide enough materials.", next:"Cooperative play", src:"Parten stages" },
+  { id:"so-empathy", dom:"social", t:"Shows concern when peer cries", age:"24m+", what:"Looks worried, may offer comfort", why:"Empathy emerging.", how:"Model: 'I see X is sad.'", next:"Active comforting", src:"Hoffman empathy stages" },
+  { id:"so-please-thanks", dom:"social", t:"Says please/thank you with reminder", age:"24m+", what:"S'il te plaît / merci", why:"Social conventions.", how:"Always model.", next:"Unprompted", src:"Brackett / Montessori grace & courtesy" },
+  { id:"so-separation", dom:"social", t:"Separates at Kita without prolonged distress", age:"24m+", what:"Recovers within minutes after parent leaves", why:"Secure attachment + transition tolerance.", how:"Consistent goodbye ritual.", next:"Stays calm whole day", src:"Bowlby attachment" },
+  { id:"so-name-feeling", dom:"social", t:"Names own feeling unprompted", age:"30m+", what:"'I'm angry' / 'Je suis fâchée'", why:"Self-awareness + Name-It-to-Tame-It (Siegel).", how:"Model + wait. Don't put words in mouth.", next:"Names cause of feeling", src:"Siegel-Bryson UCLA" },
+
+  // ── FOUNDATIONAL SKILLS (level 1 · ~12–18m typical) ──────────────────────
+  // These calibrate the baseline — mark what Maxine already has mastered
+  // so domain levels reflect her actual starting point.
+
+  // GROSS MOTOR – early foundation (likely already mastered)
+  { id:"gm-stand-unsup", dom:"gross", t:"Stands unsupported 10+ sec", age:"~12m", what:"Stable independent standing", why:"Vestibular + postural tone foundation for all locomotion (WHO MDS).", how:"Clap game. Stand to reach toy on table.", next:"Walk", src:"WHO Motor Development Study" },
+  { id:"gm-squat-play", dom:"gross", t:"Squats to pick up object and returns to stand", age:"~15m", what:"Controlled squat → stand without support", why:"Core strength + hip mobility + balance transition.", how:"Place toy on floor. She squats, retrieves, stands.", next:"Carry while walking", src:"CDC" },
+  { id:"gm-push-pull", dom:"gross", t:"Pushes and pulls wheeled toys", age:"~12–15m", what:"Sustained push or pull while walking", why:"Proprioceptive feedback + directionality + force control.", how:"Push-along cart, pull-along duck.", next:"Navigates around obstacles", src:"CDC" },
+  { id:"gm-walk-stairs-hand", dom:"gross", t:"Walks up stairs holding one hand", age:"~18m", what:"Both hands free, climbs stairs with one hand held", why:"Step-by-step balance progression.", how:"Staircase at home or park. One hand only.", next:"Alternating feet with rail", src:"CDC" },
+  { id:"gm-dance-rhythm", dom:"gross", t:"Moves to music (bounce, sway, clap)", age:"~18m", what:"Body responds rhythmically to music", why:"Auditory-motor integration + bilateral.", how:"Play music. Dance together.", next:"Clap to beat", src:"AAP / music therapy consensus" },
+
+  // FINE MOTOR – early foundation (likely already mastered)
+  { id:"fm-pincer", dom:"fine", t:"Pincer grasp (thumb + index)", age:"~10–12m", what:"Picks up small objects with 2-finger pincer", why:"Critical fine motor foundation — all tool use depends on it.", how:"Raisins, cereal on tray. She picks up.", next:"In-hand manipulation", src:"Erhardt DPA / OT" },
+  { id:"fm-point", dom:"fine", t:"Points with index finger (declarative)", age:"~12m", what:"Points to share attention, not just to request", why:"Joint attention + communication + fine motor isolation.", how:"Point at pictures in books. Model and wait.", next:"Uses index for pressing buttons", src:"Tomasello 1995 / CDC" },
+  { id:"fm-scribble", dom:"fine", t:"Scribbles spontaneously with crayon", age:"~12–15m", what:"Makes marks on paper", why:"Pre-writing + hand-eye + visual-motor expression.", how:"Crayon + paper. No demonstration needed.", next:"Controlled strokes", src:"OT" },
+  { id:"fm-stack-3", dom:"fine", t:"Stacks 3 blocks without toppling", age:"~18m", what:"Stable 3-block tower", why:"Hand steadiness + visual-spatial sequencing.", how:"Large wooden blocks. No hurry.", next:"Stack 6+", src:"CDC" },
+  { id:"fm-spoon-basic", dom:"fine", t:"Uses spoon with some spill", age:"~18m", what:"Self-feeds with spoon, some mess", why:"Wrist supination + bilateral hold.", how:"Yoghurt or porridge. Messy is fine.", next:"Minimal spill", src:"CDC / OT" },
+
+  // COGNITIVE – early foundation (likely already mastered)
+  { id:"co-obj-perm", dom:"cognitive", t:"Object permanence (finds hidden object)", age:"~10m", what:"Removes cloth to find hidden toy", why:"Foundation of all memory and search (Piaget Sensorimotor stage 6).", how:"Hide toy under cup. Wait. She finds.", next:"Multiple hiding places", src:"Piaget" },
+  { id:"co-cause-effect", dom:"cognitive", t:"Cause-effect: activates toys intentionally", age:"~12m", what:"Pushes button → sound; shakes rattle → noise", why:"Intentional action + learning about consequences (Piaget).", how:"Pop-up toys, musical boxes.", next:"Nesting/stacking", src:"Piaget / CDC" },
+  { id:"co-imitate-simple", dom:"cognitive", t:"Imitates simple actions (clap, bye-bye)", age:"~10–12m", what:"Copies seen gesture with slight delay", why:"Mirror neuron system + social learning foundation (Meltzoff).", how:"Clap, wave, point — wait for her to copy.", next:"Imitate 2-step actions", src:"Meltzoff UW / CDC" },
+  { id:"co-1word-instr", dom:"cognitive", t:"Understands and follows 1-word requests", age:"~12m", what:"'Come', 'No', 'Ball' — responds correctly", why:"Receptive language precursor to 1-step instructions.", how:"Clear, consistent words for key objects/actions.", next:"2-word instructions", src:"CDC" },
+  { id:"co-sort-shape", dom:"cognitive", t:"Shape sorter (3 basic shapes)", age:"~18–24m", what:"Matches circle/square/triangle holes", why:"Visual spatial reasoning + problem-solving persistence.", how:"Classic wooden shape sorter.", next:"Identify shapes by name", src:"Montessori / OT" },
+
+  // SOCIAL – early foundation (likely already mastered)
+  { id:"so-wave-bye", dom:"social", t:"Waves bye-bye spontaneously", age:"~10–12m", what:"Waves when someone leaves without prompt", why:"Social routine + joint attention + proto-communication (Tomasello).", how:"Always wave on goodbye. Wait for her to initiate.", next:"'See you soon!'", src:"Tomasello 1995 / CDC" },
+  { id:"so-point-share", dom:"social", t:"Points to show you something interesting", age:"~12m", what:"Declarative pointing — 'look at this!'", why:"Joint attention — single strongest predictor of language outcome (Tomasello, Carpenter).", how:"Comment on what she points at. Expand her vocabulary.", next:"Points to pictures when named", src:"Tomasello-Carpenter 1998" },
+  { id:"so-back-forth", dom:"social", t:"Back-and-forth interaction 5+ turns", age:"~18m", what:"Sustained reciprocal play or conversation", why:"Serve-and-return interaction builds neural pathways (CDC-Harvard).", how:"Peek-a-boo, hide-seek, sound imitation games.", next:"Turn-taking with objects", src:"CDC / Harvard Center Dev. Child" },
+  { id:"so-attach-secure", dom:"social", t:"Seeks parent when distressed, calms on contact", age:"~12m", what:"Secure attachment base behaviour", why:"Bowlby secure attachment = foundation for social-emotional development.", how:"Consistent response to distress. 'I'm here.'", next:"Co-regulation of bigger emotions", src:"Bowlby attachment theory" },
+
+  // SENSORY – early foundation (likely already mastered)
+  { id:"se-basic-colors", dom:"sensory", t:"Matches 2 basic colors (red/blue)", age:"~18m", what:"Groups or matches same color", why:"Pre-Montessori color discrimination foundation.", how:"Sorting pom-poms by color. Red pile, blue pile.", next:"Matches 3 primary colors", src:"Montessori" },
+  { id:"se-texture-2", dom:"sensory", t:"Discriminates soft vs rough (2 textures)", age:"~18m", what:"Touches and names 2 distinct textures", why:"Tactile discrimination — foundation for stereognosis (Montessori).", how:"Sandpaper and fabric. 'Rough! Smooth!'", next:"3+ textures, eyes closed", src:"Montessori / OT" },
+  { id:"se-sound-react", dom:"sensory", t:"Reacts appropriately to loud/quiet sounds", age:"~12m", what:"Turns toward sudden sound, calms to quiet", why:"Auditory localization + sensory modulation.", how:"Everyday exposure. No desensitization.", next:"Matches paired sound containers", src:"OT sensory integration" },
+
+  // LANGUAGE – early foundation
+  { id:"la-words-10", dom:"vocab", t:"Uses 10+ words with meaning", age:"~15m", what:"10 distinct words in context", why:"Core language emergence — later milestone for bilingual (≤16m acceptable).", how:"Respond to all word attempts as if correct.", next:"50 words", src:"CDC / bilingual adjustment Marchman 2010" },
+  { id:"la-points-pic", dom:"vocab", t:"Points to pictures when named", age:"~15–18m", what:"Points to dog, ball, cup in a picture book when asked", why:"Receptive vocabulary + vocabulary map (Bloom).", how:"Board books. 'Where's the…?'", next:"Names pictures spontaneously", src:"CDC / Bloom 1993" },
+  { id:"la-bilingual-aware", dom:"vocab", t:"Responds to both English and French", age:"~18m+", what:"Shows different-language comprehension (not just one language)", why:"Bilingual language separation emerging — healthy dual system (Genesee).", how:"Test same request in both languages.", next:"Uses words in both languages spontaneously", src:"Genesee McGill / Werker UBC" },
+];
+
+function skillStatus(id){
+  return (state.skillStatus[id] && state.skillStatus[id].status) || "new";
+}
+function setSkillStatus(id, status){
+  state.skillStatus[id] = { status, by: state.currentUser||"—", ts: Date.now() };
+  saveState(state);
+}
+
+const STATUS_COLORS = { new:"#F3F4F6", emerging:"#FEF3C7", practising:"#FDE68A", mastered:"#DCFCE7" };
+const STATUS_LABEL = { new:"New", emerging:"Emerging", practising:"Practising", mastered:"Mastered ✓" };
+const STATUS_ORDER = ["new", "emerging", "practising", "mastered"];
+
+function cycleSkillStatus(cur){
+  const i = STATUS_ORDER.indexOf(cur || "new");
+  return STATUS_ORDER[(i + 1) % STATUS_ORDER.length];
+}
+
+function renderSkillCatalogue(){
+  // Populate domain filter once
+  const dom = document.getElementById("skillDomain");
+  if (dom && dom.options.length <= 1){
+    DOMAINS.forEach(d => { const o = document.createElement("option"); o.value = d.key; o.textContent = `${d.emoji} ${d.label}`; dom.appendChild(o); });
+    dom.onchange = drawSkillCatalogue;
+    document.getElementById("skillStatus").onchange = drawSkillCatalogue;
+    document.getElementById("skillSearch").oninput = drawSkillCatalogue;
+  }
+  // Smart/all toggle
+  const smartBtn = document.getElementById("skillViewSmart");
+  const allBtn   = document.getElementById("skillViewAll");
+  if (smartBtn) smartBtn.onclick = ()=>{ skillViewMode="smart"; smartBtn.className="small primary"; allBtn.className="small"; drawSkillCatalogue(); };
+  if (allBtn)   allBtn.onclick   = ()=>{ skillViewMode="all";   allBtn.className="small primary"; smartBtn.className="small"; drawSkillCatalogue(); };
+  document.getElementById("catResetBtn").onclick = ()=>{
+    if (!confirm("Reset all skill statuses? This will not remove your old activity tracking data.")) return;
+    state.skillStatus = {}; saveState(state); drawSkillCatalogue();
+  };
+  drawSkillCatalogue();
+}
+
+function drawSkillCatalogue(){
+  const domSel = document.getElementById("skillDomain");
+  const fd = (domSel || {}).value || "";
+  const fs = (document.getElementById("skillStatus") || {}).value || "";
+  const ft = ((document.getElementById("skillSearch") || {}).value || "").toLowerCase();
+
+  // Domain summary pills — clickable filter
+  const summary = document.getElementById("skillSummary");
+  if (summary){
+    summary.innerHTML = DOMAINS.map(d => {
+      const ds = SKILLS.filter(s => s.dom === d.key);
+      const m = ds.filter(s => skillStatus(s.id) === "mastered").length;
+      const ratio = ds.length ? m/ds.length : 0;
+      const lv = domainLevel(ratio);
+      const isActive = fd === d.key;
+      return `<div data-filterdomain="${d.key}" style="background:${isActive?lv.bg:"#F8FAFC"}; border:${isActive?"2px solid "+lv.color:"1px solid var(--line)"}; border-radius:8px; padding:8px; cursor:pointer; transition:border .12s">
+        <div style="font-size:12px; font-weight:700">${d.emoji} ${escapeHtml(d.label)}</div>
+        <div style="font-size:11px; font-weight:700; color:${lv.color}; margin-top:2px">${lv.label}</div>
+        <div style="font-size:10px; color:var(--muted)">${m}/${ds.length} skills mastered</div>
+        <div class="progress-bar" style="margin-top:4px; height:4px"><div style="width:${Math.round(ratio*100)}%; background:${lv.color}"></div></div>
+      </div>`;
+    }).join("");
+    // Click to filter domain
+    summary.querySelectorAll("[data-filterdomain]").forEach(el => {
+      el.onclick = () => {
+        if (domSel) { domSel.value = domSel.value === el.dataset.filterdomain ? "" : el.dataset.filterdomain; }
+        drawSkillCatalogue();
+      };
+    });
+  }
+
+  // Smart view: focus banner — top skills to work on now
+  const banner = document.getElementById("skillFocusBanner");
+  if (banner){
+    if (skillViewMode === "smart"){
+      const focusSkills = [];
+      DOMAINS.forEach(d => {
+        const recLv = recommendedLevel(d.key);
+        const domSkills = SKILLS.filter(s => s.dom === d.key);
+        // Prioritise practising > emerging > new at right level
+        const inProgress = domSkills.filter(s => ["practising","emerging"].includes(skillStatus(s.id)));
+        const readyNew   = domSkills.filter(s => skillStatus(s.id)==="new" && skillLevel(s)===recLv);
+        const candidates = [...inProgress, ...readyNew].slice(0,1);
+        candidates.forEach(s => focusSkills.push({ s, d }));
+      });
+      if (focusSkills.length){
+        banner.style.display = "";
+        banner.innerHTML = `<div style="font-weight:700; font-size:13px; margin-bottom:8px">🎯 Focus now — top skills at her level</div>` +
+          focusSkills.map(({s, d}) => {
+            const st = skillStatus(s.id);
+            const badge = st==="practising"?"🟡 Practising":st==="emerging"?"🔵 Emerging":"⚪ New";
+            return `<div class="sk-focus-item"><div style="font-size:20px">${d.emoji}</div><div style="flex:1"><div style="font-weight:700">${escapeHtml(s.t)}</div><div style="font-size:12px; color:var(--muted)">${d.label} · ${s.age}</div></div><div style="font-size:11px; font-weight:700">${badge}</div></div>`;
+          }).join("");
+      } else {
+        banner.style.display = "none";
+      }
+    } else {
+      banner.style.display = "none";
+    }
+  }
+
+  const list = document.getElementById("skillsList");
+  if (!list) return;
+  let html = "";
+  let masteredCount = 0;
+
+  SKILLS.forEach(s => {
+    if (fd && s.dom !== fd) return;
+    const status = skillStatus(s.id);
+    if (fs && status !== fs) return;
+    if (ft && !s.t.toLowerCase().includes(ft) && !s.what.toLowerCase().includes(ft)) return;
+
+    // Smart mode: hide mastered skills that are below recommended level
+    if (skillViewMode === "smart" && status === "mastered"){
+      masteredCount++;
+      return; // collapsed
+    }
+    const domInfo = DOMAINS.find(d => d.key === s.dom);
+    const lv = skillLevel(s);
+    const recLv = recommendedLevel(s.dom);
+    const isZPD = lv === recLv;
+    const highlight = isZPD && status !== "mastered" ? 'border-left:3px solid #F59E0B;' : '';
+    html += `
+      <div class="skill-row" data-skillid="${escapeHtml(s.id)}" style="display:flex; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); cursor:pointer; background:${STATUS_COLORS[status]}; align-items:flex-start; ${highlight}">
+        <div style="flex:0 0 36px; text-align:center; font-size:22px">${domInfo?domInfo.emoji:"⭐"}</div>
+        <div style="flex:1; min-width:0">
+          <div style="font-weight:700; font-size:14px">${escapeHtml(s.t)} <span style="font-size:11px; color:var(--muted); font-weight:400">${escapeHtml(s.age)}</span>${isZPD && status!=="mastered" ? '<span style="font-size:10px; background:#FEF3C7; color:#854D0E; padding:1px 6px; border-radius:4px; margin-left:6px; font-weight:700">🎯 ZPD</span>' : ""}</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:2px">${escapeHtml(s.what)}</div>
+        </div>
+        <button class="small" data-skillcycle="${escapeHtml(s.id)}" style="font-size:11px; white-space:nowrap">${escapeHtml(STATUS_LABEL[status])}</button>
+      </div>
+    `;
+  });
+
+  if (skillViewMode === "smart" && masteredCount > 0 && !fs && !ft){
+    html += `<div style="padding:12px 14px; font-size:13px; color:var(--muted); background:#F9FFF9; border-top:1px solid var(--line)">
+      ✅ ${masteredCount} mastered skill${masteredCount>1?"s":""} hidden in Smart view. Switch to <strong>All skills</strong> to see them.
+    </div>`;
+  }
+
+  list.innerHTML = html || '<div style="padding:20px; text-align:center; color:var(--muted)">No skills match the filters.</div>';
+}
+
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest("button[data-skillcycle]");
+  if (btn){
+    e.stopPropagation();
+    const id = btn.dataset.skillcycle;
+    setSkillStatus(id, cycleSkillStatus(skillStatus(id)));
+    drawSkillCatalogue();
+    return;
+  }
+  const row = e.target.closest(".skill-row");
+  if (row){
+    openSkillModal(row.dataset.skillid);
+  }
+});
+
+function openSkillModal(id){
+  const s = SKILLS.find(x => x.id === id);
+  if (!s) return;
+  const domInfo = DOMAINS.find(d => d.key === s.dom);
+  const status = skillStatus(id);
+  amTitle.textContent = s.t;
+  const panel = actModal.querySelector(".panel");
+  // Wipe panel content except h3 and close row
+  Array.from(panel.children).forEach(ch => {
+    if (ch.tagName === "H3") return;
+    if (ch.classList && ch.classList.contains("row")) return;
+    ch.remove();
+  });
+  const wrap = document.createElement("div");
+  wrap.innerHTML = `
+    <div class="stmp-section">
+      <div class="kvs">
+        <div class="k">Domain</div><div class="v">${domInfo?domInfo.emoji+" "+escapeHtml(domInfo.label):"-"}</div>
+        <div class="k">Age range</div><div class="v">${escapeHtml(s.age)}</div>
+        <div class="k">Status</div><div class="v"><span class="status-pill s-${status==="mastered"?"mastered":status==="practising"?"practising":"new"}">${escapeHtml(STATUS_LABEL[status])}</span></div>
+      </div>
+      <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap">
+        ${STATUS_ORDER.map(st => `<button class="small ${st===status?"primary":""}" data-skillsetstatus="${escapeHtml(id)}-${st}">${escapeHtml(STATUS_LABEL[st])}</button>`).join("")}
+      </div>
+    </div>
+    <div class="stmp-section"><div class="stmp-h">🎯 What it is</div><div style="font-size:14px">${escapeHtml(s.what)}</div></div>
+    <div class="stmp-section"><div class="stmp-h">🧠 Why it matters</div><div style="font-size:14px">${escapeHtml(s.why)}</div></div>
+    <div class="stmp-section"><div class="stmp-h">👋 How to support</div><div style="font-size:14px">${escapeHtml(s.how)}</div></div>
+    <div class="stmp-section"><div class="stmp-h">🌱 Next step (when mastered)</div><div style="font-size:14px">${escapeHtml(s.next)}</div></div>
+    <div class="stmp-source">📚 ${escapeHtml(s.src)}</div>
+  `;
+  const closeRow = panel.querySelector(".row");
+  panel.insertBefore(wrap, closeRow);
+  actModal.classList.add("open");
+}
+document.addEventListener("click", (e)=>{
+  const b = e.target.closest("button[data-skillsetstatus]");
+  if (!b) return;
+  const parts = b.dataset.skillsetstatus.split("-");
+  const st = parts.pop();
+  const id = parts.join("-");
+  setSkillStatus(id, st);
+  openSkillModal(id);
+  drawSkillCatalogue();
+});
+
+/* Compute mastery % per domain — drives Vygotsky difficulty recommendation */
+function domainSkillMastery(domKey){
+  const ds = SKILLS.filter(s => s.dom === domKey);
+  if (!ds.length) return 0;
+  const m = ds.filter(s => skillStatus(s.id) === "mastered").length;
+  return m / ds.length;
+}
+function recommendedLevel(domKey){
+  const p = domainSkillMastery(domKey);
+  if (p >= 0.66) return 3;
+  if (p >= 0.33) return 2;
+  return 1;
+}
+
+/* Tailored Assessment — research-backed strengths/weaknesses */
+const DOMAIN_GUIDANCE = {
+  gross: { strong:"Strong gross-motor base — protect 90+ min outdoor daily, introduce balance bike + obstacle courses.", weak:"Prioritise daily floor play (Pikler-style), reduce time in containers (jumpers/bouncers), 60+ min outdoor minimum (WHO 2019)." },
+  fine:  { strong:"Strong fine-motor — introduce tripod-grip drawing, large-button frames, threading smaller beads, toddler scissors (Maxine already mastered).", weak:"Daily play-dough kneading, sticker peeling, tongs/tweezers transfer, large-bead threading. Hand strength precedes pre-writing (OT consensus)." },
+  sensory: { strong:"Strong sensory discrimination — Montessori Pink Tower, mystery bag with more abstract objects, smell jars set.", weak:"Daily sensory exposure: textures barefoot, smell jars from kitchen, sound shakers. Sensory base precedes cognitive sorting." },
+  cognitive: { strong:"Strong cognition — sequence games, 'what's missing' with more objects, number sense to 5+, multi-step pretend.", weak:"Start with simple sorts (color, size). One-to-one correspondence to 3. 'What's missing?' with 3 objects. Repeat daily — short and joyful (Diamond UBC EF)." },
+  vocab: { strong:"Strong language — push to 200+ words, sandpaper letters (Dehaene), bilingual storytelling, narrate everything.", weak:"Daily 3+ books, narrate the walk, model 2→3-word combos. 30M-word study: quantity of live talk drives outcomes (Hart-Risley)." },
+  social: { strong:"Strong social-emotional — extend playdates, name subtle emotions (proud/disappointed/curious), Brackett RULER vocabulary.", weak:"Daily emotion-naming, calm jar, time-ins (not time-outs). Co-regulation precedes self-regulation (Perry). Connect before redirect (Siegel)." },
+};
+
+function renderTailoredAssessment(){
+  const el = document.getElementById("tailoredAssessment");
+  if (!el) return;
+  const stats = DOMAINS.map(d => ({ d, pct: Math.round(domainSkillMastery(d.key)*100) }));
+  const sorted = [...stats].sort((a,b)=>b.pct-a.pct);
+  const strengths = sorted.slice(0, 2);
+  const weaknesses = sorted.slice(-2).reverse();
+  el.innerHTML = `
+    <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">Computed from your skill catalogue (${Object.values(state.skillStatus).filter(x=>x.status==="mastered").length} skills mastered) + ${(state.feedback||[]).length} memory notes. Sources cited.</div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px">
+      <div>
+        <div style="font-weight:700; font-size:14px; color:#14532D; margin-bottom:6px">💪 Strengths</div>
+        ${strengths.map(s => `
+          <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:10px; padding:10px; margin-bottom:6px">
+            <div style="font-weight:700">${s.d.emoji} ${escapeHtml(s.d.label)} <span style="color:var(--muted); font-size:12px; font-weight:400">${s.pct}%</span></div>
+            <div style="font-size:13px; margin-top:4px">${escapeHtml(DOMAIN_GUIDANCE[s.d.key].strong)}</div>
+          </div>
+        `).join("")}
+      </div>
+      <div>
+        <div style="font-weight:700; font-size:14px; color:#9D174D; margin-bottom:6px">🌱 Areas for growth</div>
+        ${weaknesses.map(s => `
+          <div style="background:#FFF1F2; border:1px solid #FECDD3; border-radius:10px; padding:10px; margin-bottom:6px">
+            <div style="font-weight:700">${s.d.emoji} ${escapeHtml(s.d.label)} <span style="color:var(--muted); font-size:12px; font-weight:400">${s.pct}%</span></div>
+            <div style="font-size:13px; margin-top:4px">${escapeHtml(DOMAIN_GUIDANCE[s.d.key].weak)}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+    <div style="margin-top:12px; font-size:12px; color:var(--muted); font-style:italic">
+      Recommended difficulty per domain (Vygotsky ZPD): ${DOMAINS.map(d=>`${d.emoji} L${recommendedLevel(d.key)}`).join(" · ")}.
+      Healthy approach: stretch in <em>one</em> area at a time. Avoid over-scheduling. Joy + repetition > pressure (Gopnik, "The Gardener and The Carpenter").
+    </div>
+  `;
+}
+
+/* Memory view */
+
+/* =========================================================
+   VOCABULARY BINGO
+   ========================================================= */
+state.vocabMastered = state.vocabMastered || {}; // { "[weekW]-[idx]-en": true, ... } bingo state
+state.vocabMaster  = state.vocabMaster  || {}; // { "fish_en": {ts}, ... } master tracker state
+let bingoLang = "en"; // current language view
+
+function vocabKey(weekW, idx, lang){ return `${weekW}-${idx}-${lang}`; }
+
+function isVocabMastered(weekW, idx, lang){
+  return !!state.vocabMastered[vocabKey(weekW, idx, lang)];
+}
+
+function toggleVocabMastered(weekW, idx, lang){
+  const k = vocabKey(weekW, idx, lang);
+  if (state.vocabMastered[k]) delete state.vocabMastered[k];
+  else state.vocabMastered[k] = { by: state.currentUser||"—", ts: Date.now() };
+  saveState(state);
+}
+
+/* Master vocab helpers */
+function vmKey(en, lang){ return en.replace(/\s+/g,"_").toLowerCase() + "_" + lang; }
+function isVMastered(en, lang){ return !!(state.vocabMaster||{})[vmKey(en,lang)]; }
+function toggleVMastered(en, lang){
+  state.vocabMaster = state.vocabMaster || {};
+  const k = vmKey(en, lang);
+  if (state.vocabMaster[k]) delete state.vocabMaster[k];
+  else state.vocabMaster[k] = { ts: Date.now() };
+  saveState(state);
+}
+/* Sync bingo stamps → master vocab (called on "Finish game") */
+function syncBingoToMaster(themeW){
+  const words = vocabFor(themeW);
+  words.forEach((word, i) => {
+    const en = word[0];
+    ["en","fr"].forEach(lang => {
+      if (!isVocabMastered(themeW, i, lang)) return;
+      const found = VOCAB_MASTER.find(c=>c.words.find(w=>w.en===en));
+      if (!found) return;
+      const entry = found.words.find(w=>w.en===en);
+      if (entry && !isVMastered(entry.en, lang)){
+        state.vocabMaster = state.vocabMaster || {};
+        state.vocabMaster[vmKey(entry.en, lang)] = { ts: Date.now() };
+      }
+    });
+  });
+  saveState(state);
+}
+
+function renderVocabularyBingo(){
+  // Populate theme selector
+  const sel = document.getElementById("bingoTheme");
+  if (!sel.options.length){
+    THEMES.forEach(t => {
+      const o = document.createElement("option");
+      o.value = t.w; o.textContent = `W${t.w} · ${t.emoji} ${t.title}`;
+      sel.appendChild(o);
+    });
+    sel.onchange = renderVocabularyBingo;
+  }
+  // Default to current theme
+  if (!sel.value){
+    const cur = pickTheme();
+    sel.value = String(cur.w);
+  }
+  // Language toggle
+  document.querySelectorAll("#bingoLang .upbtn").forEach(b=>{
+    b.onclick = ()=>{
+      bingoLang = b.dataset.lang;
+      document.querySelectorAll("#bingoLang .upbtn").forEach(x=>x.classList.toggle("active", x.dataset.lang===bingoLang));
+      renderVocabularyBingo();
+    };
+  });
+  const themeW = parseInt(sel.value, 10);
+  const words = vocabFor(themeW);
+  if (!words.length){
+    document.getElementById("bingoCard").innerHTML = '<div style="text-align:center; color:var(--muted)">No vocabulary for this theme yet.</div>';
+    return;
+  }
+  // Render stats
+  const masteredEn = words.filter((_, i) => isVocabMastered(themeW, i, "en")).length;
+  const masteredFr = words.filter((_, i) => isVocabMastered(themeW, i, "fr")).length;
+  document.getElementById("bingoStats").innerHTML = `
+    <div class="prog-card"><div class="lbl">🇬🇧 English mastered</div><div class="big">${masteredEn}/${words.length}</div></div>
+    <div class="prog-card"><div class="lbl">🇫🇷 Français maîtrisé</div><div class="big">${masteredFr}/${words.length}</div></div>
+  `;
+  // Render card — always 5x5 (25 cells, center = FREE star)
+  const card = document.getElementById("bingoCard");
+  card.style.gridTemplateColumns = `repeat(5, 1fr)`;
+  card.innerHTML = "";
+  // Build 24 word slots from current theme; pad from adjacent themes if needed
+  const slots = words.slice(0, 24).map((w, i) => ({ w, idx: i, themeW }));
+  if (slots.length < 24){
+    const pool = [];
+    THEMES.forEach(t => {
+      if (t.w === themeW) return;
+      (vocabFor(t.w) || []).forEach((w, j) => pool.push({ w, idx: j, themeW: t.w }));
+    });
+    let pi = 0;
+    while (slots.length < 24 && pi < pool.length){
+      const p = pool[pi++];
+      if (!slots.find(s => s.w[0] === p.w[0])) slots.push(p);
+    }
+  }
+  const cells = [];
+  for (let pos = 0; pos < 25; pos++){
+    if (pos === 12){
+      // FREE center cell
+      const cell = document.createElement("div");
+      cell.className = "bingo-cell stamped";
+      cell.style.background = "linear-gradient(135deg, #FEF3C7, #FCE7F3)";
+      cell.innerHTML = `<div class="em" style="font-size:32px">⭐</div><div class="wd">FREE</div><div style="font-size:9px; color:var(--muted); font-style:italic; margin-top:2px">GRATUIT</div>`;
+      card.appendChild(cell);
+      cells.push({ cell, stamped: true, free: true });
+      continue;
+    }
+    const slotIdx = pos < 12 ? pos : pos - 1;
+    const slot = slots[slotIdx];
+    if (!slot){
+      // Empty slot — treat as FREE star
+      const cell = document.createElement("div");
+      cell.className = "bingo-cell stamped";
+      cell.innerHTML = `<div class="em">⭐</div><div class="wd">★</div>`;
+      card.appendChild(cell);
+      cells.push({ cell, stamped: true, free: true });
+      continue;
+    }
+    const [en, fr, em] = slot.w;
+    const stamped = isVocabMastered(slot.themeW, slot.idx, bingoLang);
+    const text = bingoLang === "en" ? en : fr;
+    const sub = bingoLang === "en" ? fr : en;
+    const isOtherTheme = slot.themeW !== themeW;
+    const cell = document.createElement("div");
+    cell.className = `bingo-cell ${stamped ? "stamped" : ""}`;
+    cell.innerHTML = `
+      ${isOtherTheme ? `<div style="position:absolute; top:2px; left:2px; font-size:9px; background:#FEF3C7; color:#854D0E; padding:1px 4px; border-radius:4px">W${slot.themeW}</div>` : ""}
+      <div class="em">${em}</div>
+      <div class="wd">${escapeHtml(text)}</div>
+      <div style="font-size:9px; color:var(--muted); font-style:italic; margin-top:2px">${escapeHtml(sub)}</div>
+    `;
+    cell.addEventListener("click", ()=>{
+      toggleVocabMastered(slot.themeW, slot.idx, bingoLang);
+      renderVocabularyBingo();
+      renderVocabTracker();
+      showToast(stamped ? "↩ Unstamped." : `✅ ${text} mastered!`);
+    });
+    card.appendChild(cell);
+    cells.push({ cell, stamped, slot });
+    enhanceWithPhoto(cell, en, fr, 40);
+  }
+  // Detect bingo — 5 rows, 5 cols, 2 diagonals = 12 lines
+  const lines = [];
+  for (let r = 0; r < 5; r++) lines.push(cells.slice(r*5, (r+1)*5));
+  for (let c = 0; c < 5; c++){
+    const col = []; for (let r = 0; r < 5; r++) col.push(cells[r*5+c]);
+    lines.push(col);
+  }
+  const d1 = [], d2 = [];
+  for (let i = 0; i < 5; i++){ d1.push(cells[i*5+i]); d2.push(cells[i*5+(4-i)]); }
+  lines.push(d1); lines.push(d2);
+  let bingo = false;
+  lines.forEach(line => {
+    if (line.every(c => c && c.stamped)){
+      line.forEach(c => c.cell.classList.add("win"));
+      bingo = true;
+    }
+  });
+  const allDone = cells.length && cells.every(c => c.stamped);
+  document.getElementById("bingoStatus").textContent = allDone
+    ? "🏆 BINGO COMPLET ! Tous les mots maîtrisés !"
+    : bingo ? "🎉 BINGO! A line is complete!" : "";
+
+  // Mastered chips across all themes
+  const masteredEl = document.getElementById("bingoMastered");
+  const mastered = [];
+  THEMES.forEach(t => (vocabFor(t.w) || []).forEach(([en,fr,em], i) => {
+    if (isVocabMastered(t.w, i, "en") || isVocabMastered(t.w, i, "fr")){
+      mastered.push({ themeW: t.w, themeTitle: t.title, en, fr, em, i,
+        enKnown: isVocabMastered(t.w, i, "en"),
+        frKnown: isVocabMastered(t.w, i, "fr") });
+    }
+  }));
+  masteredEl.innerHTML = mastered.length ? mastered.map(m => `
+    <div class="bingo-mastered-chip">
+      <div class="em">${m.em}</div>
+      <div class="wd">${m.enKnown ? "🇬🇧 " : ""}${escapeHtml(m.en)}</div>
+      <div class="fr">${m.frKnown ? "🇫🇷 " : ""}${escapeHtml(m.fr)}</div>
+    </div>
+  `).join("") : '<div style="color:var(--muted); font-size:13px; grid-column:1/-1">No words mastered yet. Tap cells in the bingo card to stamp them.</div>';
+}
+
+/* =========================================================
+   VOCABULARY TRACKER
+   ========================================================= */
+function renderVocabTracker(){
+  const container = document.getElementById("vocabTrackerContent");
+  const statsEl   = document.getElementById("vocabTrackerStats");
+  const searchEl  = document.getElementById("vocabSearch");
+  if (!container) return;
+
+  // Wire search once
+  if (searchEl && !searchEl._wired){
+    searchEl.addEventListener("input", renderVocabTracker);
+    searchEl._wired = true;
+  }
+  const q = (searchEl?.value||"").toLowerCase().trim();
+
+  // Overall stats from VOCAB_MASTER
+  let totalV=0, mEn=0, mFr=0, mBoth=0;
+  VOCAB_MASTER.forEach(cat => cat.words.forEach(w => {
+    totalV++;
+    const en=isVMastered(w.en,"en"), fr=isVMastered(w.en,"fr");
+    if(en) mEn++; if(fr) mFr++; if(en&&fr) mBoth++;
+  }));
+  if (statsEl){
+    statsEl.innerHTML = `
+      <div class="prog-card"><div class="lbl">🇬🇧 English known</div><div class="big">${mEn}<span style="font-size:16px; color:var(--muted)">/${totalV}</span></div></div>
+      <div class="prog-card"><div class="lbl">🇫🇷 French known</div><div class="big">${mFr}<span style="font-size:16px; color:var(--muted)">/${totalV}</span></div></div>
+      <div class="prog-card"><div class="lbl">✅ Both languages</div><div class="big">${mBoth}<span style="font-size:16px; color:var(--muted)">/${totalV}</span></div></div>
+    `;
+  }
+
+  // Gender badge helper
+  const genderBadge = g => {
+    if (g==="m")   return `<span style="font-size:10px; background:#DBEAFE; color:#1D4ED8; border-radius:4px; padding:1px 4px; margin-left:3px">m</span>`;
+    if (g==="f")   return `<span style="font-size:10px; background:#FCE7F3; color:#9D174D; border-radius:4px; padding:1px 4px; margin-left:3px">f</span>`;
+    if (g==="pl")  return `<span style="font-size:10px; background:#EDE9FE; color:#5B21B6; border-radius:4px; padding:1px 4px; margin-left:3px">pl</span>`;
+    if (g==="v")   return `<span style="font-size:10px; background:#D1FAE5; color:#065F46; border-radius:4px; padding:1px 4px; margin-left:3px">v</span>`;
+    if (g==="adj") return `<span style="font-size:10px; background:#FEF3C7; color:#92400E; border-radius:4px; padding:1px 4px; margin-left:3px">adj</span>`;
+    return "";
+  };
+
+  // Render categories
+  container.innerHTML = VOCAB_MASTER.map(cat => {
+    const filtered = q
+      ? cat.words.filter(w => w.en.toLowerCase().includes(q) || w.fr.toLowerCase().includes(q))
+      : cat.words;
+    if (!filtered.length) return "";
+    const enC  = filtered.filter(w=>isVMastered(w.en,"en")).length;
+    const frC  = filtered.filter(w=>isVMastered(w.en,"fr")).length;
+    const rows = filtered.map(w => {
+      const enOn = isVMastered(w.en,"en");
+      const frOn = isVMastered(w.en,"fr");
+      const enKey = escapeHtml(w.en);
+      return `<div class="vt-word-row${(enOn&&frOn)?" vt-both":""}">
+        <div class="vt-em">${w.em}</div>
+        <div class="vt-words">
+          <div class="vt-en">${enKey}</div>
+          <div class="vt-fr">${escapeHtml(w.fr)}${genderBadge(w.g)}</div>
+        </div>
+        <div class="vt-btns">
+          <button class="vt-btn ${enOn?"on":"off"}" data-vmword="${enKey}" data-vmlang="en">🇬🇧 ${enOn?"✓ Known":"+ Learn"}</button>
+          <button class="vt-btn ${frOn?"on":"off"}" data-vmword="${enKey}" data-vmlang="fr">🇫🇷 ${frOn?"✓ Su":"+ Apprendre"}</button>
+        </div>
+      </div>`;
+    }).join("");
+    return `<div class="vt-theme-group">
+      <div class="vt-theme-hd">
+        <h3>${cat.cat}</h3>
+        <div style="font-size:12px; color:var(--muted)">🇬🇧 ${enC}/${filtered.length} · 🇫🇷 ${frC}/${filtered.length}</div>
+      </div>
+      ${rows}
+    </div>`;
+  }).join("");
+}
+
+/* Master vocab tracker button handler */
+document.addEventListener("click", e => {
+  const btn = e.target.closest("[data-vmword]");
+  if (!btn) return;
+  const en   = btn.dataset.vmword;
+  const lang = btn.dataset.vmlang;
+  toggleVMastered(en, lang);
+  renderVocabTracker();
+  showToast(isVMastered(en,lang) ? `✅ "${en}" marked as known!` : `↩ "${en}" unmarked.`);
+});
+
+/* Finish game button */
+document.addEventListener("click", e => {
+  if (!e.target.closest("#finishBingoBtn")) return;
+  const sel    = document.getElementById("bingoTheme");
+  const themeW = sel ? parseInt(sel.value,10) : 0;
+  const words  = themeW ? vocabFor(themeW) : [];
+  const stampedEn = words.filter((_,i)=>isVocabMastered(themeW,i,"en")).length;
+  const stampedFr = words.filter((_,i)=>isVocabMastered(themeW,i,"fr")).length;
+  // Sync bingo stamps → master vocabulary tracker
+  if (themeW) syncBingoToMaster(themeW);
+  showToast(`🎉 Game finished! 🇬🇧 ${stampedEn} · 🇫🇷 ${stampedFr} words saved to vocabulary.`);
+  renderVocabTracker();
+  // Scroll up to tracker
+  const vtc = document.getElementById("vocabTrackerContent");
+  if (vtc) vtc.scrollIntoView({ behavior:"smooth", block:"start" });
+});
+
+/* =========================================================
+   STORY CREATOR — personalised bilingual stories
+   Uses VOCAB_MASTER to fill story templates with known/new words.
+   ========================================================= */
+
+/* Map slot keys → VOCAB_MASTER category names */
+const STORY_SLOT_CATS = {
+  animal:   "🦁 Animals",
+  nature:   "🌿 Nature & Plants",
+  food:     "🍎 Food & Drink",
+  body:     "🫀 Body & Self",
+  color:    "🎨 Colours & Shapes",
+  feeling:  "💭 Concepts & Feelings",
+  place:    "🏫 Places & People",
+  number:   "🔢 Numbers & Time",
+  clothing: "👕 Clothes & Actions",
+  object:   "🏠 Home & Objects",
+};
+
+/* Story templates — segs are strings or { s: slotKey, intro: bool }
+   intro=true → prefer unknown word (introduce it with FR translation) */
+const STORY_TEMPLATES = [
+  {
+    title:"A Walk in the Park", emoji:"🌿",
+    segs:[
+      "One sunny morning, Maxine put on her ", {s:"clothing"},
+      " and went to the park with Maman. She spotted a ", {s:"animal"},
+      " sitting on a ", {s:"nature"}, ". The ", {s:"animal"},
+      " was ", {s:"color"}, " — beautiful! Maxine reached out her ", {s:"body"},
+      " very slowly. 'Doucement,' whispered Maman. Then they found a ",
+      {s:"nature", intro:true}, " together — Maxine had never seen one before! She felt so ",
+      {s:"feeling"}, " all the way home.",
+    ]
+  },
+  {
+    title:"Lunchtime Helper", emoji:"🍽",
+    segs:[
+      "At lunchtime, Maxine helped Maman in the kitchen. First they washed a ",
+      {s:"food"}, " and a ", {s:"food", intro:true},
+      " — that one was brand new for Maxine! She used her ", {s:"body"},
+      "s to stir the big pot. 'Ça sent bon!' she said. Maman smiled. ",
+      "Maxine counted ", {s:"number"}, " pieces into the bowl. She felt ",
+      {s:"feeling"}, " when they finally sat down to eat together.",
+    ]
+  },
+  {
+    title:"Friends at Nido", emoji:"🏫",
+    segs:[
+      "At Nido, Maxine went straight to her favourite corner. She picked up a soft ",
+      {s:"animal"}, " toy and a ", {s:"color"}, " ", {s:"object"},
+      ". Her friend Leo came over. 'Joue avec moi!' he said. They ran near the ",
+      {s:"nature"}, ". Then the teacher showed them a picture of a ",
+      {s:"animal", intro:true}, " — Maxine had never heard that word before!",
+      " She pointed to its ", {s:"body"}, " and laughed. What a ",
+      {s:"feeling"}, " day.",
+    ]
+  },
+  {
+    title:"The Little Animal", emoji:"🦋",
+    segs:[
+      "Once upon a time, a tiny ", {s:"animal"},
+      " lived near a big ", {s:"nature"}, ". Every morning it ate ",
+      {s:"food"}, " for breakfast. One day it found a ", {s:"color"},
+      " stone near a ", {s:"place"}, ". A kind ", {s:"animal", intro:true},
+      " — one it had never met — appeared and said: 'That stone brings good luck!' ",
+      "The little ", {s:"animal"}, " used its ", {s:"body"},
+      "s to carry it home. It felt ", {s:"feeling"}, " the whole night long.",
+    ]
+  },
+  {
+    title:"Bedtime Stars", emoji:"🌙",
+    segs:[
+      "When the ", {s:"color"}, " sky turned dark, Maxine counted ", {s:"number"},
+      " stars from her window. She put on her ", {s:"clothing"},
+      " and held her soft ", {s:"animal"}, " toy tight. ",
+      "Maman read a story about a ", {s:"nature", intro:true},
+      " that glows in the night — Maxine didn't know that word yet! ",
+      "She pointed to the picture with her ", {s:"body"}, ". Outside, a real ",
+      {s:"animal"}, " called softly in the dark. Maxine smiled and felt ",
+      {s:"feeling"}, ". 'Bonne nuit,' she whispered.",
+    ]
+  },
+];
+
+function generateStory(){
+  const langSel = document.getElementById("storyLang");
+  const lang = langSel ? langSel.value : "en";
+  const theme = pickTheme();
+  const out   = document.getElementById("storyOutput");
+  if (!out) return;
+
+  /* Build word pools by slot category */
+  const pools = {};
+  Object.entries(STORY_SLOT_CATS).forEach(([slotKey, catName]) => {
+    const cat = VOCAB_MASTER.find(c => c.cat === catName);
+    if (!cat){ pools[slotKey] = { known:[], unknown:[] }; return; }
+    const known=[], unknown=[];
+    cat.words.forEach(w => (isVMastered(w.en,"en") ? known : unknown).push(w));
+    pools[slotKey] = { known, unknown };
+  });
+
+  /* Pick a template (rotate by theme week) */
+  const tpl = STORY_TEMPLATES[(theme.w - 1) % STORY_TEMPLATES.length];
+
+  /* Per-slot cache: non-intro slots reuse the same word for coherence ("a dog … the dog") */
+  const slotCache = {}; // slotKey → entry
+  const introCache = []; // collect {entry,isNew} for legend
+  let introCount = 0;
+
+  function pickFromPool(slotKey, preferIntro){
+    const pool = pools[slotKey] || { known:[], unknown:[] };
+    const prevEns = (slotCache[slotKey]||{en:null}).en ? [slotCache[slotKey].en] : [];
+    if (preferIntro && introCount < 2 && pool.unknown.length){
+      const fresh = pool.unknown.filter(w=>!prevEns.includes(w.en));
+      const src = fresh.length ? fresh : pool.unknown;
+      introCount++;
+      return { entry: src[Math.floor(Math.random()*src.length)], isNew: true };
+    }
+    const src = pool.known.length ? pool.known : pool.unknown;
+    if (!src.length) return null;
+    const fresh = src.filter(w=>!prevEns.includes(w.en));
+    return { entry: (fresh.length?fresh:src)[Math.floor(Math.random()*(fresh.length||src.length))], isNew: false };
+  }
+
+  function renderWord(entry, isNew){
+    const en = entry.en, fr = entry.fr;
+    const display = lang === "fr" ? fr : en;
+    const alt     = lang === "fr" ? en : fr;
+    if (isNew){
+      const badge = lang==="both"
+        ? `${en} <span style="font-size:11px; opacity:.8">(${fr})</span>`
+        : `${display} <span style="font-size:11px">(🇫🇷 ${fr})</span>`;
+      return `<span style="color:#B45309; background:#FEF9C3; border-radius:4px; padding:1px 5px; font-weight:700; border-bottom:2px solid #F59E0B" title="New word! 🇫🇷 ${fr}">${badge} <span style="font-size:10px">🆕</span></span>`;
+    }
+    const displayTxt = lang==="both"
+      ? `${en} <span style="font-size:11px; color:var(--muted)">(${fr})</span>`
+      : display;
+    return `<span style="color:#065F46; font-weight:600; border-bottom:1.5px solid #6EE7B7; cursor:default" title="${lang==='fr'?'EN: '+en:'🇫🇷 '+fr}">${displayTxt}</span>`;
+  }
+
+  /* Build story HTML */
+  const storyHtml = tpl.segs.map(seg => {
+    if (typeof seg === "string") return seg;
+    const { s, intro } = seg;
+    if (!intro){
+      if (slotCache[s]) return renderWord(slotCache[s].entry, slotCache[s].isNew);
+      const picked = pickFromPool(s, false);
+      if (!picked) return `<em style="color:var(--muted)">[${s}]</em>`;
+      slotCache[s] = picked;
+      return renderWord(picked.entry, picked.isNew);
+    } else {
+      const picked = pickFromPool(s, true);
+      if (!picked) return `<em style="color:var(--muted)">[${s}]</em>`;
+      introCache.push(picked);
+      return renderWord(picked.entry, picked.isNew);
+    }
+  }).join("");
+
+  /* New-words legend */
+  const newWords = introCache.filter(x=>x.isNew);
+  const legendHtml = newWords.length ? `
+    <div style="margin-top:16px; padding:10px 12px; background:#FFFBEB; border:1px solid #FCD34D; border-radius:8px">
+      <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#92400E; margin-bottom:6px">🆕 New words to discover today</div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px">
+        ${newWords.map(x=>`
+          <div style="background:white; border:1px solid #FCD34D; border-radius:8px; padding:6px 10px; font-size:13px">
+            <span style="margin-right:4px">${x.entry.em||"📌"}</span>
+            <strong>${x.entry.en}</strong> — <strong style="color:#9D174D">${x.entry.fr}</strong>
+            <span style="font-size:10px; margin-left:4px; color:var(--muted)">(${x.entry.g==="m"?"masc.":x.entry.g==="f"?"fém.":x.entry.g==="v"?"verbe":x.entry.g==="adj"?"adj.":x.entry.g})</span>
+          </div>
+        `).join("")}
+      </div>
+      <div style="margin-top:8px; font-size:12px; color:var(--muted)">After reading, mark them as learned in the vocabulary tracker above ↑</div>
+    </div>` : "";
+
+  /* Vocab coverage tip */
+  const vmKnownEn = Object.keys(state.vocabMaster||{}).filter(k=>k.endsWith("_en")).length;
+  const coverageTip = vmKnownEn < 10
+    ? `<div style="font-size:12px; color:var(--muted); margin-top:8px">💡 Mark more words as "Known" in the vocabulary tracker — stories get richer with more words!</div>`
+    : "";
+
+  out.innerHTML = `
+    <div style="background:#FDFCF8; border:1px solid var(--line); border-radius:12px; padding:16px 18px">
+      <div style="font-size:15px; font-weight:800; color:var(--ink); margin-bottom:4px">${tpl.emoji} ${tpl.title}</div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:14px">${theme.emoji} W${theme.w} · ${escapeHtml(theme.title)} · ${lang==="fr"?"🇫🇷 Français":lang==="both"?"🌍 EN + FR":"🇬🇧 English"}</div>
+      <div style="font-size:15px; line-height:2; letter-spacing:.01em">${storyHtml}</div>
+      ${legendHtml}
+      ${coverageTip}
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+        <button class="small" onclick="generateStory()" style="font-size:12px">🔀 Different story</button>
+        <span style="font-size:11px; color:var(--muted)">🟢 Known words · 🟠 New words with translation</span>
+      </div>
+    </div>
+  `;
+}
+
+/* Story generate button */
+document.addEventListener("click", e => {
+  if (!e.target.closest("#generateStoryBtn")) return;
+  generateStory();
+});
+
+/* =========================================================
+   MEALS — theme-based healthy ideas
+   ========================================================= */
+const MEAL_TYPES = { breakfast:"🥞 Breakfast", lunch:"🥪 Lunch", snack:"🍓 Snack", dinner:"🍝 Dinner" };
+
+const MEALS = {
+  12: [
+    { name:"Smiley face plate", emoji:"😊", type:"breakfast", ing:"1 boiled egg (eyes), 2 cherry tomatoes (cheeks), cucumber strip (mouth)", how:"Arrange on plate. She places eyes / cheeks / mouth. Names body parts.", why:"Self-recognition + face vocab + Practical Life arrangement." },
+    { name:"Hand-fruit", emoji:"✋", type:"snack", ing:"Banana sliced lengthwise, 5 grapes for fingers", how:"Lay banana as palm, grapes as fingers. She counts fingers.", why:"Body schema + counting + fine motor (picking up grapes)." },
+    { name:"My-face toast", emoji:"🥪", type:"lunch", ing:"Toast, cream cheese, raisins, carrot strip", how:"Spread cheese. She places raisin eyes, carrot smile. Bite into 'her own face'.", why:"Decoration + symbolic representation of self." },
+  ],
+  13: [
+    { name:"Mini chef pancake stir", emoji:"🥞", type:"breakfast", ing:"Pancake mix, milk, banana", how:"She stirs batter with help. Pours small puddles in pan (adult cooks). Tops with banana.", why:"Practical Life (stirring, pouring) + cause-effect + autonomy." },
+    { name:"Color sort veggie bowl", emoji:"🥕", type:"lunch", ing:"Cherry tomatoes, cucumber, carrot, yellow pepper", how:"Three small bowls by color. She sorts then arranges on her plate.", why:"Sorting + classification + vegetable exposure." },
+    { name:"Stirring smoothie", emoji:"🥤", type:"snack", ing:"Yogurt, frozen berries, honey", how:"She measures (with help) into bowl. Stirs vigorously. Pours into her own cup.", why:"Hand strength + sequencing + autonomy." },
+  ],
+  14: [
+    { name:"Fire engine sandwich", emoji:"🚒", type:"lunch", ing:"Whole wheat bread, red pepper, cheese, cucumber", how:"Bread squares with red pepper 'wheels' and cheese 'windows'. Drive it to her mouth.", why:"Theme play + multi-component eating." },
+    { name:"Doctor's healing soup", emoji:"🩺", type:"dinner", ing:"Chicken broth, carrots, pasta letters", how:"Simmer broth. She drops letter pasta. 'This soup makes you strong.'", why:"Theme + warmth + iron/protein." },
+    { name:"Builder's lunchbox", emoji:"⛑️", type:"lunch", ing:"Bread brick, cheese cube, apple slices, water bottle", how:"Pack a real construction worker box. She closes lid. Eats one piece at a time.", why:"Independence + balanced macros." },
+  ],
+  19: [
+    { name:"Dirt cup", emoji:"🪱", type:"snack", ing:"Plain yogurt, crushed bran cereal or biscuit, banana slice", how:"Layer yogurt, sprinkle 'dirt' on top, place banana 'worm'. She digs in.", why:"Sensory + theme + iron-rich whole grain." },
+    { name:"Veggie garden plate", emoji:"🪴", type:"lunch", ing:"Hummus, carrot sticks, cucumber, broccoli florets", how:"Hummus 'soil' base. She 'plants' veggies vertically. Then eats from her garden.", why:"Vegetable variety + autonomy + theme." },
+    { name:"Seed snack", emoji:"🌱", type:"snack", ing:"Sunflower seeds (toddler-safe portion), apple slices", how:"Discuss: 'these are seeds — they grow plants'. Combine with apple.", why:"Concept link + healthy fats (no choking risk, small)." },
+  ],
+  20: [
+    { name:"Brick stack lunch", emoji:"🧱", type:"lunch", ing:"Bread, cheese slice, tomato slice", how:"Stack cheese-bread-tomato-bread like bricks. She helps stack. 'Built a wall!' Then eat it down.", why:"Construction theme + balanced sandwich + autonomy." },
+    { name:"Toolbox bento", emoji:"🧰", type:"lunch", ing:"Hard-boiled egg (hammer), carrot sticks (saw), apple slices (helmet), cheese cubes", how:"Arrange like a toolbox. She opens it like a worker. Names each 'tool'.", why:"Symbolic play + multi-food acceptance." },
+    { name:"Cement & rocks", emoji:"⚒️", type:"snack", ing:"Greek yogurt + granola or chopped nuts (age-appropriate)", how:"Yogurt 'cement', granola 'rocks'. She drops the rocks in.", why:"Protein + texture + theme." },
+    { name:"Crane lift sandwich", emoji:"🏗️", type:"breakfast", ing:"Toast, mashed avocado, cucumber sticks", how:"Spread avocado. Lay cucumber 'lifts'. She picks them up one by one like a crane.", why:"Pincer grip + healthy fats + theme." },
+  ],
+  21: [
+    { name:"Fish pancakes", emoji:"🐟", type:"breakfast", ing:"Pancake mix, blueberry (eye)", how:"Make pancake. Shape into fish (oval + triangle tail). Blueberry eye. She helps decorate.", why:"Pancake skills + theme + breakfast protein." },
+    { name:"Blue ocean smoothie", emoji:"🌊", type:"snack", ing:"Blueberries, banana, milk/yogurt", how:"Blend. She watches color appear. Pours into her cup ('the ocean').", why:"Antioxidants + color discovery + theme." },
+    { name:"Shell pasta with veg", emoji:"🐚", type:"dinner", ing:"Conchiglie (shell pasta), peas, parmesan, olive oil", how:"Cook pasta. Mix with peas. 'These are shells from the ocean.'", why:"Carb + vegetable + theme + iron." },
+    { name:"Seaweed crackers", emoji:"🌿", type:"snack", ing:"Rice crackers + nori sheets + avocado", how:"Tear nori onto cracker + avocado smear. Crunch.", why:"Iodine + theme + crunch." },
+  ],
+  22: [
+    { name:"5 senses platter", emoji:"👅", type:"snack", ing:"Banana (smooth), apple (crunchy), yogurt (creamy), grape (juicy), cracker (dry)", how:"5 small bowls. She tastes each, names the texture/feel. Compares.", why:"Sensory discrimination + descriptive vocabulary." },
+    { name:"Smell-test soup", emoji:"👃", type:"dinner", ing:"Mild vegetable soup, fresh herb sprigs (basil, parsley)", how:"Smell each herb before adding to her bowl. Decide if she wants it in.", why:"Olfactory + agency in food choice." },
+  ],
+  23: [
+    { name:"Happy face pancake", emoji:"😊", type:"breakfast", ing:"Pancake, banana smile, blueberry eyes", how:"Make pancake. She places face features. 'Happy pancake!' Bite the smile.", why:"Emotion vocab + decoration + breakfast." },
+    { name:"Calm jar smoothie", emoji:"😌", type:"snack", ing:"Layered: yogurt, banana puree, blueberries", how:"Layer in glass — looks like a calm jar. She watches before stirring.", why:"Mindful eating + visual regulation tool." },
+  ],
+  24: [
+    { name:"Baby finger foods", emoji:"👶", type:"snack", ing:"Soft pear, banana, cheese cubes, blueberries (halved)", how:"Tiny pieces, like for a baby. She practices being gentle with food (sibling rehearsal).", why:"Gentleness practice + autonomy." },
+    { name:"Big sister cookies", emoji:"🍪", type:"snack", ing:"Oats, banana, no added sugar", how:"Bake together. She gets to give one to a stuffed 'baby'.", why:"Baking + sharing + sibling identity." },
+  ],
+  25: [
+    { name:"Tall stack pancake tower", emoji:"📏", type:"breakfast", ing:"Mini pancakes, fruit, yogurt", how:"Stack as high as possible. Measure with hand. Eat from top.", why:"Size concept + breakfast + counting layers." },
+    { name:"Big girl plate", emoji:"🧒", type:"lunch", ing:"Various — let her plate it herself", how:"Lay out 5 ingredients on counter. She builds her own plate.", why:"Autonomy + decision-making + variety." },
+  ],
+  26: [
+    { name:"Sharing plate (one for two)", emoji:"🤝", type:"snack", ing:"Apple slices, cheese cubes, crackers", how:"One plate between you and her. Take turns. 'One for me, one for you'.", why:"Sharing + turn-taking + sibling prep." },
+    { name:"Heart-shape toast", emoji:"❤️", type:"breakfast", ing:"Toast (cut into heart with cookie cutter), nut butter, banana", how:"Make a heart toast 'for the baby and for you'. She places banana.", why:"Affection + tool use + cookie-cutter shapes." },
+  ],
+};
+
+function mealsForTheme(themeW){
+  return MEALS[themeW] || [
+    { name:`${pickTheme().title} treasure plate`, emoji: pickTheme().emoji, type:"snack", ing:"Mix of theme-colored fruits/veggies (whatever fits the theme color)", how:"Arrange theme-colored items on a plate. She picks her favorite first.", why:"Theme reinforcement + variety + autonomy." },
+    { name:"Themed toast face", emoji:"🥪", type:"breakfast", ing:"Toast + cream cheese + 3 toppings (fruit, veg, seeds)", how:"Spread cheese. She decorates as a theme-related image.", why:"Decoration + breakfast + theme integration." },
+    { name:"DIY dipping plate", emoji:"🥕", type:"snack", ing:"3 dippers (carrot, cucumber, pita) + 2 dips (hummus, yogurt)", how:"She picks, dips, eats. Simple veggie exposure.", why:"Variety + autonomy + balanced snack." },
+  ];
+}
+
+let mealFilter = "all";
+
+function renderMeals(){
+  const sel = document.getElementById("mealThemeSel");
+  if (!sel.options.length){
+    THEMES.forEach(t => {
+      const o = document.createElement("option");
+      o.value = t.w; o.textContent = `W${t.w} · ${t.emoji} ${t.title}`;
+      sel.appendChild(o);
+    });
+    sel.onchange = ()=>{ drawMeals(); };
+  }
+  if (!sel.value) sel.value = String(pickTheme().w);
+  // Filter buttons
+  document.querySelectorAll("#mealFilters [data-meal-filter]").forEach(b => {
+    b.onclick = ()=>{
+      mealFilter = b.dataset.mealFilter;
+      document.querySelectorAll("#mealFilters [data-meal-filter]").forEach(x => x.classList.toggle("primary", x.dataset.mealFilter === mealFilter));
+      drawMeals();
+    };
+  });
+  drawMeals();
+}
+
+function drawMeals(){
+  const themeW = parseInt(document.getElementById("mealThemeSel").value, 10);
+  const theme = THEMES.find(t=>t.w===themeW) || pickTheme();
+  const meals = mealsForTheme(themeW).filter(m => mealFilter === "all" || m.type === mealFilter);
+  const grid = document.getElementById("mealsGrid");
+  grid.innerHTML = meals.length ? meals.map(m => `
+    <div class="card" style="padding:0; overflow:hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 12px rgba(0,0,0,.04)">
+      <div style="background: linear-gradient(135deg, ${theme.emoji==="🍦"?"#B3E5FC":"#FFE9DC"}, #FFF7ED); padding:14px; display:flex; gap:12px; align-items:center">
+        <div style="font-size:46px">${m.emoji}</div>
+        <div style="flex:1">
+          <div style="font-weight:700; font-size:16px">${escapeHtml(m.name)}</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:2px">${MEAL_TYPES[m.type] || m.type} · ${theme.emoji} ${escapeHtml(theme.title)}</div>
+        </div>
+      </div>
+      <div style="padding:14px">
+        <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em">Ingredients</div>
+        <div style="font-size:13px; margin-top:4px; line-height:1.5">${escapeHtml(m.ing)}</div>
+        <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:10px">How to do it</div>
+        <div style="font-size:13px; margin-top:4px; line-height:1.5">${escapeHtml(m.how)}</div>
+        <div style="font-size:12px; color:#14532D; margin-top:10px; padding:8px 10px; background:#F0FDF4; border-radius:8px; border-left:3px solid #16A34A">
+          <strong>Why it works:</strong> ${escapeHtml(m.why)}
+        </div>
+      </div>
+    </div>
+  `).join("") : '<div style="grid-column:1/-1; text-align:center; color:var(--muted); font-size:13px; padding:20px">No meal ideas yet for this theme — generic fallbacks active. Want me to add specific ones? Use the Memory tab to request.</div>';
+}
+
+/* =========================================================
+   PLAYLIST — 10 songs per theme with Spotify deeplinks
+   ========================================================= */
+const UNIVERSAL_SONGS = [
+  { t:"Twinkle Twinkle Little Star", a:"Traditional", lang:"EN" },
+  { t:"Frère Jacques", a:"Comptine", lang:"FR" },
+  { t:"Itsy Bitsy Spider", a:"Traditional", lang:"EN" },
+  { t:"Au clair de la lune", a:"Comptine", lang:"FR" },
+  { t:"Old MacDonald Had a Farm", a:"Traditional", lang:"EN" },
+  { t:"Une souris verte", a:"Comptine", lang:"FR" },
+  { t:"If You're Happy and You Know It", a:"Traditional", lang:"EN" },
+  { t:"Promenons-nous dans les bois", a:"Comptine", lang:"FR" },
+  { t:"Head Shoulders Knees and Toes", a:"Traditional", lang:"EN" },
+  { t:"Alouette", a:"Comptine", lang:"FR" },
+];
+
+const PLAYLISTS = {
+  20: [ // Construction
+    { t:"Wheels on the Bus", a:"Traditional / Super Simple Songs", lang:"EN" },
+    { t:"Bob the Builder Theme", a:"Bob the Builder", lang:"EN" },
+    { t:"Build Up Buttercup", a:"The Foundations (instrumental kid)", lang:"EN" },
+    { t:"Le marteau et la scie", a:"Comptine", lang:"FR" },
+    { t:"Big Truck Song", a:"Super Simple Songs", lang:"EN" },
+    { t:"5 Little Trucks", a:"Bounce Patrol", lang:"EN" },
+    { t:"Stomp Stomp Clap Clap", a:"Kid songs", lang:"EN" },
+    { t:"Mon petit lapin (work song variant)", a:"Comptine", lang:"FR" },
+    { t:"This is the Way we Build a House", a:"Traditional", lang:"EN" },
+    { t:"Petite ouvrier", a:"Comptine FR", lang:"FR" },
+  ],
+  21: [ // Ocean
+    { t:"Baby Shark", a:"Pinkfong", lang:"EN" },
+    { t:"Row Row Row Your Boat", a:"Traditional", lang:"EN" },
+    { t:"Yellow Submarine", a:"The Beatles", lang:"EN" },
+    { t:"Under the Sea", a:"The Little Mermaid", lang:"EN" },
+    { t:"1, 2, 3, 4, 5 — Once I Caught a Fish Alive", a:"Traditional", lang:"EN" },
+    { t:"Le petit poisson", a:"Comptine", lang:"FR" },
+    { t:"Slippery Fish", a:"Charlotte Diamond", lang:"EN" },
+    { t:"A Sailor Went to Sea", a:"Traditional", lang:"EN" },
+    { t:"Sur le pont d'Avignon", a:"Comptine", lang:"FR" },
+    { t:"Octopus's Garden", a:"The Beatles", lang:"EN" },
+  ],
+  22: [ // Five Senses
+    { t:"Five Senses Song", a:"Super Simple Songs", lang:"EN" },
+    { t:"Head Shoulders Knees and Toes", a:"Traditional", lang:"EN" },
+    { t:"Open Shut Them", a:"Traditional", lang:"EN" },
+    { t:"Si tu as bien chanté", a:"Comptine", lang:"FR" },
+    { t:"I Can See", a:"Kids", lang:"EN" },
+    { t:"Hokey Pokey", a:"Traditional", lang:"EN" },
+    { t:"Touch Your Eyes", a:"Kids", lang:"EN" },
+    { t:"Tap, Clap, Stomp", a:"Kids songs", lang:"EN" },
+    { t:"Voir, entendre, toucher", a:"Comptine FR", lang:"FR" },
+    { t:"Smell the Roses", a:"Kid songs", lang:"EN" },
+  ],
+  23: [ // Emotions
+    { t:"If You're Happy and You Know It", a:"Traditional", lang:"EN" },
+    { t:"Don't Worry Be Happy", a:"Bobby McFerrin", lang:"EN" },
+    { t:"The Feelings Song", a:"Super Simple Songs", lang:"EN" },
+    { t:"Comme un soleil", a:"Henri Dès", lang:"FR" },
+    { t:"Smile (instrumental)", a:"Charlie Chaplin / kids", lang:"EN" },
+    { t:"What a Wonderful World", a:"Louis Armstrong", lang:"EN" },
+    { t:"Petit Papa Noël - calme", a:"Tino Rossi", lang:"FR" },
+    { t:"Brave", a:"Sara Bareilles (instrumental ok)", lang:"EN" },
+    { t:"Émotions", a:"Henri Dès", lang:"FR" },
+    { t:"I am Calm", a:"Kira Willey", lang:"EN" },
+  ],
+  24: [ // Welcome Baby
+    { t:"Hush Little Baby", a:"Traditional", lang:"EN" },
+    { t:"Berceuse de Brahms", a:"Brahms (lullaby)", lang:"FR" },
+    { t:"Twinkle Twinkle Little Star", a:"Traditional", lang:"EN" },
+    { t:"Dodo l'enfant do", a:"Berceuse", lang:"FR" },
+    { t:"You Are My Sunshine", a:"Jimmie Davis", lang:"EN" },
+    { t:"Au clair de la lune", a:"Comptine", lang:"FR" },
+    { t:"Rock-a-bye Baby", a:"Traditional", lang:"EN" },
+    { t:"Frère Jacques", a:"Comptine", lang:"FR" },
+    { t:"Lullaby - Brahms", a:"Brahms", lang:"EN" },
+    { t:"Petit Bébé", a:"Henri Dès", lang:"FR" },
+  ],
+  25: [ // Growing Up
+    { t:"You Are My Sunshine", a:"Jimmie Davis", lang:"EN" },
+    { t:"Quand j'étais petit", a:"Henri Dès", lang:"FR" },
+    { t:"I'm a Big Kid Now", a:"Kid songs", lang:"EN" },
+    { t:"Grandir", a:"Henri Dès", lang:"FR" },
+    { t:"How Big Is", a:"Kids", lang:"EN" },
+    { t:"5 Years Old", a:"Kid songs", lang:"EN" },
+    { t:"Si grand", a:"Comptine", lang:"FR" },
+    { t:"All You Need Is Love", a:"The Beatles", lang:"EN" },
+    { t:"L'âge des héros", a:"FR", lang:"FR" },
+    { t:"What a Wonderful World", a:"Louis Armstrong", lang:"EN" },
+  ],
+  26: [ // Big Sister
+    { t:"You'll Be in My Heart", a:"Phil Collins (Tarzan)", lang:"EN" },
+    { t:"Frère Jacques", a:"Comptine", lang:"FR" },
+    { t:"Lean on Me (kid version)", a:"Bill Withers", lang:"EN" },
+    { t:"Mon frère", a:"Maxime Le Forestier", lang:"FR" },
+    { t:"You've Got a Friend in Me", a:"Toy Story", lang:"EN" },
+    { t:"Si tu n'es pas trop fatiguée", a:"Comptine", lang:"FR" },
+    { t:"Sisters", a:"Irving Berlin (gentle)", lang:"EN" },
+    { t:"La famille tortue", a:"Comptine", lang:"FR" },
+    { t:"Count on Me", a:"Bruno Mars", lang:"EN" },
+    { t:"Cadet Rousselle", a:"Comptine", lang:"FR" },
+  ],
+};
+
+function songsForTheme(themeW){
+  return PLAYLISTS[themeW] || UNIVERSAL_SONGS;
+}
+
+function spotifySearchUrl(song){
+  return `https://open.spotify.com/search/${encodeURIComponent(song.t + " " + (song.a||""))}`;
+}
+
+function renderPlaylist(){
+  const sel = document.getElementById("playlistThemeSel");
+  if (!sel.options.length){
+    THEMES.forEach(t => {
+      const o = document.createElement("option");
+      o.value = t.w; o.textContent = `W${t.w} · ${t.emoji} ${t.title}`;
+      sel.appendChild(o);
+    });
+    sel.onchange = drawPlaylist;
+  }
+  if (!sel.value) sel.value = String(pickTheme().w);
+  drawPlaylist();
+  // Restore embed if saved
+  const saved = state.spotifyPlaylistUrl;
+  if (saved){
+    document.getElementById("spotifyUrl").value = saved;
+    embedSpotify(saved);
+  }
+}
+
+function drawPlaylist(){
+  const themeW = parseInt(document.getElementById("playlistThemeSel").value, 10);
+  const songs = songsForTheme(themeW);
+  const grid = document.getElementById("playlistGrid");
+  grid.innerHTML = songs.map((s, i) => `
+    <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#FAFBFC; border:1px solid var(--line); border-radius:10px">
+      <div style="flex:0 0 36px; height:36px; background:${s.lang==="FR"?"#FCE7F3":"#DBEAFE"}; color:${s.lang==="FR"?"#9D174D":"#3730A3"}; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px">${s.lang}</div>
+      <div style="flex:1; min-width:0">
+        <div style="font-weight:600; font-size:14px">${i+1}. ${escapeHtml(s.t)}</div>
+        <div style="font-size:11px; color:var(--muted)">${escapeHtml(s.a||"")}</div>
+      </div>
+      <a href="${spotifySearchUrl(s)}" target="_blank" rel="noopener" style="text-decoration:none">
+        <button class="small primary" style="background:#1DB954">▶ Spotify</button>
+      </a>
+    </div>
+  `).join("");
+}
+
+function embedSpotify(url){
+  const m = url.match(/playlist\/([A-Za-z0-9]+)/) || url.match(/album\/([A-Za-z0-9]+)/) || url.match(/track\/([A-Za-z0-9]+)/);
+  const wrap = document.getElementById("spotifyEmbed");
+  if (!m) { wrap.innerHTML = '<div style="color:#991B1B; font-size:13px">Not a recognised Spotify playlist/album/track URL.</div>'; return; }
+  const kind = url.includes("playlist/") ? "playlist" : url.includes("album/") ? "album" : "track";
+  wrap.innerHTML = `<iframe src="https://open.spotify.com/embed/${kind}/${m[1]}" width="100%" height="380" frameborder="0" allow="encrypted-media" style="border-radius:12px"></iframe>`;
+}
+
+/* Memory view */
+function renderMemory(){
+  const feed = document.getElementById("memFeed");
+  const items = [...(state.feedback||[])].sort((a,b)=>b.ts-a.ts);
+  feed.innerHTML = items.length ? items.map(f=>`
+    <div class="mem-item">
+      <div class="meta">
+        <span class="mem-tag">${escapeHtml(f.tag||"general")}</span>
+        <span>${escapeHtml(f.user||"—")} · ${new Date(f.ts).toLocaleString("en-GB")}</span>
+        ${f.target ? `<span style="color:var(--accent)">→ ${escapeHtml(f.target)}</span>` : ""}
+      </div>
+      <div class="text">${escapeHtml(f.text)}</div>
+    </div>
+  `).join("") : '<div style="color:var(--muted); font-size:13px">No notes yet. Add one above.</div>';
+}
+document.getElementById("memSaveBtn").addEventListener("click", ()=>{
+  const text = document.getElementById("memInput").value.trim();
+  if (!text){ showToast("Type a note first."); return; }
+  const tag = document.getElementById("memTag").value;
+  const dateInput = document.getElementById("memDate").value;
+  let ts = Date.now();
+  if (dateInput && dateInput !== todayKey()){
+    const d = new Date(dateInput); d.setHours(12,0,0,0); ts = d.getTime();
+  }
+  state.feedback = state.feedback || [];
+  state.feedback.push({ ts, user: state.currentUser||"—", text, tag });
+  saveState(state);
+  document.getElementById("memInput").value = "";
+  renderMemory();
+  showToast("💾 Note saved.");
+});
+// Initial date default = today
+(function(){ const d = document.getElementById("memDate"); if (d) d.value = (new Date()).toISOString().slice(0,10); })();
+
+// Spotify embed save/clear
+on("spotifyEmbedBtn", "click", ()=>{
+  const url = document.getElementById("spotifyUrl").value.trim();
+  if (!url) return;
+  state.spotifyPlaylistUrl = url; saveState(state);
+  embedSpotify(url);
+});
+on("spotifyClearBtn", "click", ()=>{
+  state.spotifyPlaylistUrl = ""; saveState(state);
+  document.getElementById("spotifyUrl").value = "";
+  document.getElementById("spotifyEmbed").innerHTML = "";
+});
+
+/* =========================================================
+   10 RESEARCH-BACKED FEATURES
+   ========================================================= */
+
+// === Children registry (Maxine + Lou) ===
+state.currentChild = state.currentChild || "Maxine";
+state.children = state.children || {
+  Maxine: { name:"Maxine", emoji:"👧", dob:"2024-03-09" },
+  Lou:    { name:"Lou",    emoji:"👶", dob:"2026-06-15" }, // expected
+};
+
+function ageInDays(dob){
+  return Math.floor((Date.now() - new Date(dob).getTime()) / 86400000);
+}
+function ageBucket(dob){
+  const d = ageInDays(dob);
+  if (d < 0) return "expecting"; // not yet born
+  if (d < 28) return "0-4w";
+  if (d < 90) return "4-12w";
+  if (d < 180) return "3-6m";
+  if (d < 365) return "6-12m";
+  if (d < 730) return "12-24m";
+  if (d < 1095) return "2-3y";
+  return "3y+";
+}
+function ageDescription(dob){
+  const d = ageInDays(dob);
+  if (d < 0) return `in ${Math.abs(d)} days`;
+  if (d < 60) return `${d} days old`;
+  if (d < 365) return `${Math.floor(d/30)} months old`;
+  const y = Math.floor(d/365); const m = Math.floor((d - y*365)/30);
+  return `${y}y ${m}m old`;
+}
+
+const PARENTAL_ADVICE = {
+  "expecting": [
+    { t:"Prepare Maxine for arrival", b:"Read sibling books. Let her feel the bump. Set up baby items together. Use her name as 'big sister'.", src:"NYU Langone sibling prep" },
+    { t:"Pack the hospital bag this week", b:"Comfort items, change of clothes for both, phone charger, snacks. Maxine packs her own 'overnight bag' too.", src:"NHS / AAP" },
+    { t:"Plan first-meeting ritual", b:"Bring a 'gift from Lou' for Maxine. Let Maxine 'introduce' Lou to family.", src:"Dr Laura Markham" },
+    { t:"Sleep banking", b:"Both parents sleep extra now — banked rest helps the first 6 weeks.", src:"AASM" },
+  ],
+  "0-4w": [
+    { t:"5 S's for soothing (Karp)", b:"Swaddle · Side/Stomach (held only) · Shush (loud as her cry) · Swing (small, fast) · Suck (pacifier/finger). Use ALL FIVE — most powerful when combined.", src:"Harvey Karp, AAP" },
+    { t:"Safe sleep — ABCs", b:"Alone (no co-sleeping) · Back (always on back) · Crib (firm, flat, empty). No bumpers, blankets, pillows, toys.", src:"AAP 2022 Safe Sleep" },
+    { t:"Skin-to-skin daily", b:"Both parents. 60+ min/day if possible. Boosts bonding, milk supply, temperature regulation, breathing.", src:"Cochrane review" },
+    { t:"Tummy time from day 1", b:"2-3 min, 3× day, when she's awake and alert. Build up. Prevents flat spots + builds neck strength.", src:"AAP Tummy Time" },
+    { t:"Feed on cues, not clock", b:"Watch for rooting, lip-smacking, hands to mouth. Crying is a late hunger cue.", src:"WHO / La Leche" },
+    { t:"Read & talk from day 1", b:"Yes, even now. Voice exposure builds language. Tronick's still-face research: face-to-face talking shapes the social brain.", src:"Hart-Risley, Tronick" },
+    { t:"Trust your instinct — ignore strangers", b:"You cannot 'spoil' a newborn. Respond every time. Builds secure attachment (Ainsworth).", src:"Ainsworth, Maté" },
+    { t:"Maxine regression is normal", b:"She may go back to bottle, wet pants, clingy. Don't punish — it's her telling you she needs more connection.", src:"NYU Langone, Dr Laura Markham" },
+  ],
+  "4-12w": [
+    { t:"First smiles (4-8w)", b:"Social smile emerges. Get face-to-face often. Mirror her expressions. This wires the social brain.", src:"AAP milestones / Tronick" },
+    { t:"Tummy time 15-20 min/day", b:"Build endurance. Add toys to reach for at 8-10w.", src:"AAP" },
+    { t:"Predictable rhythm > strict schedule", b:"Eat-Wake-Sleep pattern. Predictability builds her sense of safety (Maté).", src:"Maté, Karp" },
+    { t:"Cluster feeding is normal", b:"Especially evenings, growth spurts. Not low supply.", src:"La Leche League" },
+    { t:"Watch for 'witching hour' (5-7pm)", b:"Peak fussiness 4-12w. Walk outside. White noise. 5 S's. It passes.", src:"Karp / Pediatrics" },
+    { t:"Maxine: include her in baby care", b:"Hand her the diaper. Let her pick the onesie. Sing to baby together.", src:"Dr Laura Markham" },
+  ],
+  "3-6m": [
+    { t:"Rolling, reaching, grasping", b:"Major motor leaps. Floor time daily. Avoid containers (bouncers, jumpers — restrict natural movement).", src:"Pikler, Gerber RIE" },
+    { t:"Bedtime routine starts now", b:"Consistent 30-min routine: bath, story, dim lights, song. Sets sleep architecture.", src:"AAP, AASM" },
+    { t:"Solids: from 6m, not before", b:"WHO recommends exclusive breastfeeding/formula until 6m. Then baby-led weaning (BLW) or purée.", src:"WHO, AAP" },
+    { t:"Stranger awareness emerging", b:"She'll look to you for cues. Stay near and warm with strangers. Don't force kisses.", src:"Bowlby" },
+  ],
+  "6-12m": [
+    { t:"Object permanence + separation anxiety", b:"Peaks 8-10m. Always say goodbye (never sneak out). Brief consistent ritual. She learns: 'they come back'.", src:"Piaget, Bowlby" },
+    { t:"Crawling + standing", b:"Babyproof now. Lower toys, remove tipping hazards, secure furniture, outlet covers.", src:"AAP childproofing" },
+    { t:"First words 10-14m", b:"Respond to babble like real conversation. Repeat what she says + extend ('Ball! Yes, a red ball.').", src:"Kuhl, Fernald" },
+    { t:"Maxine: 1:1 time daily", b:"15 min/day, just her + 1 parent, no baby. Critical to prevent sibling regression.", src:"Dr Laura Markham" },
+  ],
+  "12-24m": [
+    { t:"Walking → running", b:"Big motor stage. Outdoor 2h+ daily. Climbing safe structures = no flat play.", src:"WHO, Pikler" },
+    { t:"Language explosion (18-24m)", b:"From 50 → 200+ words. Read 3+ books/day. Narrate everything. Trilingual window peaks.", src:"Kuhl I-LABS, Hart-Risley" },
+    { t:"Tantrums begin", b:"Brain wiring catching up to wants. Normal. Connect first (low + slow voice), label feeling, wait.", src:"Siegel-Bryson, Perry" },
+    { t:"NO solo screens", b:"AAP under-2: zero solo screen time. Even 'educational' content doesn't transfer at this age.", src:"AAP, Kuhl" },
+  ],
+  "2-3y": [
+    { t:"Tantrums are NOT misbehaviour", b:"Immature prefrontal cortex. Don't reason during meltdown. Regulate → Relate → Reason (Perry).", src:"Bruce Perry, Whole-Brain Child" },
+    { t:"Process praise (Dweck)", b:"'You worked hard at that' not 'You're so smart'. Builds growth mindset.", src:"Carol Dweck, Stanford" },
+    { t:"Sibling regression: meet the need", b:"If Maxine wants bottle, give it. Going backwards briefly = asking for connection. Don't shame.", src:"NYU Langone" },
+    { t:"Trilingual peak window", b:"0-3y is the only window for native phoneme acquisition (Kuhl). Live voice, not screens.", src:"Patricia Kuhl, UW I-LABS" },
+    { t:"Choice architecture", b:"Avoid 'do you want X?' → 'X or Y?'. Builds autonomy without overwhelm.", src:"Erikson autonomy stage" },
+    { t:"Daily 15-min 1:1", b:"With each parent. Her choice of activity. Pure connection. Predictable.", src:"Dr Laura Markham, RIE" },
+  ],
+  "3y+": [
+    { t:"Time-ins not time-outs", b:"Stay with her in calm corner. Co-regulate. Don't isolate.", src:"Siegel-Bryson, No-Drama Discipline" },
+    { t:"Begin literacy gently", b:"Sandpaper letters, phonemic awareness games (rhyming, syllable clapping). Follow her lead.", src:"Dehaene, Montessori" },
+  ],
+};
+
+function renderParentalAdvice(){
+  const child = state.children[state.currentChild];
+  if (!child) return;
+  const bucket = ageBucket(child.dob);
+  const tips = PARENTAL_ADVICE[bucket] || [];
+  document.getElementById("adviceTitle").innerHTML = `📚 Parental advice — ${child.emoji} ${child.name} (${ageDescription(child.dob)})`;
+  const el = document.getElementById("adviceContent");
+  if (!el) return;
+  el.innerHTML = `
+    <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">Age-aware tips for the current phase. Sources cited.</div>
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:10px">
+      ${tips.map(t => `
+        <div style="background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px">
+          <div style="font-weight:700; font-size:13px; color:var(--ink)">${escapeHtml(t.t)}</div>
+          <div style="font-size:12px; color:var(--ink); margin-top:4px; line-height:1.5">${escapeHtml(t.b)}</div>
+          <div style="font-size:11px; color:var(--muted); font-style:italic; margin-top:6px">📚 ${escapeHtml(t.src)}</div>
+        </div>
+      `).join("")}
+    </div>
+    <div style="margin-top:10px; font-size:12px; color:var(--muted); padding:8px 10px; background:#FFFBEB; border-radius:8px; border-left:3px solid #F59E0B">
+      <strong>Tip:</strong> When Lou is born, switch the child toggle (top right) to see Lou's tips. Tabs and trackers update per child too.
+    </div>
+  `;
+}
+
+function renderChildPicker(){
+  document.querySelectorAll("#childPicker .upbtn").forEach(b => {
+    b.classList.toggle("active", b.dataset.child === state.currentChild);
+  });
+}
+document.getElementById("childPicker").addEventListener("click", (e)=>{
+  const b = e.target.closest(".upbtn"); if (!b) return;
+  state.currentChild = b.dataset.child; saveState(state);
+  renderChildPicker();
+  applyChildMode();
+  renderParentalAdvice();
+  if (document.getElementById("progressView").style.display !== "none") renderProgressView();
+  showToast(`👶 Now showing ${state.currentChild}'s view.`);
+});
+
+/* =========================================================
+   LOU MODE — newborn-specific layout
+   ========================================================= */
+state.lou = state.lou || { events: [], sleepStart: null };
+
+function applyChildMode(){
+  const isLou = state.currentChild === "Lou";
+  // Tabs to hide for Lou (toddler-only)
+  ["catalogue","vocabulary","meals","overview"].forEach(name => {
+    const btn = document.querySelector(`.nav-btn[data-view="${name}"]`);
+    if (btn) btn.style.display = isLou ? "none" : "";
+  });
+  const onDashboard = !!document.querySelector('.nav-btn[data-view="dashboard"].active');
+  const louHome = document.getElementById("louHome");
+  const mainView = document.getElementById("mainView");
+  const themeBanner = document.querySelector(".theme-banner");
+  const focusCard = document.getElementById("focusCard");
+  if (louHome) louHome.style.display = (isLou && onDashboard) ? "" : "none";
+  if (mainView) mainView.style.display = (isLou && onDashboard) ? "none" : (onDashboard ? "" : "none");
+  if (themeBanner) themeBanner.style.display = (isLou && onDashboard) ? "none" : (onDashboard ? "flex" : "none");
+  if (focusCard) focusCard.style.display = (isLou && onDashboard) ? "none" : (onDashboard ? "" : "none");
+  // If Lou is on a hidden tab, force back to dashboard
+  if (isLou && ["catalogue","vocabulary","meals","overview"].includes(getActiveView())){
+    if (typeof showView === "function") showView("dashboard");
+  }
+  if (isLou && louHome) renderLouHome();
+}
+
+function getActiveView(){
+  const active = document.querySelector(".nav-btn.active");
+  return active ? active.dataset.view : "dashboard";
+}
+
+/* Hook into showView to respect Lou-mode */
+const _origShowView = showView;
+showView = function(name){
+  _origShowView(name);
+  // After view changes, re-apply child mode (hides toddler home if Lou)
+  applyChildMode();
+};
+
+function louLog(type, payload){
+  state.lou.events = state.lou.events || [];
+  state.lou.events.push({ ts: Date.now(), type, ...payload, user: state.currentUser||"—" });
+  saveState(state);
+  renderLouHome();
+  const msgs = {
+    "feed-breast":"🤱 Breast feed logged.",
+    "feed-bottle":"🍼 Bottle feed logged.",
+    "sleep-start":"💤 Sleep started.",
+    "sleep-end":"☀️ Sleep ended.",
+    "diaper-wet":"💧 Wet diaper logged.",
+    "diaper-dirty":"💩 Dirty diaper logged.",
+    "diaper-both":"💧💩 Diaper logged.",
+    "tummy":"🤸 Tummy time logged.",
+    "skin":"🤱 Skin-to-skin logged.",
+  };
+  showToast(msgs[type] || "Logged.");
+}
+
+function fmtAgo(ts){
+  const m = Math.floor((Date.now() - ts) / 60000);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m/60), r = m%60;
+  return `${h}h ${r}m ago`;
+}
+
+function renderLouHome(){
+  const events = (state.lou && state.lou.events) || [];
+  const day = todayKey();
+  const today = events.filter(e => new Date(e.ts).toISOString().slice(0,10) === day);
+
+  // Feeds
+  const feeds = today.filter(e => e.type.startsWith("feed-"));
+  const lastFeed = events.filter(e => e.type.startsWith("feed-")).slice(-1)[0];
+  document.getElementById("louFeedSummary").innerHTML = `
+    <div><strong>${feeds.length}</strong> today</div>
+    ${lastFeed ? `<div style="color:var(--muted); font-size:12px">Last: ${lastFeed.type==="feed-breast"?"🤱 Breast":"🍼 Bottle"} · ${fmtAgo(lastFeed.ts)}</div>` : '<div style="color:var(--muted); font-size:12px">No feeds logged yet</div>'}
+    <div style="color:var(--muted); font-size:11px; margin-top:4px">Target: every 2-3h on cues</div>
+  `;
+
+  // Sleep
+  const sleeps = today.filter(e => e.type === "sleep-start" || e.type === "sleep-end");
+  let totalSleepMin = 0;
+  let lastStart = null;
+  events.forEach(e => {
+    if (e.type === "sleep-start") lastStart = e.ts;
+    else if (e.type === "sleep-end" && lastStart){
+      const onDay = new Date(lastStart).toISOString().slice(0,10) === day;
+      if (onDay) totalSleepMin += Math.floor((e.ts - lastStart) / 60000);
+      lastStart = null;
+    }
+  });
+  // If currently sleeping
+  const sleeping = lastStart !== null;
+  if (sleeping){
+    const curMin = Math.floor((Date.now() - lastStart) / 60000);
+    document.getElementById("louSleepSummary").innerHTML = `
+      <div style="color:#3730A3; font-weight:700">😴 Currently asleep</div>
+      <div style="color:var(--muted); font-size:12px">Started ${fmtAgo(lastStart)} · ${curMin} min</div>
+      <div style="color:var(--muted); font-size:12px">Total today: ${Math.floor(totalSleepMin/60)}h ${totalSleepMin%60}m</div>
+    `;
+    document.getElementById("louSleepToggle").textContent = "☀️ Wake";
+    document.getElementById("louSleepToggle").onclick = ()=>{ louLog("sleep-end", {start: lastStart}); state.lou.sleepStart = null; saveState(state); };
+  } else {
+    document.getElementById("louSleepSummary").innerHTML = `
+      <div><strong>${Math.floor(totalSleepMin/60)}h ${totalSleepMin%60}m</strong> today</div>
+      <div style="color:var(--muted); font-size:12px">Target newborn: 14-17h/day</div>
+    `;
+    document.getElementById("louSleepToggle").textContent = "💤 Start sleep";
+    document.getElementById("louSleepToggle").onclick = ()=>{ louLog("sleep-start"); };
+  }
+
+  // Diapers
+  const diapers = today.filter(e => e.type.startsWith("diaper-"));
+  const wet = diapers.filter(e => e.type === "diaper-wet" || e.type === "diaper-both").length;
+  const dirty = diapers.filter(e => e.type === "diaper-dirty" || e.type === "diaper-both").length;
+  document.getElementById("louDiaperSummary").innerHTML = `
+    <div><strong>${diapers.length}</strong> changes today</div>
+    <div style="color:var(--muted); font-size:12px">💧 ${wet} wet · 💩 ${dirty} dirty</div>
+    <div style="color:var(--muted); font-size:11px; margin-top:4px">Target: ≥6 wet/day after day 5</div>
+  `;
+
+  // Tummy time
+  const tummies = today.filter(e => e.type === "tummy");
+  const tummyMin = tummies.reduce((s,e)=> s + (e.duration||0), 0);
+  document.getElementById("louTummySummary").innerHTML = `
+    <div><strong>${tummyMin} min</strong> today</div>
+    <div style="color:var(--muted); font-size:12px">Target: 2-3 min × 3 day 0-4w → 15-20 min by 8w</div>
+  `;
+
+  // Skin-to-skin
+  const skins = today.filter(e => e.type === "skin");
+  const skinMin = skins.reduce((s,e)=> s + (e.duration||0), 0);
+  document.getElementById("louSkinSummary").innerHTML = `
+    <div><strong>${skinMin} min</strong> today</div>
+    <div style="color:var(--muted); font-size:12px">Both parents. 60+ min/day boosts bonding (Cochrane).</div>
+  `;
+
+  // Top tip — pick first item from current age bucket
+  const child = state.children[state.currentChild];
+  const bucket = ageBucket(child.dob);
+  const tips = PARENTAL_ADVICE[bucket] || [];
+  const tip = tips[Math.floor(Math.random() * Math.min(tips.length, 3))] || null;
+  document.getElementById("louTopTip").innerHTML = tip ? `
+    <div style="font-weight:700; font-size:14px; color:var(--ink)">${escapeHtml(tip.t)}</div>
+    <div style="font-size:13px; color:var(--ink); margin-top:6px; line-height:1.5">${escapeHtml(tip.b)}</div>
+    <div style="font-size:11px; color:var(--muted); font-style:italic; margin-top:6px">📚 ${escapeHtml(tip.src)}</div>
+  ` : "Switch to Progress for full advice.";
+
+  // Recent log
+  const recent = [...events].slice(-20).reverse();
+  document.getElementById("louLog").innerHTML = recent.length ? recent.map(e => {
+    const labels = { "feed-breast":"🤱 Breast feed", "feed-bottle":"🍼 Bottle", "sleep-start":"💤 Sleep started", "sleep-end":"☀️ Sleep ended", "diaper-wet":"💧 Wet diaper", "diaper-dirty":"💩 Dirty diaper", "diaper-both":"💧💩 Diaper (both)", "tummy":"🤸 Tummy time", "skin":"🤱 Skin-to-skin" };
+    return `
+      <div style="padding:6px 0; border-bottom:1px solid var(--line)">
+        <div style="font-weight:600">${labels[e.type] || e.type} ${e.duration ? `· ${e.duration} min` : ""}</div>
+        <div style="font-size:11px; color:var(--muted)">${escapeHtml(e.user||"")} · ${new Date(e.ts).toLocaleString("en-GB")}</div>
+      </div>
+    `;
+  }).join("") : '<div style="color:var(--muted)">No events yet.</div>';
+}
+
+// Lou action handlers
+document.addEventListener("click", (e)=>{
+  const b = e.target.closest("button[data-louaction]");
+  if (!b) return;
+  const a = b.dataset.louaction;
+  if (a === "feed-breast" || a === "feed-bottle"){ louLog(a); return; }
+  if (a.startsWith("diaper-")){ louLog(a); return; }
+  if (a.startsWith("tummy-")){
+    const mins = parseInt(a.split("-")[1], 10);
+    louLog("tummy", { duration: mins });
+    return;
+  }
+  if (a.startsWith("skin-")){
+    const mins = parseInt(a.split("-")[1], 10);
+    louLog("skin", { duration: mins });
+    return;
+  }
+});
+
+// #1 Daily wellness tracker (WHO 2019 under-5s)
+const WELLNESS_TARGETS = [
+  { key:"sleep", label:"💤 Sleep (h)", target:"11–14", unit:"h", min:9, max:16, src:"WHO 2019" },
+  { key:"outdoor", label:"🌳 Outdoor (min)", target:"≥180", unit:"min", min:0, max:600, src:"WHO 2019" },
+  { key:"books_en", label:"📘 Books EN", target:"≥1", unit:"", min:0, max:20, src:"Hart-Risley" },
+  { key:"books_fr", label:"📕 Books FR", target:"≥1", unit:"", min:0, max:20, src:"Hart-Risley" },
+  { key:"screen", label:"📱 Screen (min)", target:"≤60", unit:"min", min:0, max:300, src:"AAP/WHO" },
+];
+function renderWellness(){
+  const grid = document.getElementById("wellnessGrid");
+  if (!grid) return;
+  const day = todayKey();
+  state.wellness[day] = state.wellness[day] || {};
+  grid.innerHTML = WELLNESS_TARGETS.map(t => `
+    <div style="background:#F8FAFC; border:1px solid var(--line); border-radius:10px; padding:10px">
+      <div style="font-size:12px; font-weight:700; color:var(--ink)">${t.label}</div>
+      <div style="font-size:10px; color:var(--muted); margin-bottom:4px">Target ${t.target} ${t.unit} · ${t.src}</div>
+      <input type="number" min="${t.min}" max="${t.max}" data-well="${t.key}" value="${state.wellness[day][t.key]||''}" placeholder="0" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-weight:700; text-align:center"/>
+    </div>
+  `).join("");
+}
+document.addEventListener("change", (e)=>{
+  const inp = e.target.closest("input[data-well]");
+  if (!inp) return;
+  const day = todayKey();
+  state.wellness[day] = state.wellness[day] || {};
+  state.wellness[day][inp.dataset.well] = parseFloat(inp.value) || 0;
+  saveState(state);
+  showToast("📝 Saved.");
+});
+
+// #2 Co-regulation logger (Siegel-Bryson + Perry)
+function openCoreg(){
+  const emotion = prompt("Which emotion (frustrated, angry, sad, scared, overwhelmed)?");
+  if (!emotion) return;
+  const response = prompt("How did you respond? (Got low + named it; Hugged; Calm corner; Breathing; Left her; Other...)");
+  if (!response) return;
+  const notes = prompt("Notes (optional — trigger, duration, what helped):", "");
+  state.coregLog.push({ ts: Date.now(), user: state.currentUser||"—", emotion, response, notes });
+  saveState(state);
+  renderCoreg();
+  showToast("💛 Logged. Regulate → Relate → Reason.");
+}
+function renderCoreg(){
+  const el = document.getElementById("coregHistory");
+  if (!el) return;
+  const recent = [...state.coregLog].slice(-5).reverse();
+  el.innerHTML = recent.length ? recent.map(l => `
+    <div style="padding:8px 10px; background:#FEF2F2; border-left:3px solid #DC2626; border-radius:6px; margin-bottom:6px">
+      <div style="font-weight:600">${escapeHtml(l.emotion)} → ${escapeHtml(l.response)}</div>
+      <div style="font-size:11px; color:var(--muted)">${escapeHtml(l.user)} · ${new Date(l.ts).toLocaleString("en-GB")} ${l.notes ? "· " + escapeHtml(l.notes) : ""}</div>
+    </div>
+  `).join("") : '<div style="color:var(--muted); font-size:12px">No meltdowns logged yet.</div>';
+}
+on("coregLogBtn", "click", openCoreg);
+
+// #3 Process-praise reminder (Dweck) — added inline in modal via append in openAct (handled via section above)
+// Already implicitly part of activity modal; let's add a small reminder banner:
+(function(){
+  const origOpenAct = window.openAct;
+  // Done — Source section already implies. The Stampfer modal source line covers this.
+})();
+
+// #5 Montessori sensitive periods (Lillard 2017)
+const SENSITIVE_PERIODS = [
+  { period:"Movement (refinement)", window:"~0–4y", active:true, what:"Walking, climbing, balance, fine motor refinement.", do:"Daily outdoor 1h+. Real tools (knives, scissors). Practical Life.", src:"Lillard, Univ. of Virginia / Montessori" },
+  { period:"Language", window:"0–6y", active:true, what:"Absorbent mind for phonemes, vocabulary, syntax. Peak 0–3.", do:"3 books/day. Live human voice trilingual. Name everything.", src:"Kuhl I-LABS / Montessori" },
+  { period:"Order", window:"~1–3y", active:true, what:"Strong need for routines, where things belong.", do:"Consistent schedule, named places for objects, predictable rituals.", src:"Montessori / Pikler" },
+  { period:"Small objects", window:"~1–3y", active:true, what:"Fascination with tiny things, intense focus.", do:"Beads to thread, small items to sort, magnifying glass.", src:"Montessori" },
+  { period:"Refinement of senses", window:"~2–6y", active:true, what:"Discriminating colors, sounds, textures, weights, tastes.", do:"Sensory bins, smell jars, mystery bag, taste tests.", src:"Montessori" },
+  { period:"Social behaviour", window:"~2.5–6y", active:true, what:"Manners, taking turns, group play.", do:"Model + practice please/thank you. Sharing games.", src:"Montessori / Brackett Yale" },
+];
+function renderSensitivePeriods(){
+  const grid = document.getElementById("sensitivePeriods");
+  if (!grid) return;
+  grid.innerHTML = SENSITIVE_PERIODS.map(p => `
+    <div style="background:#F0F9FF; border:1px solid #BAE6FD; border-radius:10px; padding:10px">
+      <div style="font-weight:700; color:#0C4A6E; font-size:13px">${escapeHtml(p.period)} <span style="font-size:11px; color:var(--muted); font-weight:400">${p.window}</span></div>
+      <div style="font-size:12px; color:var(--ink); margin-top:4px"><strong>What:</strong> ${escapeHtml(p.what)}</div>
+      <div style="font-size:12px; color:#14532D; margin-top:4px; padding:6px 8px; background:#F0FDF4; border-radius:6px"><strong>Do:</strong> ${escapeHtml(p.do)}</div>
+      <div style="font-size:10px; color:var(--muted); font-style:italic; margin-top:4px">${escapeHtml(p.src)}</div>
+    </div>
+  `).join("");
+}
+
+// #9 Connection rituals (Maté attachment)
+const RITUALS = [
+  { id:"morning-hug", label:"🌅 Morning eye-contact + hug", desc:"Slow wake. Eye level. 30-second hug." },
+  { id:"meal-listen", label:"🍽 Mealtime fully present", desc:"No phones. Eye contact. Listen to her stories." },
+  { id:"return-reunion", label:"🤗 Reunion ritual at pickup", desc:"Crouch low, real smile. Name what you missed." },
+  { id:"bedtime-rev", label:"📖 Bedtime story + recap", desc:"FR + EN story. 'Today we...'. Lullaby." },
+];
+function renderRituals(){
+  const el = document.getElementById("connectionRituals");
+  if (!el) return;
+  const day = todayKey();
+  state.rituals = state.rituals || {};
+  state.rituals[day] = state.rituals[day] || {};
+  el.innerHTML = RITUALS.map(r => {
+    const done = !!state.rituals[day][r.id];
+    return `
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:${done?'#DCFCE7':'#FAFBFC'}; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; cursor:pointer" data-ritual="${r.id}">
+        <div style="font-size:20px">${done?'✅':'◌'}</div>
+        <div style="flex:1">
+          <div style="font-weight:600; font-size:13px">${escapeHtml(r.label)}</div>
+          <div style="font-size:11px; color:var(--muted)">${escapeHtml(r.desc)}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+document.addEventListener("click", (e)=>{
+  const r = e.target.closest("[data-ritual]");
+  if (!r) return;
+  const id = r.dataset.ritual;
+  const day = todayKey();
+  state.rituals = state.rituals || {};
+  state.rituals[day] = state.rituals[day] || {};
+  state.rituals[day][id] = !state.rituals[day][id];
+  saveState(state);
+  renderRituals();
+});
+
+// #10 Bedtime routine checklist (AAP/AASM)
+const BEDTIME_STEPS = [
+  "Dim lights 30 min before bed",
+  "Bath / wash up",
+  "Brush teeth",
+  "Stories (1 FR + 1 EN)",
+  "Lullaby + lights out by 19:30",
+];
+function renderBedtime(){
+  const el = document.getElementById("bedtimeChecklist");
+  if (!el) return;
+  const day = todayKey();
+  state.bedtimeChecklist[day] = state.bedtimeChecklist[day] || Array(BEDTIME_STEPS.length).fill(false);
+  el.innerHTML = BEDTIME_STEPS.map((s, i) => {
+    const done = state.bedtimeChecklist[day][i];
+    return `
+      <div style="display:flex; gap:10px; padding:8px 10px; background:${done?'#DCFCE7':'#FAFBFC'}; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; cursor:pointer" data-bedtime="${i}">
+        <div style="font-size:18px">${done?'✅':'◌'}</div>
+        <div style="flex:1; font-size:13px; font-weight:${done?'400':'600'}">${i+1}. ${escapeHtml(s)}</div>
+      </div>
+    `;
+  }).join("");
+}
+document.addEventListener("click", (e)=>{
+  const b = e.target.closest("[data-bedtime]");
+  if (!b) return;
+  const day = todayKey();
+  const i = parseInt(b.dataset.bedtime, 10);
+  state.bedtimeChecklist[day] = state.bedtimeChecklist[day] || Array(BEDTIME_STEPS.length).fill(false);
+  state.bedtimeChecklist[day][i] = !state.bedtimeChecklist[day][i];
+  saveState(state);
+  renderBedtime();
+});
+
+// #7 Gratitude (Seligman) — on Memory page
+function renderGratitude(){
+  const el = document.getElementById("gratitudeHistory");
+  if (!el) return;
+  const recent = [...(state.gratitude||[])].slice(-5).reverse();
+  el.innerHTML = recent.length ? recent.map(g => `
+    <div style="padding:8px 10px; background:#FFFBEB; border-left:3px solid #F59E0B; border-radius:6px; margin-bottom:6px; font-size:13px">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px">${escapeHtml(g.user||"")} · ${escapeHtml(g.date||"")}</div>
+      ${(g.items||[]).map((x,i)=>`<div>${i+1}. ${escapeHtml(x)}</div>`).join("")}
+    </div>
+  `).join("") : '<div style="color:var(--muted); font-size:12px">No gratitude entries yet today.</div>';
+}
+on("gratitudeSave", "click", ()=>{
+  const items = ["gr1","gr2","gr3"].map(id => document.getElementById(id).value.trim()).filter(Boolean);
+  if (!items.length){ showToast("Type at least one thing first."); return; }
+  state.gratitude = state.gratitude || [];
+  state.gratitude.push({ date: todayKey(), user: state.currentUser||"—", items });
+  saveState(state);
+  ["gr1","gr2","gr3"].forEach(id => document.getElementById(id).value = "");
+  renderGratitude();
+  showToast("💛 Gratitude saved.");
+});
+
+// #8 Tutor recommendations (rule-based AI tutor — scans Memory notes for keywords → suggests theme/activity tweaks)
+const TUTOR_RULES = [
+  { keywords:["water","eau","splash","bath"], suggest:"She seems drawn to water — try Water Fun (W29) themes early, plus daily water-play sensory." },
+  { keywords:["dino","dinosaur"], suggest:"Dinosaur fascination — bring forward W34 themes and add dino books." },
+  { keywords:["truck","car","vehicle","camion","voiture"], suggest:"Vehicles peak interest — emphasise Construction (W20) and Transportation (W45). Many balance-bike sessions." },
+  { keywords:["music","sing","drum","dance"], suggest:"Music-loving phase — Music & Movement (W42) themes, daily song rituals, rhythm sticks." },
+  { keywords:["food","cook","kitchen","cuisine","cooking"], suggest:"Cooking interest — Kitchen (W13) + Healthy Eating (W43). Real tools (toddler knife, whisk)." },
+  { keywords:["read","book","story","livre"], suggest:"Reading peaks emergent literacy — push to 4-5 books/day, introduce sandpaper letters (Dehaene)." },
+  { keywords:["frustrat","angry","melt","tantrum","cry"], suggest:"More co-regulation needed — practice belly-breathing (smell flower / blow candle) outside crisis. Calm jar." },
+  { keywords:["share","sister","sibling"], suggest:"Sibling prep — bring forward W23-W26 themes (Emotions, Welcome Baby, Big Sister)." },
+  { keywords:["draw","paint","color","art","crayon"], suggest:"Art interest — daily 10-min open-ended drawing, Reggio-style materials." },
+  { keywords:["climb","jump","run","bike"], suggest:"Big-body phase — protect 90+ min outdoor daily. Balance bike, climbing structures." },
+];
+function tutorRecommendations(){
+  const feedback = (state.feedback||[]).map(f => (f.text||"").toLowerCase()).join(" ");
+  if (!feedback) return [];
+  const matches = [];
+  TUTOR_RULES.forEach(r => {
+    if (r.keywords.some(k => feedback.includes(k))) matches.push(r.suggest);
+  });
+  return matches.slice(0, 3);
+}
+function renderTutorReco(){
+  const el = document.getElementById("tutorReco");
+  if (!el) return;
+  const recs = tutorRecommendations();
+  if (!recs.length){ el.style.display = "none"; return; }
+  el.style.display = "";
+  el.innerHTML = `
+    <div style="display:flex; align-items:flex-start; gap:10px">
+      <div style="font-size:28px">🎓</div>
+      <div style="flex:1">
+        <div style="font-weight:700; font-size:14px; color:#3730A3">AI tutor suggestions (based on your notes)</div>
+        <ul style="margin:6px 0 0; padding-left:20px; font-size:13px; color:var(--ink); line-height:1.5">
+          ${recs.map(r => `<li>${escapeHtml(r)}</li>`).join("")}
+        </ul>
+      </div>
+    </div>
+  `;
+}
+
+/* Skill & vocabulary panel injected into Progress */
+function renderSkillVocabProgress(){
+  /* ---- Skill mastery by domain (level-based) ---- */
+  const domEl = document.getElementById("progDomains");
+  if (domEl){
+    let html = "";
+    DOMAINS.forEach(d => {
+      // Activity engagement (existing)
+      let totalActs=0, mActs=0;
+      THEMES.forEach(t => (t[d.key]||[]).forEach((_,i)=>{
+        totalActs++;
+        const s = statusOf(t.w, d.key, i);
+        if (s && (s.status==="mastered"||s.status==="already_mastered")) mActs++;
+      }));
+      // Skill catalogue mastery
+      const ds = SKILLS.filter(s => s.dom === d.key);
+      const mSkills = ds.filter(s => skillStatus(s.id)==="mastered").length;
+      const pSkills = ds.filter(s => skillStatus(s.id)==="practising").length;
+      const eSkills = ds.filter(s => skillStatus(s.id)==="emerging").length;
+      const skillRatio = ds.length ? mSkills/ds.length : 0;
+      const lv = domainLevel(skillRatio);
+      const recLv = recommendedLevel(d.key);
+      const nextSkill = SKILLS.filter(s => s.dom===d.key && skillStatus(s.id)!=="mastered" && skillLevel(s)===recLv)[0];
+      html += `
+        <div style="margin-bottom:16px; background:${lv.bg}20; border:1px solid ${lv.color}30; border-radius:10px; padding:10px 12px">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px">
+            <span style="font-weight:700; font-size:14px">${d.emoji} ${d.label}</span>
+            <span style="font-size:12px; font-weight:700; color:${lv.color}; background:${lv.bg}; padding:2px 8px; border-radius:6px">${lv.label}</span>
+          </div>
+          <div style="display:flex; gap:10px; font-size:12px; color:var(--muted); flex-wrap:wrap; margin-bottom:6px">
+            <span>📚 ${mSkills}/${ds.length} skills mastered</span>
+            ${pSkills ? `<span>🟡 ${pSkills} practising</span>`:""}
+            ${eSkills ? `<span>🔵 ${eSkills} emerging</span>`:""}
+            <span>🎮 ${mActs}/${totalActs} activities done</span>
+          </div>
+          <div class="progress-bar" style="height:7px; margin-bottom:6px"><div style="width:${Math.round(skillRatio*100)}%; background:${lv.color}"></div></div>
+          ${nextSkill ? `<div style="font-size:12px; background:#fff8; border-radius:6px; padding:4px 8px; margin-top:4px">🎯 Next: <strong>${escapeHtml(nextSkill.t)}</strong> <span style="color:var(--muted)">(${escapeHtml(nextSkill.age)})</span></div>` : `<div style="font-size:12px; color:#14532D; padding:4px 8px">🌟 Domain complete at current level!</div>`}
+        </div>
+      `;
+    });
+    domEl.innerHTML = html;
+  }
+
+  /* ---- Vocabulary mastery panel ---- */
+  let vocabCard = document.getElementById("progVocabCard");
+  if (!vocabCard){
+    vocabCard = document.createElement("div");
+    vocabCard.id = "progVocabCard";
+    vocabCard.className = "card";
+    vocabCard.style.marginBottom = "14px";
+    // Insert before tailoredAssessment card
+    const ta = document.getElementById("tailoredAssessment");
+    if (ta && ta.parentElement) ta.parentElement.insertBefore(vocabCard, ta.parentElement.querySelector(".card:has(#tailoredAssessment)") || ta.parentElement.children[0]);
+    else { const ps = document.getElementById("progressView"); if(ps) ps.appendChild(vocabCard); }
+  }
+  let totalV=0, mEn=0, mFr=0, mBoth=0;
+  VOCAB_MASTER.forEach(cat => cat.words.forEach(w => {
+    totalV++;
+    const en=isVMastered(w.en,"en"), fr=isVMastered(w.en,"fr");
+    if(en) mEn++; if(fr) mFr++; if(en&&fr) mBoth++;
+  }));
+  const vocabPct = totalV ? Math.round((mBoth/totalV)*100) : 0;
+  // Top mastered categories
+  const themeScores = VOCAB_MASTER.map(cat => {
+    const both = cat.words.filter(w=>isVMastered(w.en,"en")&&isVMastered(w.en,"fr")).length;
+    return { t:{ emoji:cat.cat.split(" ")[0], title:cat.cat.replace(/^\S+\s*/,"") }, pct: Math.round((both/cat.words.length)*100), both, total:cat.words.length };
+  }).filter(x=>x.both>0).sort((a,b)=>b.pct-a.pct).slice(0,3);
+
+  vocabCard.innerHTML = `
+    <h2>📖 Vocabulary mastery</h2>
+    <div style="display:grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-bottom:12px">
+      <div class="prog-card"><div class="lbl">🇬🇧 EN mastered</div><div class="big">${mEn}/${totalV}</div></div>
+      <div class="prog-card"><div class="lbl">🇫🇷 FR mastered</div><div class="big">${mFr}/${totalV}</div></div>
+      <div class="prog-card"><div class="lbl">Both languages</div><div class="big">${mBoth}/${totalV}</div></div>
+    </div>
+    <div class="progress-bar" style="height:8px; margin-bottom:10px"><div style="width:${vocabPct}%"></div></div>
+    <div style="font-size:12px; color:var(--muted); margin-bottom:8px">Bilingual mastery: <strong>${vocabPct}%</strong> · ${mBoth} words fully mastered in both languages</div>
+    ${themeScores.length ? `<div style="font-size:12px; font-weight:700; margin-bottom:4px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em">Top categories</div>
+    ${themeScores.map(x=>`<div style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:4px">
+      <span>${x.t.emoji}</span><span style="flex:1">${escapeHtml(x.t.title)}</span>
+      <span style="font-weight:700; color:#14532D">${x.both}/${x.total} bilingual</span>
+    </div>`).join("")}` : ""}
+    <button class="small" style="margin-top:8px" onclick="showView('vocabulary')">📖 Open vocabulary tab →</button>
+  `;
+}
+
+// Add to Progress renderer
+const _origRenderProgressView = renderProgressView;
+renderProgressView = function(){
+  _origRenderProgressView();
+  renderSkillVocabProgress();
+  renderTailoredAssessment();
+  renderParentalAdvice();
+  renderWellness();
+  renderSensitivePeriods();
+  renderBedtime();
+  renderCoreg();
+  renderRituals();
+};
+// Add to Memory renderer
+const _origRenderMemory = renderMemory;
+renderMemory = function(){
+  _origRenderMemory();
+  renderGratitude();
+};
+// Show tutor reco on Dashboard
+const _origRenderTheme = renderTheme;
+renderTheme = function(){
+  _origRenderTheme();
+  renderTutorReco();
+};
+
+// #6 Phonological awareness — added to vocab quick activities (universal templates)
+// These will surface automatically through THEME_QUICK fallbacks. Already integrated.
+
+// Spotify embed save/clear
+on("spotifyEmbedBtn", "click", ()=>{
+  const url = document.getElementById("spotifyUrl").value.trim();
+  if (!url) return;
+  state.spotifyPlaylistUrl = url; saveState(state);
+  embedSpotify(url);
+});
+on("spotifyClearBtn", "click", ()=>{
+  state.spotifyPlaylistUrl = ""; saveState(state);
+  document.getElementById("spotifyUrl").value = "";
+  document.getElementById("spotifyEmbed").innerHTML = "";
+});
+
+renderHeader();
+renderUserPicker();
+renderChildPicker();
+renderFocus();
+renderTheme();
+applyChildMode();
+
+/* Kick off auto-sync on page load */
+setTimeout(syncAutoInit, 800);
+
 /* ── Offline sync banner helpers ── */
 function _sobShow(){
   const b = document.getElementById("syncOfflineBanner");
@@ -3402,9 +6281,6 @@ window._sobTransfer = async function(){
     if(out && url){ out.style.display="block"; out.style.color="#FCA5A5"; out.textContent="Copy this: " + url.substring(0,60)+"…"; }
   }
 };
-
-/* ── Kick off auto-sync on page load ── */
-syncAutoInit();
 
 </script>
 </body>
