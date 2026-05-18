@@ -6382,6 +6382,46 @@ function drawSkillCatalogue(){
 }
 
 document.addEventListener("click", (e)=>{
+  // Improvement 1: dismiss the newly-mastered banner.
+  if (e.target.closest("#cubDismissBtn")){
+    e.stopPropagation();
+    try {
+      const snap = computeReadinessSnapshot();
+      _persistReadinessSnapshot(snap.masteredIds, /* dismissed */ true);
+    } catch(err){ console.warn("dismiss snapshot failed", err); }
+    const b = document.getElementById("catUnlockBanner");
+    if (b){ b.style.display = "none"; b.innerHTML = ""; }
+    return;
+  }
+  // Improvement 1: scroll-and-flash a Ready-to-try chip's target skill card.
+  const chip = e.target.closest("[data-readyid]");
+  if (chip){
+    e.stopPropagation();
+    const id = chip.dataset.readyid;
+    const row = document.querySelector(`.skill-row[data-skillid="${CSS.escape(id)}"]`);
+    if (row){
+      row.scrollIntoView({ behavior:"smooth", block:"center" });
+      row.classList.add("cat-row-flash");
+      setTimeout(() => row.classList.remove("cat-row-flash"), 1500);
+    } else {
+      // The target may be filtered out — clear filters and retry once.
+      const domSel = document.getElementById("skillDomain");
+      const stSel  = document.getElementById("skillStatus");
+      if (domSel) domSel.value = "";
+      if (stSel)  stSel.value  = "";
+      drawSkillCatalogue();
+      setTimeout(() => {
+        const again = document.querySelector(`.skill-row[data-skillid="${CSS.escape(id)}"]`);
+        if (again){
+          again.scrollIntoView({ behavior:"smooth", block:"center" });
+          again.classList.add("cat-row-flash");
+          setTimeout(() => again.classList.remove("cat-row-flash"), 1500);
+        }
+      }, 50);
+    }
+    return;
+  }
+
   const btn = e.target.closest("button[data-skillcycle]");
   if (btn){
     e.stopPropagation();
