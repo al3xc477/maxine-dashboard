@@ -570,6 +570,62 @@
   .gc-card-text{ font-size:15px }
 }
 
+/* ── Catalogue: readiness UI (Improvement 1) + hidden toggle (Improvement 3) ── */
+.cat-unlock-banner{
+  background:linear-gradient(135deg,#FEF3C7 0%,#DCFCE7 100%);
+  border:1px solid #FCD34D; border-radius:14px; padding:12px 14px;
+  margin-bottom:14px; display:flex; gap:12px; align-items:flex-start;
+  box-shadow:var(--shadow); animation: fadeIn .3s ease;
+}
+.cat-unlock-banner .cub-emoji{ font-size:28px; line-height:1; flex:0 0 auto }
+.cat-unlock-banner .cub-body{ flex:1; min-width:0; font-size:13px; color:#7C2D12 }
+.cat-unlock-banner .cub-title{ font-weight:800; font-size:14px; color:#854D0E; margin-bottom:4px }
+.cat-unlock-banner .cub-list{ font-size:12px; color:#78350F; line-height:1.5 }
+.cat-unlock-banner .cub-dismiss{
+  background:transparent; color:#854D0E; border:1px solid #FCD34D; border-radius:8px;
+  padding:4px 10px; font-size:11px; font-weight:700; cursor:pointer; min-height:32px;
+}
+.cat-unlock-banner .cub-dismiss:hover{ background:#FFFBEB }
+
+.cat-ready-row{ padding:8px 4px 2px }
+.cat-ready-row .crr-label{
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--muted); margin-bottom:6px;
+}
+.cat-ready-row .crr-chips{ display:flex; flex-wrap:wrap; gap:6px }
+.cat-ready-row .crr-chip{
+  display:inline-flex; align-items:center; gap:5px;
+  background:#fff; border:1px solid var(--line); border-radius:999px;
+  padding:5px 10px; font-size:12px; font-weight:600; color:var(--ink);
+  cursor:pointer; transition: background .12s, border-color .12s;
+  min-height:32px;
+}
+.cat-ready-row .crr-chip:hover{ background:#F8FAFC; border-color:var(--accent) }
+.cat-ready-row .crr-dot{
+  width:8px; height:8px; border-radius:50%; flex:0 0 auto;
+}
+.crr-dot.dom-gross    { background:#3B82F6 }
+.crr-dot.dom-fine     { background:#F59E0B }
+.crr-dot.dom-sensory  { background:#FB923C }
+.crr-dot.dom-cognitive{ background:#6366F1 }
+.crr-dot.dom-vocab    { background:#EC4899 }
+.crr-dot.dom-social   { background:#6B7280 }
+
+/* Skill card flash when scrolled to from a Ready-chip click */
+@keyframes catRowFlash {
+  0%, 100% { background-color: inherit }
+  30%, 70% { background-color: #FEF3C7 }
+}
+.skill-row.cat-row-flash{ animation: catRowFlash 1.4s ease; }
+
+/* Hidden-skill rendering (Improvement 3) */
+.skill-row.skill-hidden{ background:#F3F4F6 !important; opacity:.65; position:relative; }
+.skill-row.skill-hidden::after{
+  content:"🙈 hidden"; position:absolute; top:6px; right:10px;
+  background:#6B7280; color:#fff; font-size:10px; font-weight:700;
+  padding:1px 6px; border-radius:6px;
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
