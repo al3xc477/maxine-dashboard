@@ -6259,6 +6259,65 @@ function tierMultiplier(tier){
   return m[tier] != null ? m[tier] : 1;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   v5 — Sustained Level (SL) helpers on the UDI scale.
+
+   In v4 the spec assumed every skill carried `s.subdomain` and that
+   `SUBDOMAINS[domKey]` enumerated them. The current dataset has neither,
+   so the spec's sub-domain functions return null cleanly and the domain-
+   level SL aggregates from skill UDIs directly. T_floor falls back to the
+   domain SL when no sub-domains are available.
+
+   SL = mean of top-3 mastered (or already_mastered) UDIs in scope.
+   T_peak = max UDI mastered in scope.
+   Breadth = count_mastered / count_total in domain.
+   ───────────────────────────────────────────────────────────────────────── */
+function _v5MasteredInScope(filterFn){
+  return SKILLS_ALL.filter(s => filterFn(s) && (function(){
+    const st = deriveStatus(s.id);
+    return st === "mastered" || st === "already_mastered";
+  })());
+}
+function _v5MeanTopUdi(skills, n){
+  if (!skills.length) return null;
+  const top = skills.map(s => udiOf(s)).sort((a,b) => b - a).slice(0, n);
+  return top.reduce((a,b) => a + b, 0) / top.length;
+}
+
+function advancedSubdomains(/* domKey */){
+  // Sub-domain decomposition is a v4 feature not present in this dataset.
+  return [];
+}
+function subdomainSL(domKey, subKey){
+  const mastered = _v5MasteredInScope(s => s.dom === domKey && s.subdomain === subKey);
+  return _v5MeanTopUdi(mastered, 3);
+}
+function subdomainPeak(domKey, subKey){
+  const mastered = _v5MasteredInScope(s => s.dom === domKey && s.subdomain === subKey);
+  if (!mastered.length) return null;
+  return Math.max(...mastered.map(s => udiOf(s)));
+}
+function domainSL(domKey){
+  // No sub-domains in current data → aggregate from domain skills directly.
+  const mastered = _v5MasteredInScope(s => s.dom === domKey);
+  return _v5MeanTopUdi(mastered, 3);
+}
+function domainTPeak(domKey){
+  const mastered = _v5MasteredInScope(s => s.dom === domKey);
+  if (!mastered.length) return null;
+  return Math.max(...mastered.map(s => udiOf(s)));
+}
+function domainTFloor(domKey){
+  // Without sub-domains, the rate-limiter is the domain itself; floor === SL.
+  const sl = domainSL(domKey);
+  return { value: sl, subdomain: null };
+}
+function domainBreadth(domKey){
+  const total = SKILLS_ALL.filter(s => s.dom === domKey).length;
+  const mastered = _v5MasteredInScope(s => s.dom === domKey).length;
+  return { covered: mastered, total };
+}
+
 /* Latest observation wins. Falls back to legacy skillStatus.
    Memoized within a render tick. */
 function deriveStatus(skillId){
