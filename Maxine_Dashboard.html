@@ -5848,6 +5848,268 @@ const SKILLS_CUSTOM_SEED = [
 ];
 SKILLS.push(...SKILLS_CUSTOM_SEED);
 
+/* ─────────────────────────────────────────────────────────────────────────
+   IMPROVEMENT A — DOMAIN_SEED_BANK + autoSeedDomain
+   Auto-injects developmentally grounded skill seeds when a domain has <10
+   visible skills, so the catalogue always feels rich. Seeds are pushed into
+   SKILLS *in memory only* — never persisted to localStorage / state.
+
+   Spec uses domain names motor/language/cognitive/social/creative/self_care.
+   Real domains are gross/fine/sensory/cognitive/vocab/social. Mapping:
+     motor    → split into `gross` (locomotion) and `fine` (manipulation)
+     language → vocab
+     creative → fine (drawing) and cognitive (story planning)
+     self_care → fine (dressing/utensils) and social (cleanup/manners)
+   Seeds are keyed by REAL domain keys.
+
+   Design decision: ID prefix `seed-` keeps these distinct from existing
+   IDs so duplicate detection in autoSeedDomain (id-based) works trivially.
+   ───────────────────────────────────────────────────────────────────────── */
+const DOMAIN_ALIASES = {
+  motor: "gross", language: "vocab", creative: "fine", self_care: "fine",
+  gross: "gross", fine: "fine", sensory: "sensory",
+  cognitive: "cognitive", vocab: "vocab", social: "social",
+};
+function _resolveDomain(key){ return DOMAIN_ALIASES[key] || key; }
+function _tierToAge(t){
+  return ({ 1:"~18–24m", 2:"~24–36m", 3:"~36–48m", 4:"~48–60m" })[t] || "~24m";
+}
+
+const DOMAIN_SEED_BANK = {
+  gross: [
+    { id:"seed-gm-catch-large",   domain:"gross", tier:1, keystone:false, prereqs:[], label:"Catches large ball with both arms", desc:"Brings arms together to catch a beach-ball-sized ball" },
+    { id:"seed-gm-stairs-alt",    domain:"gross", tier:1, keystone:false, prereqs:[], label:"Walks up stairs alternating feet (rail)", desc:"One foot per step, holding the rail" },
+    { id:"seed-gm-walk-line",     domain:"gross", tier:1, keystone:false, prereqs:[], label:"Walks along a line for 3 metres", desc:"Heel-toe along a taped line on the floor" },
+    { id:"seed-gm-walk-bw",       domain:"gross", tier:1, keystone:false, prereqs:[], label:"Walks backwards 5 steps", desc:"Controlled backwards walking without falling" },
+    { id:"seed-gm-hop-one",       domain:"gross", tier:2, keystone:false, prereqs:[], label:"Hops on one foot 3 times", desc:"Both feet leave ground; single-leg balance" },
+    { id:"seed-gm-run-obstacles", domain:"gross", tier:2, keystone:false, prereqs:[], label:"Runs around obstacles without bumping", desc:"Visual planning + motor adjustment" },
+    { id:"seed-gm-jump-down",     domain:"gross", tier:2, keystone:false, prereqs:[], label:"Jumps off a low step, lands feet-together", desc:"15cm step; safe landing" },
+    { id:"seed-gm-galops",        domain:"gross", tier:2, keystone:false, prereqs:[], label:"Gallops or pre-skips", desc:"Lead-foot pattern emerges" },
+    { id:"seed-gm-pedal-trike",   domain:"gross", tier:2, keystone:false, prereqs:[], label:"Pedals a tricycle", desc:"Reciprocal pedalling + steering" },
+    { id:"seed-gm-skip",          domain:"gross", tier:3, keystone:true,  prereqs:[], label:"Skips with alternating feet", desc:"Sequenced bilateral coordination" },
+    { id:"seed-gm-beam-balance",  domain:"gross", tier:3, keystone:false, prereqs:[], label:"Balances on a beam 5+ seconds", desc:"Eyes forward, arms out, slow walk" },
+    { id:"seed-gm-broad-jump",    domain:"gross", tier:3, keystone:false, prereqs:[], label:"Standing broad jump 30+ cm", desc:"Two-foot take-off and landing" },
+    { id:"seed-gm-stand-tip-toe", domain:"gross", tier:3, keystone:false, prereqs:[], label:"Stands on tiptoes 10 seconds", desc:"Calf strength + balance" },
+    { id:"seed-gm-bike-no-stab",  domain:"gross", tier:4, keystone:true,  prereqs:[], label:"Rides bike without stabilisers", desc:"Full balance + steering + pedalling" },
+    { id:"seed-gm-skip-rope",     domain:"gross", tier:4, keystone:false, prereqs:[], label:"Skips with a rope", desc:"Timing + bilateral coordination" },
+    { id:"seed-gm-hop-far",       domain:"gross", tier:4, keystone:false, prereqs:[], label:"Hops 6 times on one foot", desc:"Sustained single-leg power" },
+    { id:"seed-gm-throw-overhand",domain:"gross", tier:4, keystone:false, prereqs:[], label:"Throws overhand to target 3m", desc:"Step + rotate + release" },
+  ],
+  fine: [
+    { id:"seed-fm-open-containers", domain:"fine", tier:1, keystone:false, prereqs:[], label:"Opens screw-top containers", desc:"Bilateral grip + wrist rotation" },
+    { id:"seed-fm-bead-thread-lg",  domain:"fine", tier:1, keystone:false, prereqs:[], label:"Threads large beads on lace", desc:"Pincer + crossing midline" },
+    { id:"seed-fm-draw-circle",     domain:"fine", tier:1, keystone:false, prereqs:[], label:"Draws a closed circle on demand", desc:"Pre-letter shape" },
+    { id:"seed-fm-draw-cross",      domain:"fine", tier:1, keystone:false, prereqs:[], label:"Draws a + (cross)", desc:"Two intersecting strokes" },
+    { id:"seed-fm-remove-shoes",    domain:"fine", tier:1, keystone:false, prereqs:[], label:"Removes shoes and socks independently", desc:"Self-care autonomy" },
+    { id:"seed-fm-use-fork",        domain:"fine", tier:1, keystone:false, prereqs:[], label:"Uses fork to spear food", desc:"Wrist pronation + precision" },
+    { id:"seed-fm-scissors-snip",   domain:"fine", tier:2, keystone:false, prereqs:[], label:"Snips paper with scissors", desc:"Bilateral hand use + thumb-finger separation" },
+    { id:"seed-fm-thread-small",    domain:"fine", tier:2, keystone:false, prereqs:[], label:"Threads small beads", desc:"Refined pincer" },
+    { id:"seed-fm-draw-person-1",   domain:"fine", tier:2, keystone:false, prereqs:[], label:"Draws a person (head + body + 2 limbs)", desc:"Symbolic representation emerging" },
+    { id:"seed-fm-zipper-up",       domain:"fine", tier:2, keystone:false, prereqs:[], label:"Zips up a coat", desc:"Bilateral + sequencing" },
+    { id:"seed-fm-pour-drink",      domain:"fine", tier:2, keystone:false, prereqs:[], label:"Pours own drink from a small jug", desc:"Wrist control + grading" },
+    { id:"seed-fm-buttons-large",   domain:"fine", tier:3, keystone:false, prereqs:[], label:"Buttons and unbuttons large buttons", desc:"Two-handed in-hand manipulation" },
+    { id:"seed-fm-cut-line",        domain:"fine", tier:3, keystone:false, prereqs:[], label:"Cuts along a straight line with scissors", desc:"Hand-eye coordination" },
+    { id:"seed-fm-write-name-some", domain:"fine", tier:3, keystone:false, prereqs:[], label:"Writes 3+ letters from own name", desc:"Letter recognition + motor formation" },
+    { id:"seed-fm-shoelace-start",  domain:"fine", tier:3, keystone:false, prereqs:[], label:"Begins tying shoelace (criss-cross)", desc:"Two-step sequencing" },
+    { id:"seed-fm-pencil-pressure", domain:"fine", tier:4, keystone:false, prereqs:[], label:"Controls pencil pressure (light vs heavy)", desc:"Grading + sensory feedback" },
+    { id:"seed-fm-cut-shape",       domain:"fine", tier:4, keystone:false, prereqs:[], label:"Cuts out a square / simple shape", desc:"Continuous cut with turns" },
+    { id:"seed-fm-write-name",      domain:"fine", tier:4, keystone:true,  prereqs:[], label:"Writes own name legibly", desc:"Letter sequencing + spatial layout" },
+    { id:"seed-fm-shoelace-bow",    domain:"fine", tier:4, keystone:false, prereqs:[], label:"Ties shoelace bow independently", desc:"Full bilateral fine-motor sequence" },
+  ],
+  sensory: [
+    { id:"seed-se-textures-3",        domain:"sensory", tier:1, keystone:false, prereqs:[], label:"Discriminates 3+ textures", desc:"Smooth / rough / bumpy" },
+    { id:"seed-se-temp-warm-cold",    domain:"sensory", tier:1, keystone:false, prereqs:[], label:"Identifies warm vs cold by touch", desc:"Thermal discrimination" },
+    { id:"seed-se-shape-sort",        domain:"sensory", tier:1, keystone:false, prereqs:[], label:"Completes shape sorter independently", desc:"Visual-tactile matching" },
+    { id:"seed-se-weight-compare",    domain:"sensory", tier:1, keystone:false, prereqs:[], label:"Identifies heavier of two objects", desc:"Proprioceptive comparison" },
+    { id:"seed-se-sound-volume",      domain:"sensory", tier:2, keystone:false, prereqs:[], label:"Adjusts voice volume (inside / outside)", desc:"Auditory self-regulation" },
+    { id:"seed-se-taste-sweet-sour",  domain:"sensory", tier:2, keystone:false, prereqs:[], label:"Distinguishes sweet vs sour", desc:"Gustatory discrimination" },
+    { id:"seed-se-light-dark",        domain:"sensory", tier:2, keystone:false, prereqs:[], label:"Names light vs dark", desc:"Visual brightness vocabulary" },
+    { id:"seed-se-need-break",        domain:"sensory", tier:2, keystone:false, prereqs:[], label:"Names 'I need a break' when overwhelmed", desc:"Interoceptive awareness" },
+    { id:"seed-se-bilateral-hand",    domain:"sensory", tier:2, keystone:false, prereqs:[], label:"Uses both hands together for two-step actions", desc:"Bilateral integration" },
+    { id:"seed-se-stereognosis-5",    domain:"sensory", tier:3, keystone:false, prereqs:[], label:"Identifies 5+ objects by touch (eyes closed)", desc:"Tactile memory + naming" },
+    { id:"seed-se-smell-identify",    domain:"sensory", tier:3, keystone:false, prereqs:[], label:"Names 3+ smells", desc:"Lemon / mint / cinnamon discrimination" },
+    { id:"seed-se-rhythm-clap",       domain:"sensory", tier:3, keystone:false, prereqs:[], label:"Claps a 4-beat pattern back", desc:"Auditory rhythm reproduction" },
+    { id:"seed-se-balance-eyes-closed",domain:"sensory", tier:3, keystone:false, prereqs:[], label:"Stands on one foot, eyes closed, 3s", desc:"Vestibular without visual input" },
+    { id:"seed-se-tool-regulate",     domain:"sensory", tier:4, keystone:false, prereqs:[], label:"Uses sensory tools independently", desc:"Squeeze ball, deep breath, self-soothe" },
+    { id:"seed-se-discriminate-fine", domain:"sensory", tier:4, keystone:false, prereqs:[], label:"Tells real from synthetic textures by feel", desc:"Refined tactile discrimination" },
+    { id:"seed-se-pitch-match",       domain:"sensory", tier:4, keystone:false, prereqs:[], label:"Matches a sung pitch", desc:"Pitch perception + voice control" },
+  ],
+  cognitive: [
+    { id:"seed-co-match-color",   domain:"cognitive", tier:1, keystone:false, prereqs:[], label:"Matches by colour (3+ colours)", desc:"Visual classification" },
+    { id:"seed-co-match-shape",   domain:"cognitive", tier:1, keystone:false, prereqs:[], label:"Matches by shape", desc:"Geometric discrimination" },
+    { id:"seed-co-cause-anticipate", domain:"cognitive", tier:1, keystone:false, prereqs:[], label:"Anticipates cause-and-effect result", desc:"Predicts knob-press → music" },
+    { id:"seed-co-puzzle-4",      domain:"cognitive", tier:1, keystone:false, prereqs:[], label:"Completes 4-piece puzzle independently", desc:"Spatial reasoning" },
+    { id:"seed-co-instr-2-seed",  domain:"cognitive", tier:1, keystone:false, prereqs:[], label:"Follows a 2-step instruction", desc:"Working memory + sequencing" },
+    { id:"seed-co-count-10",      domain:"cognitive", tier:2, keystone:false, prereqs:[], label:"Counts to 10 with 1:1 correspondence", desc:"Cardinality emerging" },
+    { id:"seed-co-sort-2-attr",   domain:"cognitive", tier:2, keystone:false, prereqs:[], label:"Sorts by 2 attributes", desc:"Red vs blue, big vs small" },
+    { id:"seed-co-if-then",       domain:"cognitive", tier:2, keystone:false, prereqs:[], label:"Understands simple if-then", desc:"'If it rains, take an umbrella'" },
+    { id:"seed-co-categorise-3",  domain:"cognitive", tier:2, keystone:false, prereqs:[], label:"Sorts items into 3 categories", desc:"Animals / food / clothing" },
+    { id:"seed-co-day-night",     domain:"cognitive", tier:2, keystone:false, prereqs:[], label:"Understands day vs night", desc:"Time-of-day concepts" },
+    { id:"seed-co-count-20",      domain:"cognitive", tier:3, keystone:false, prereqs:["seed-co-count-10"], label:"Counts to 20 with 1:1", desc:"Extends counting sequence" },
+    { id:"seed-co-pattern-abab",  domain:"cognitive", tier:3, keystone:false, prereqs:[], label:"Extends an ABAB pattern", desc:"Visual pattern recognition" },
+    { id:"seed-co-add-to-5",      domain:"cognitive", tier:3, keystone:false, prereqs:[], label:"Adds within 5 (with objects)", desc:"Concrete addition" },
+    { id:"seed-co-instr-3",       domain:"cognitive", tier:3, keystone:false, prereqs:[], label:"Follows a 3-step instruction", desc:"Working memory + sequencing" },
+    { id:"seed-co-time-yesterday",domain:"cognitive", tier:3, keystone:false, prereqs:[], label:"Uses 'yesterday' / 'today' / 'tomorrow'", desc:"Temporal vocabulary" },
+    { id:"seed-co-add-to-10",     domain:"cognitive", tier:4, keystone:true,  prereqs:["seed-co-add-to-5"], label:"Adds within 10", desc:"Mental addition emerging" },
+    { id:"seed-co-write-numerals",domain:"cognitive", tier:4, keystone:false, prereqs:[], label:"Writes numerals 0–5", desc:"Symbol formation" },
+    { id:"seed-co-conservation",  domain:"cognitive", tier:4, keystone:false, prereqs:[], label:"Conservation of quantity", desc:"Same water, different cups" },
+  ],
+  vocab: [
+    { id:"seed-la-body-10",      domain:"vocab", tier:1, keystone:false, prereqs:[], label:"Points to 10+ body parts on request", desc:"Receptive vocabulary" },
+    { id:"seed-la-questions-where-seed", domain:"vocab", tier:1, keystone:false, prereqs:[], label:"Answers 'where is X?' with location", desc:"Spatial language" },
+    { id:"seed-la-color-names-3",domain:"vocab", tier:1, keystone:false, prereqs:[], label:"Names 3 colours", desc:"Productive colour vocab" },
+    { id:"seed-la-conj-and",     domain:"vocab", tier:2, keystone:false, prereqs:[], label:"Uses 'and' to combine ideas", desc:"Coordinating conjunction" },
+    { id:"seed-la-conj-because", domain:"vocab", tier:2, keystone:false, prereqs:[], label:"Uses 'because' in a sentence", desc:"Causal conjunction" },
+    { id:"seed-la-retell-prompted",domain:"vocab", tier:2, keystone:false, prereqs:[], label:"Retells story with picture prompts", desc:"Narrative scaffolding" },
+    { id:"seed-la-questions-what-seed", domain:"vocab", tier:2, keystone:false, prereqs:[], label:"Asks 'what is that?' spontaneously", desc:"Inquiry-driven vocab growth" },
+    { id:"seed-la-how-things-work", domain:"vocab", tier:3, keystone:false, prereqs:[], label:"Explains how something works", desc:"2+ sentences of explanation" },
+    { id:"seed-la-conditional",  domain:"vocab", tier:3, keystone:false, prereqs:[], label:"Uses 'if / when' in sentences", desc:"Subordinate clauses" },
+    { id:"seed-la-joke",         domain:"vocab", tier:3, keystone:false, prereqs:[], label:"Tells or repeats a simple joke", desc:"Pragmatic awareness" },
+    { id:"seed-la-narrative-3step",domain:"vocab", tier:3, keystone:true,  prereqs:[], label:"Tells a 3-step story", desc:"First / then / then" },
+    { id:"seed-la-rhyme",        domain:"vocab", tier:3, keystone:false, prereqs:[], label:"Recognises rhymes", desc:"Phonological awareness" },
+    { id:"seed-la-read-cvc",     domain:"vocab", tier:4, keystone:false, prereqs:[], label:"Reads simple CVC words", desc:"cat / dog / sun" },
+    { id:"seed-la-write-letters-5",domain:"vocab", tier:4, keystone:false, prereqs:[], label:"Writes 5+ letters", desc:"Letter formation" },
+    { id:"seed-la-converse-10",  domain:"vocab", tier:4, keystone:false, prereqs:[], label:"Sustains 10-turn conversation", desc:"Reciprocal exchange" },
+    { id:"seed-la-explain-feeling",domain:"vocab", tier:4, keystone:false, prereqs:[], label:"Explains own feeling in a complete sentence", desc:"'I am sad because…'" },
+  ],
+  social: [
+    { id:"seed-so-turns-2",      domain:"social", tier:1, keystone:false, prereqs:[], label:"Takes turns 2–3 times", desc:"With adult support" },
+    { id:"seed-so-parallel",     domain:"social", tier:1, keystone:false, prereqs:[], label:"Plays beside peers (parallel play)", desc:"Pre-cooperative" },
+    { id:"seed-so-empathy-1",    domain:"social", tier:1, keystone:false, prereqs:[], label:"Looks concerned when peer hurts", desc:"Affective empathy emerging" },
+    { id:"seed-so-greet",        domain:"social", tier:1, keystone:false, prereqs:[], label:"Greets familiar adults", desc:"Social routine" },
+    { id:"seed-so-please-thanks-prompt", domain:"social", tier:1, keystone:false, prereqs:[], label:"Says please / thanks with prompt", desc:"Grace and courtesy basics" },
+    { id:"seed-so-cooperative-1",domain:"social", tier:2, keystone:false, prereqs:[], label:"Cooperative play with a peer (shared goal)", desc:"Joint enterprise" },
+    { id:"seed-so-conflict-words",domain:"social", tier:2, keystone:false, prereqs:[], label:"Uses words to resolve mild conflict", desc:"Verbal mediation" },
+    { id:"seed-so-rules-group",  domain:"social", tier:2, keystone:false, prereqs:[], label:"Follows group rules in a game", desc:"Rule comprehension" },
+    { id:"seed-so-share-toy",    domain:"social", tier:2, keystone:false, prereqs:[], label:"Shares a preferred toy briefly", desc:"Voluntary sharing" },
+    { id:"seed-so-cleanup-self", domain:"social", tier:2, keystone:false, prereqs:[], label:"Cleans up own play space", desc:"Self-direction" },
+    { id:"seed-so-initiate-play",domain:"social", tier:3, keystone:false, prereqs:[], label:"Initiates play with a peer", desc:"Social agency" },
+    { id:"seed-so-fairness-name",domain:"social", tier:3, keystone:false, prereqs:[], label:"Names something as 'not fair'", desc:"Justice concept emerging" },
+    { id:"seed-so-audience-adapt",domain:"social", tier:3, keystone:false, prereqs:[], label:"Adapts behaviour by audience", desc:"Quiet at library; loud at park" },
+    { id:"seed-so-help-peer",    domain:"social", tier:3, keystone:false, prereqs:[], label:"Helps a younger child without prompt", desc:"Pro-social initiative" },
+    { id:"seed-so-lead-group",   domain:"social", tier:4, keystone:false, prereqs:[], label:"Leads a group activity (gives roles)", desc:"Leadership emergence" },
+    { id:"seed-so-negotiate",    domain:"social", tier:4, keystone:false, prereqs:[], label:"Negotiates an outcome", desc:"Joint problem-solving" },
+    { id:"seed-so-lose-gracefully",domain:"social", tier:4, keystone:true,  prereqs:[], label:"Handles losing a game gracefully", desc:"Emotion regulation under loss" },
+    { id:"seed-so-pack-bag",     domain:"social", tier:4, keystone:false, prereqs:[], label:"Packs own bag for school", desc:"Executive function + autonomy" },
+  ],
+};
+
+/* Normalise a seed (spec shape) into the legacy SKILLS shape used by the
+   existing renderer/modal. Both shapes coexist on the returned object. */
+function _normalizeSeed(seed){
+  return {
+    id:       seed.id,
+    dom:      seed.domain,
+    t:        seed.label,
+    age:      _tierToAge(seed.tier),
+    what:     seed.desc || seed.label,
+    why:      "Auto-suggested seed — log an observation to mark it real.",
+    how:      "Watch for this in everyday play; tap to log when you see it.",
+    next:     "",
+    src:      "Auto-suggested · CDC / AAP / Montessori milestones",
+    tier:     seed.tier,
+    keystone: !!seed.keystone,
+    prereqs:  Array.isArray(seed.prereqs) ? seed.prereqs.slice() : [],
+    desc:     seed.desc,
+    _seeded:  true,
+  };
+}
+
+/* autoSeedDomain(domKey) — returns up to 5 normalised seed objects.
+   Accepts spec aliases (motor/language/creative/self_care) AND real keys.    */
+function autoSeedDomain(domKey){
+  const realDom = _resolveDomain(domKey);
+  const visible = SKILLS.filter(s => s.dom === realDom && s.hidden !== true);
+  if (visible.length >= 10) return [];
+
+  const target = Math.min(5, 10 - visible.length);
+
+  // Anchor tier from current mastered/emerging skills in this domain.
+  const anchors = SKILLS.filter(s => {
+    if (s.dom !== realDom) return false;
+    const st = deriveStatus(s.id);
+    return st === "mastered" || st === "already_mastered" || st === "emerging";
+  });
+  let avgAnchorTier;
+  if (anchors.length){
+    avgAnchorTier = Math.ceil(
+      anchors.reduce((acc, s) => acc + tierOf(s), 0) / anchors.length
+    );
+  } else {
+    avgAnchorTier = 1;
+  }
+  const newSkillTier = Math.min(avgAnchorTier + 1, 4);
+
+  const existingIds = new Set(SKILLS.map(s => s.id));
+  const bank = DOMAIN_SEED_BANK[realDom] || [];
+  // Prefer the target tier; then nearby tiers (closest first). Dedupe by id.
+  const candidates = bank
+    .filter(seed => !existingIds.has(seed.id) && seed.tier <= newSkillTier + 1)
+    .sort((a, b) => {
+      const da = Math.abs(a.tier - newSkillTier);
+      const db = Math.abs(b.tier - newSkillTier);
+      return da !== db ? da - db : a.tier - b.tier;
+    });
+
+  return candidates.slice(0, target).map(_normalizeSeed);
+}
+
+/* Refresh in-memory seeds. Called at the top of every drawSkillCatalogue
+   so the in-memory SKILLS array stays clean and re-seeds reactively.        */
+function _refreshSeededSkills(){
+  for (let i = SKILLS.length - 1; i >= 0; i--){
+    if (SKILLS[i] && SKILLS[i]._seeded === true) SKILLS.splice(i, 1);
+  }
+  if (typeof DOMAINS === "undefined" || !Array.isArray(DOMAINS)) return;
+  DOMAINS.forEach(d => {
+    try {
+      const seeds = autoSeedDomain(d.key);
+      seeds.forEach(s => SKILLS.push(s));
+    } catch(e){ console.warn("autoSeedDomain failed for", d.key, e); }
+  });
+  if (typeof _v31Bump === "function") _v31Bump(); // invalidate derived caches
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   IMPROVEMENT B — prioritySkills(domKey)
+   Returns up to 5 skill objects (shallow-copied, each with priorityScore).
+   ───────────────────────────────────────────────────────────────────────── */
+function prioritySkills(domKey){
+  const masteredIds = new Set();
+  SKILLS.forEach(s => {
+    const st = deriveStatus(s.id);
+    if (st === "mastered" || st === "already_mastered") masteredIds.add(s.id);
+  });
+  const recentCutoff = Date.now() - 14 * 86400000;
+  const recentlyObserved = new Set();
+  (state.observations || []).forEach(o => {
+    if (o && (o.ts || 0) >= recentCutoff && o.skillId) recentlyObserved.add(o.skillId);
+  });
+
+  // Treat spec's "introduced" as our "emerging"; also include "practising"
+  // (in-progress) and "new" — these are the only candidates worth boosting.
+  const ACTIVE = new Set(["new", "emerging", "practising"]);
+
+  const candidates = SKILLS.filter(s => {
+    if (domKey && s.dom !== _resolveDomain(domKey)) return false;
+    return ACTIVE.has(deriveStatus(s.id));
+  });
+
+  const scored = candidates.map(s => {
+    const tier  = tierOf(s);
+    const tMult = (typeof tierMultiplier === "function") ? (tierMultiplier(tier) || 1) : 1;
+    const k     = s.keystone ? 3 : 1;
+    const fr    = (typeof isFrontier === "function" && isFrontier(s.id)) ? 2 : 1;
+    const pr    = (s.prereqs || []).every(p => masteredIds.has(p)) ? 2 : 0.5;
+    const ro    = recentlyObserved.has(s.id) ? 0.5 : 1;
+    const score = k * tMult * fr * pr * ro;
+    return Object.assign({}, s, { priorityScore: score });
+  });
+
+  scored.sort((a, b) => b.priorityScore - a.priorityScore);
+  return scored.slice(0, 5);
+}
+
 /* ── v3.1 Mastery XP / Frontier helpers ─────────────────────────────────────
    tierOf, tierMultiplier, skillXp, domainXp, deriveStatus, addObservation,
    isFrontier, frontierSkills, stretchSkills, currentTier, refreshReverifyQueue.
