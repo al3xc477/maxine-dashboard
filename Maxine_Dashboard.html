@@ -4188,6 +4188,106 @@ function _gcRenderScene(scene, vocabGaps, contextKey){
   };
 }
 
+/* buildGameCreatorScenePrompt — paste-ready Cowork prompt that asks for ONE
+   new scene appended to SCENES_LIBRARY[ctx]. Carries current frontier + vocab
+   gaps so Cowork can weave them in.                                          */
+function buildGameCreatorScenePrompt(ctx, customLabel, frontier, vocabGaps, theme){
+  const ctxLabel = ({
+    dollhouse:  "🏠 Dollhouse",
+    outside:    "🌳 Outside (terrace / garden)",
+    drawing:    "🖍️ Drawing",
+    baby_dolls: "👶 Baby dolls",
+    custom:     customLabel || "Custom play"
+  })[ctx] || ctx;
+
+  const frontierText = (frontier && frontier.length)
+    ? frontier.map(s => {
+        const udi = (typeof s.udi === "number") ? s.udi.toFixed(1) : "n/a";
+        const sub = s.subdomain || s.dom || "—";
+        return `  - ${s.id}: "${s.t || s.id}" (UDI ${udi}, ${sub})`;
+      }).join("\n")
+    : "  (none — pick any age-appropriate skill)";
+
+  const vocabText = (vocabGaps && vocabGaps.length)
+    ? vocabGaps.map(w => {
+        if (Array.isArray(w)) return `  - ${w[0]}${w[1] ? " / " + w[1] : ""}${w[2] ? " " + w[2] : ""}`;
+        return `  - ${w.en || w}${w.fr ? " / " + w.fr : ""}${w.emoji ? " " + w.emoji : ""}`;
+      }).join("\n")
+    : "  (none — pick fun age-appropriate words)";
+
+  const themeText = theme ? `Theme: Week ${theme.w} — ${theme.title} ${theme.emoji || ""}` : "(no active theme)";
+
+  return `You are writing a play scene for Maxine (24 months, EN/FR bilingual). The scene runs in this context: ${ctxLabel}.
+
+${themeText}
+
+She is currently working on these skills (try to weave 2–3 in naturally):
+${frontierText}
+
+She has not yet mastered these vocabulary words (weave 2–3 in naturally):
+${vocabText}
+
+Edit Maxine_Dashboard.html: APPEND ONE NEW SCENE object to the appropriate context array inside SCENES_LIBRARY (the constant is near the Game Creator code, right after GC_CTX_DOMAINS). Use this schema:
+
+{
+  id: "<kebab-case unique, prefix with context code e.g. dh-/bd-/dr-/ot-/cu->",
+  title: "<fun, evocative scene title>",
+  emoji: "<single emoji>",
+  props: ["<household item>", ...],
+  duration_min: <8-15>,
+  target_skill_ids: ["<frontier skill id>", ...],         // 2–3 ids from the list above
+  target_subdomains: ["<sub-domain key>", ...],
+  vocab_slot_count: 3,
+  default_vocab: ["<en word>", "<en word>", "<en word>"], // 3 from the vocab list above
+  beats: [
+    { actor: "<Mama doll | Baby doll | You | Maxine | a sound>", line: "<line to say, use {VOCAB_1}/{VOCAB_2}/{VOCAB_3} placeholders>", action: "<what the parent physically does>" },
+    ...
+    // 4-5 beats total — clear story arc: setup → action → climax → resolution
+  ],
+  tips: [
+    "<one tip for the parent>",
+    ...
+    // 3-4 tips: when to pause, how to extend, what to watch for, bilingual hints
+  ],
+  learning_focus: "<one sentence explaining what this scene exercises and why it sits naturally here, citing a framework: CDC / Bayley / Vygotsky / Tomasello / Piaget / Hoffman / etc.>"
+}
+
+Constraints:
+- The scene must be FUN and developmentally appropriate for ~24 months.
+- Materials must be household-available.
+- Each beat must be ONE clear line + ONE clear action — concrete and short.
+- Use {VOCAB_1}/{VOCAB_2}/{VOCAB_3} placeholders in beat lines wherever a vocab word fits.
+- The scene must exercise 2–3 of the listed frontier skills naturally (not contrived).
+- Do not modify any other part of the file. Only append the new scene object inside SCENES_LIBRARY.${ctx}.
+
+After editing, return JSON only:
+{"context":"${ctx}","scene_id":"<id>","title":"<title>","skill_ids":[...],"vocab":[...]}
+`;
+}
+
+/* detectGcSceneCompletions — runs at load. For each pending gc_scene entry in
+   status:"sent", compare SCENES_LIBRARY[entry.context] against the snapshot
+   captured at submission. Any new scene id flips the entry to "completed". */
+function detectGcSceneCompletions(){
+  if (!Array.isArray(state.pendingGenerations) || !state.pendingGenerations.length) return 0;
+  let completed = 0;
+  state.pendingGenerations.forEach(p => {
+    if (!p || p.type !== "gc_scene" || p.status !== "sent") return;
+    const ctx = p.context;
+    const lib = (typeof SCENES_LIBRARY !== "undefined" && SCENES_LIBRARY[ctx]) ? SCENES_LIBRARY[ctx] : [];
+    const captured = new Set(p.captured_scene_ids || []);
+    const fresh = lib.find(s => s && !captured.has(s.id));
+    if (fresh){
+      p.status = "completed";
+      p.completed_at = Date.now();
+      p.completed_scene_id = fresh.id;
+      completed++;
+    }
+  });
+  if (completed > 0 && typeof saveState === "function") saveState(state);
+  return completed;
+}
+
 /* _gcCustomSceneFallback — single scaffold scene built from current frontier
    + vocab gaps. Encourages either picking a fixed context or generating a
    fresh scene via Cowork.                                                    */
@@ -4348,6 +4448,54 @@ document.addEventListener("click", (e) => {
   // Re-roll
   if (e.target.closest("#gcReroll")){
     _gcRenderResults();
+    return;
+  }
+  // "Generate fresh scene via Cowork" — copy a structured prompt + enqueue
+  if (e.target.closest("#gcCoworkFresh")){
+    const ctx = _gcCurrentCtx || "dollhouse";
+    const lensDoms = GC_CTX_DOMAINS[ctx] || ["vocab", "social"];
+    let frontier = [];
+    try {
+      frontier = (typeof frontierSkills === "function" ? frontierSkills() : [])
+        .filter(s => lensDoms.includes(s.dom))
+        .slice(0, 5);
+    } catch(err){ frontier = []; }
+    const theme = (typeof pickTheme === "function") ? pickTheme() : null;
+    const vocabGaps = (theme && Array.isArray(theme.words) ? theme.words : [])
+      .filter(w => Array.isArray(w) && w[0] && !(state.vocabMaster || {})[`${w[0]}_en`])
+      .slice(0, 5);
+
+    const prompt = buildGameCreatorScenePrompt(ctx, _gcCustomLabel, frontier, vocabGaps, theme);
+    const capturedIds = (typeof SCENES_LIBRARY !== "undefined" && SCENES_LIBRARY[ctx])
+      ? SCENES_LIBRARY[ctx].map(s => s.id)
+      : [];
+
+    state.pendingGenerations = state.pendingGenerations || [];
+    const entryId = (typeof _v6Uuid === "function") ? _v6Uuid() : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8));
+    state.pendingGenerations.push({
+      id: entryId,
+      ts: Date.now(),
+      type: "gc_scene",
+      context: ctx,
+      custom_label: _gcCustomLabel || null,
+      status: "pending",
+      prompt,
+      captured_scene_ids: capturedIds
+    });
+    if (typeof saveState === "function") saveState(state);
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(prompt).then(
+          () => { if (typeof showToast === "function") showToast("🎨 Cowork prompt copied — paste into your Cowork chat"); },
+          () => { if (typeof showToast === "function") showToast("Couldn't copy — open Settings → Pending Cowork tasks"); }
+        );
+      } else {
+        if (typeof showToast === "function") showToast("Open Settings → Pending Cowork tasks to copy the prompt");
+      }
+    } catch(err){
+      if (typeof showToast === "function") showToast("Open Settings → Pending Cowork tasks to copy the prompt");
+    }
     return;
   }
   // "We did this!" — log the full scene
@@ -9733,11 +9881,21 @@ function renderPendingGenerationsModal(){
   const items = [];
   (state.pendingGenerations || []).forEach(p => {
     if (!p || p.status === "completed") return;
+    // v6 friendly titles per pending-generation type.
+    let title;
+    if (p.type === "era_retagging"){
+      title = `Era retagging: ${p.from} → ${p.to}`;
+    } else if (p.type === "gc_scene"){
+      const ctxLabel = p.custom_label ? `${p.context} — ${p.custom_label}` : p.context;
+      title = `🎮 Game Creator: ${ctxLabel}`;
+    } else {
+      title = `Pending generation: ${p.type || "unknown"}`;
+    }
     items.push({
-      kind: "pending",
+      kind: p.type === "gc_scene" ? "gc_scene" : "pending",
       type: p.type || "generation",
-      domain: p.from && p.to ? (p.from + "→" + p.to) : "—",
-      title: p.type === "era_retagging" ? `Era retagging: ${p.from} → ${p.to}` : `Pending generation: ${p.type}`,
+      domain: p.from && p.to ? (p.from + "→" + p.to) : (p.context || "—"),
+      title,
       prompt: p.prompt || "(no prompt; era_retagging is informational)",
       ref: p
     });
@@ -9771,7 +9929,7 @@ function renderPendingGenerationsModal(){
       <div class="cw-actions">
         <button class="small cw-copy" data-idx="${idx}">📋 Copy prompt</button>
         <button class="small cw-sent" data-idx="${idx}">✅ Mark sent</button>
-        ${it.kind === "backfill" ? `<button class="small cw-discard" data-idx="${idx}">🗑 Discard</button>` : ''}
+        ${(it.kind === "backfill" || it.kind === "gc_scene") ? `<button class="small cw-discard" data-idx="${idx}">🗑 Discard</button>` : ''}
       </div>
     </div>
   `).join("");
@@ -9797,7 +9955,13 @@ function renderPendingGenerationsModal(){
   body.querySelectorAll(".cw-discard").forEach(btn => {
     btn.addEventListener("click", () => {
       const it = items[+btn.dataset.idx];
-      state.backfillQueue = (state.backfillQueue || []).filter(q => q !== it.ref);
+      // Discard from whichever queue holds the entry. gc_scene + era_retagging
+      // live in pendingGenerations; backfill lives in backfillQueue.
+      if (it.kind === "backfill"){
+        state.backfillQueue = (state.backfillQueue || []).filter(q => q !== it.ref);
+      } else {
+        state.pendingGenerations = (state.pendingGenerations || []).filter(p => p !== it.ref);
+      }
       if (typeof saveState === "function") saveState(state);
       renderPendingGenerationsModal();
     });
@@ -11516,6 +11680,7 @@ window._sobTransfer = async function(){
   try { if (typeof processDueReverifications  === "function") processDueReverifications();  } catch(e){ console.warn("v6: processDueReverifications failed", e); }
   try { if (typeof maybeRotateCoaching        === "function") maybeRotateCoaching();        } catch(e){ console.warn("v6: maybeRotateCoaching failed", e); }
   try { if (typeof detectBackfillCompletions  === "function") detectBackfillCompletions();  } catch(e){ console.warn("v6: detectBackfillCompletions failed", e); }
+  try { if (typeof detectGcSceneCompletions   === "function") detectGcSceneCompletions();   } catch(e){ console.warn("v6: detectGcSceneCompletions failed", e); }
   try { if (typeof backfillEngine             === "function") backfillEngine();             } catch(e){ console.warn("v6: backfillEngine failed", e); }
 })();
 
