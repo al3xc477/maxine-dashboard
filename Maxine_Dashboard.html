@@ -451,9 +451,15 @@
   .cat-filter{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap }
   .cat-filter select, .cat-filter input{ padding:8px 10px; border:1px solid var(--line); border-radius:10px; font-size:13px; font-family:inherit }
   .status-pill{ padding:3px 8px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer }
+  /* v6 ladder */
+  .status-pill.s-unknown{ background:#F3F4F6; color:#374151 }
+  .status-pill.s-working_on_it{ background:#FEF3C7; color:#854D0E }
+  .status-pill.s-mastered{ background:#DCFCE7; color:#14532D }
+  .status-pill.s-regressed{ background:#FEE2E2; color:#991B1B }
+  .status-pill.s-automatic{ background:#E5E7EB; color:#374151 }
+  /* legacy passthrough so unmigrated rows still render */
   .status-pill.s-new{ background:#F3F4F6; color:#374151 }
   .status-pill.s-practising{ background:#FEF3C7; color:#854D0E }
-  .status-pill.s-mastered{ background:#DCFCE7; color:#14532D }
   .status-pill.s-already_mastered{ background:#E5E7EB; color:#374151 }
   .status-pill.s-too_hard{ background:#FEE2E2; color:#991B1B }
 
@@ -558,13 +564,91 @@
   background:#DCFCE7; color:#14532D; padding:8px 12px; min-height:44px;
   border-radius:10px; font-weight:700; font-size:13px;
 }
-.gc-reroll-row{ display:flex; justify-content:flex-end; margin-top:6px }
+.gc-reroll-row{ display:flex; justify-content:flex-end; gap:6px; flex-wrap:wrap; margin-top:8px; }
 .gc-reroll-btn{
   font-size:13px; padding:8px 12px; min-height:44px;
   background:transparent; color:var(--muted); border:1px dashed var(--line);
   border-radius:10px; font-weight:600; cursor:pointer;
 }
 .gc-reroll-btn:hover{ background:#F8FAFC; color:var(--ink) }
+
+/* ── Scene-based Game Creator (v2) ──────────────────────────────────────── */
+.gc-scene-card{
+  background:#fff; border:1px solid var(--line); border-radius:14px;
+  padding:14px; margin-bottom:12px; box-shadow:var(--shadow);
+  animation: fadeIn 0.3s ease;
+}
+.gc-scene-head{
+  display:flex; justify-content:space-between; align-items:baseline;
+  gap:10px; margin-bottom:8px;
+}
+.gc-scene-title{ font-size:16px; font-weight:700; color:var(--ink); }
+.gc-scene-meta{ font-size:12px; color:var(--muted); white-space:nowrap; }
+.gc-scene-chips{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
+.gc-skill-chip{
+  background:#EEF2FF; color:#3730A3; padding:3px 8px; border-radius:999px;
+  font-size:11px; font-weight:600;
+}
+/* gc-vocab-chip overrides the v3.1 variant above with the v2 colour palette. */
+.gc-scene-chips .gc-vocab-chip,
+.gc-scene-card  .gc-vocab-chip{
+  background:#FCE7F3; color:#9D174D; border:none;
+  padding:3px 8px; border-radius:999px; font-size:11px; font-weight:600;
+  margin-right:0;
+}
+.gc-scene-props{
+  font-size:13px; color:var(--muted); margin-bottom:10px;
+  padding:8px 10px; background:#F8FAFC; border-radius:8px;
+}
+.gc-prop{
+  display:inline-block; margin:2px 4px 2px 0; padding:2px 6px;
+  background:#fff; border:1px solid var(--line); border-radius:6px;
+  font-size:11px; color:var(--ink);
+}
+.gc-scene-beats{ margin-bottom:10px; }
+.gc-beat{
+  display:flex; gap:10px; padding:8px 0;
+  border-bottom:1px dashed #F1F4FA;
+}
+.gc-beat:last-child{ border-bottom:none; }
+.gc-beat-num{
+  flex:0 0 22px; height:22px; border-radius:50%; background:#2E5BFF;
+  color:#fff; font-weight:700; font-size:12px;
+  display:flex; align-items:center; justify-content:center;
+}
+.gc-beat-body{ flex:1; min-width:0; }
+.gc-beat-actor{ font-weight:700; font-size:13px; color:var(--ink); }
+.gc-beat-line{
+  font-style:italic; color:#1F2A44; margin-top:2px;
+  font-size:14px; line-height:1.4;
+}
+.gc-beat-action{ color:var(--muted); font-size:12px; margin-top:3px; }
+.gc-scene-tips{ margin-bottom:10px; }
+.gc-scene-tips summary{
+  cursor:pointer; font-size:13px; font-weight:600;
+  color:var(--muted); padding:6px 0;
+}
+.gc-scene-tips ul{
+  margin:6px 0 0; padding-left:20px; font-size:13px; line-height:1.5;
+}
+.gc-scene-focus{
+  font-size:12px; color:#14532D; background:#F0FDF4;
+  padding:6px 10px; border-radius:8px; margin-bottom:10px;
+}
+.gc-cowork-btn{
+  background:#FCE7F3; color:#9D174D; border:1px solid #FBCFE8;
+  padding:8px 14px; min-height:44px; border-radius:10px;
+  font-size:13px; font-weight:600; cursor:pointer;
+}
+.gc-cowork-btn:hover{ background:#FBCFE8; }
+
+@media (max-width:640px){
+  .gc-scene-card{ padding:10px; }
+  .gc-scene-title{ font-size:14px; }
+  .gc-beat-line{ font-size:13px; }
+  .gc-reroll-row{ justify-content:stretch; }
+  .gc-reroll-btn, .gc-cowork-btn{ width:100%; }
+}
 @media (max-width:480px){
   .gc-ctx-btn{ padding:8px 10px; font-size:12px }
   .gc-card-text{ font-size:15px }
@@ -648,6 +732,148 @@
 .cat-dom-pill.active{ border-width:2px; padding:7px 9px }
 .cat-dom-pill .cdp-line1{ font-size:13px; font-weight:700; color:var(--ink) }
 .cat-dom-pill .cdp-line2{ font-size:11px; color:var(--muted); margin-top:3px; font-weight:600 }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — Per-domain MaxScore card (radar + Active 10 + Mastered Library)
+   ═════════════════════════════════════════════════════════════════════════ */
+.v6-domcard{
+  margin-top:8px; padding:14px; border:1px solid var(--line); border-radius:12px;
+  background:#FCFCFA;
+}
+.v6-domcard h4{ margin:0 0 8px; font-size:13px; font-weight:700; color:var(--ink) }
+.v6-radar-wrap{ display:flex; flex-direction:column; align-items:center; gap:4px; margin-bottom:10px }
+.v6-radar-wrap svg{ width:100%; max-width:240px; height:auto }
+.v6-radar-legend{ display:flex; gap:14px; font-size:10px; color:var(--muted) }
+.v6-radar-legend .dot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; vertical-align:middle }
+.v6-radar-legend .dot.sl{ background:#2E5BFF }
+.v6-radar-legend .dot.peak{ background:transparent; border:1.5px dashed #16A34A }
+
+.active10-header{
+  display:flex; justify-content:space-between; align-items:center;
+  flex-wrap:wrap; gap:6px; margin-bottom:6px;
+}
+.active10-header h4{ margin:0 }
+.backfill-chip{
+  font-size:10px; font-weight:700; color:#5C6680; background:#F1F4FA;
+  padding:2px 8px; border-radius:999px;
+}
+
+.active10-list{ display:flex; flex-direction:column; gap:4px }
+.active10-row{
+  display:flex; align-items:center; gap:8px; padding:8px 10px;
+  border:1px solid var(--line); border-radius:8px; background:var(--card);
+  font-size:13px; flex-wrap:wrap;
+}
+.active10-row .rank{ flex:0 0 22px; font-weight:700; color:var(--muted); font-size:12px }
+.active10-row .title{ flex:1 1 200px; font-weight:600; color:var(--ink); min-width:0 }
+.active10-row .meta{ display:flex; gap:6px; align-items:center; font-size:11px; color:var(--muted); flex-wrap:wrap }
+.active10-row .meta .udi{ font-weight:700; color:#3730A3 }
+.active10-row .meta .sub{ background:#F1F4FA; padding:1px 6px; border-radius:5px }
+.active10-row .meta .ks{ font-size:14px }
+.active10-row .log-toggle{ flex:0 0 auto; font-size:11px; padding:4px 8px; min-height:0 }
+.active10-row.placeholder{ background:#FAFAFA; color:var(--muted); font-style:italic }
+.active10-row.placeholder .title{ font-weight:400 }
+
+.log-form{
+  flex:1 1 100%; display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;
+  padding:8px; background:#F8FAFC; border-radius:6px;
+}
+.log-form .status-btn{ flex:1 1 auto; font-size:12px; padding:6px 10px; min-height:34px }
+.log-form .log-notes{
+  flex:1 1 100%; padding:6px 10px; border:1px solid var(--line); border-radius:6px;
+  font-size:12px; font-family:inherit;
+}
+
+.mastered-library{ margin-top:10px }
+.mastered-library summary{
+  font-size:12px; font-weight:700; color:#14532D; cursor:pointer;
+  padding:6px 10px; background:#F0FDF4; border-radius:8px; border:1px solid #BBF7D0;
+}
+.mastered-library-body{ margin-top:6px; display:flex; flex-direction:column; gap:4px }
+.mastered-row{
+  padding:6px 10px; background:var(--card); border:1px solid var(--line);
+  border-radius:6px; font-size:12px;
+}
+.mastered-row .meta{ color:var(--muted); margin-left:4px; font-size:11px }
+.mastered-row .mastered-meta{ color:var(--muted); font-size:10px; margin-top:2px }
+.mastered-row .implicit-tag{
+  display:inline-block; font-size:10px; color:#1D4ED8; background:#DBEAFE;
+  padding:1px 5px; border-radius:4px; margin-left:4px;
+}
+
+@media (max-width: 640px){
+  .active10-row .meta{ flex-basis:100%; margin-top:2px }
+  .active10-row .log-toggle{ margin-left:auto }
+  .v6-domcard{ padding:10px }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — Coaching card (Phase 4 styles, defined here so progress view layout
+   is stable even if Phase 4 lands later in the same branch).
+   ═════════════════════════════════════════════════════════════════════════ */
+.v6-coaching{
+  background:linear-gradient(135deg,#FFFBEB,#F0F9FF);
+  border:1px solid #FCD34D;
+  border-radius:12px; padding:14px; margin-bottom:14px;
+}
+.v6-coaching-header{
+  display:flex; justify-content:space-between; align-items:center;
+  flex-wrap:wrap; gap:6px; margin-bottom:10px;
+}
+.v6-coaching-header h3{ margin:0; font-size:14px; font-weight:700 }
+.v6-coaching-header .rotate-btn{ font-size:11px; padding:4px 10px }
+.v6-coaching-grid{ display:grid; grid-template-columns:1fr; gap:10px }
+.v6-coaching-col{
+  background:rgba(255,255,255,.65); border:1px solid var(--line);
+  border-radius:8px; padding:10px;
+}
+.v6-coaching-col h4{ margin:0 0 6px; font-size:12px; font-weight:700 }
+.v6-coaching-col .pull-h{ color:#166534 }
+.v6-coaching-col .invest-h{ color:#92400E }
+.v6-coaching-col .dom-row{ font-size:12px; margin:4px 0; color:var(--ink) }
+.v6-coaching-col .signals{ font-size:10px; color:var(--muted); margin-top:2px }
+.v6-coaching .low-conf-caveat{
+  margin-top:8px; font-size:11px; color:#92400E; font-style:italic;
+}
+@media (min-width: 720px){
+  .v6-coaching-grid{ grid-template-columns: 1fr 1fr }
+}
+
+/* v6 — pending Cowork modal items */
+.cowork-item{
+  border:1px solid var(--line); border-radius:10px; padding:10px;
+  margin-bottom:10px; background:var(--card);
+}
+.cowork-item .cw-title{
+  display:flex; gap:6px; align-items:center; flex-wrap:wrap;
+  font-size:13px; margin-bottom:6px;
+}
+.cw-tag{
+  font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;
+  background:#F1F4FA; color:#374151; text-transform:uppercase; letter-spacing:.05em;
+}
+.cw-tag-backfill{ background:#FEF3C7; color:#854D0E }
+.cw-tag-pending{ background:#E0E7FF; color:#3730A3 }
+.cw-status{
+  margin-left:auto; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px;
+  background:#F3F4F6; color:#374151;
+}
+.cw-status.status-sent{ background:#DBEAFE; color:#1D4ED8 }
+.cw-status.status-completed{ background:#DCFCE7; color:#14532D }
+.cw-prompt{ margin-bottom:8px }
+.cw-prompt summary{ cursor:pointer; font-size:12px; font-weight:600; color:var(--accent) }
+.cw-prompt pre{
+  background:#F8FAFC; border:1px solid var(--line); border-radius:6px;
+  padding:8px; font-size:11px; max-height:300px; overflow:auto;
+  white-space:pre-wrap; word-break:break-word;
+}
+.cw-actions{ display:flex; gap:6px; flex-wrap:wrap }
+.cowork-pending-pill{
+  display:inline-flex; align-items:center; gap:4px; padding:4px 10px;
+  background:#FEF3C7; color:#854D0E; border:1px solid #FCD34D;
+  border-radius:999px; font-size:11px; font-weight:700; cursor:pointer;
+}
+.cowork-pending-pill:hover{ background:#FDE68A }
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
@@ -760,10 +986,9 @@
       <h2>Domain mastery</h2>
       <div id="progDomains"></div>
     </div>
-    <!-- Tailored assessment (auto from Skill Catalogue + Memory) -->
-    <div class="card" style="margin-bottom:14px; background: linear-gradient(135deg, #FFFBEB, #F0FDF4); border-color:#FCD34D" id="sec-prog-assess">
-      <h2>🎓 Coaching — ready for a push &amp; riding the wave</h2>
-      <div id="tailoredAssessment"></div>
+    <!-- v6 coaching card (Natural pull · Where to invest, quarterly rotation) -->
+    <div class="card v6-coaching" style="margin-bottom:14px" id="sec-prog-assess">
+      <div id="v6Coaching"></div>
     </div>
 
     <!-- Quick log (moved from dashboard sidebar) -->
@@ -1418,6 +1643,20 @@
   </div>
 </div>
 
+<!-- v6 — Pending Cowork tasks modal (backfill + era retagging + future generations) -->
+<div class="modal" id="pendingCoworkModal" role="dialog" aria-modal="true">
+  <div class="panel" style="max-width:680px; max-height:80vh; display:flex; flex-direction:column">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+      <h3 style="margin:0">🤝 Pending Cowork tasks</h3>
+      <button class="small ghost" onclick="closePendingCoworkModal()">Close</button>
+    </div>
+    <div class="sub" style="color:var(--muted); font-size:12px; margin-bottom:10px">
+      Each entry below is a paste-ready prompt for Cowork. Copy → run in Claude Code → next page-load detects the new skills automatically.
+    </div>
+    <div class="panel-body" style="overflow:auto; flex:1"></div>
+  </div>
+</div>
+
 <div class="modal" id="setModal">
   <div class="panel" style="max-width:540px">
     <h3>Theme & settings</h3>
@@ -1505,12 +1744,7 @@
     <div style="font-weight:700; font-size:13px; margin-bottom:6px">Jump to week:</div>
     <div id="weekList" style="max-height:30vh; overflow:auto; display:flex; flex-direction:column; gap:6px;"></div>
 
-    <!-- v5 — BKT diagnostics (advanced) -->
-    <details style="margin-top:14px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
-      <summary style="font-size:13px; font-weight:700; cursor:pointer">🧠 BKT diagnostics (advanced)</summary>
-      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Per-skill P(known) from Bayesian Knowledge Tracing (Corbett-Anderson 1995). Sorted by p_known desc.</div>
-      <div id="bktDiagBody" style="max-height:280px; overflow:auto; font-size:11px"></div>
-    </details>
+    <!-- v6 — BKT diagnostics removed (BKT engine stripped) -->
 
     <!-- v5 — Skill graph (list view; force-directed SVG deferred per spec §3.5) -->
     <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
@@ -1526,10 +1760,59 @@
       <div id="eraScheduleBody"></div>
     </details>
 
+    <!-- v6 — Mastery config (reverify schedule + automatic threshold) -->
+    <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
+      <summary style="font-size:13px; font-weight:700; cursor:pointer">🎚 Mastery config</summary>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Mastery is a single-tap user declaration. Reverification prompts fire at fixed offsets after each mastery; "automatic" promotion silences old declarations.</div>
+      <label style="display:block; font-size:12px; margin-top:6px">Reverify schedule (comma-separated days):
+        <input id="cfgReverifySchedule" type="text" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <label style="display:block; font-size:12px; margin-top:6px">Auto-promote to "automatic" after (days):
+        <input id="cfgAutomaticAfter" type="number" min="14" max="365" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <label style="display:block; font-size:12px; margin-top:6px">Regression window (days):
+        <input id="cfgRegressionWindow" type="number" min="7" max="180" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <button class="small primary" id="cfgMasterySave" style="margin-top:8px">Save mastery config</button>
+      <span id="cfgMasterySaveStatus" class="sub" style="color:var(--muted); font-size:11px; margin-left:8px"></span>
+    </details>
+
+    <!-- v6 — Backfill engine -->
+    <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
+      <summary style="font-size:13px; font-weight:700; cursor:pointer">🔄 Backfill engine</summary>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Keeps every active-era domain stocked with ≥ N available skills. When a domain drops below the floor, a Cowork prompt is queued.</div>
+      <label style="display:block; font-size:12px; margin-top:6px">Target depth per domain:
+        <input id="cfgTargetDepth" type="number" min="3" max="30" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <label style="display:block; font-size:12px; margin-top:6px">ZPD range (UDI offset, e.g. -0.3,1.5):
+        <input id="cfgZpdRange" type="text" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <label style="display:block; font-size:12px; margin-top:6px">Beginner UDI ceiling:
+        <input id="cfgBeginnerUdi" type="number" min="0.5" max="5" step="0.1" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <label style="display:flex; gap:6px; align-items:center; font-size:12px; margin-top:6px">
+        <input id="cfgAutoBackfill" type="checkbox" /> Auto-trigger on load + on every observation
+      </label>
+      <div class="row" style="margin-top:8px; gap:6px; flex-wrap:wrap">
+        <button class="small primary" id="cfgBackfillSave">Save backfill config</button>
+        <button class="small" id="cfgBackfillRefill">🔄 Refill skill pool now</button>
+        <button class="small ghost" id="cfgBackfillClear">🧹 Clear completed history</button>
+      </div>
+      <div id="cfgBackfillRecent" style="font-size:11px; color:var(--muted); margin-top:8px; max-height:140px; overflow:auto"></div>
+    </details>
+
+    <!-- v6 — Coaching rotation -->
+    <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
+      <summary style="font-size:13px; font-weight:700; cursor:pointer">🧭 Coaching rotation</summary>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Natural-pull and where-to-invest picks rotate every 90 days. You can force a fresh computation here.</div>
+      <div id="cfgCoachingBody" style="font-size:12px; margin-top:6px"></div>
+      <button class="small primary" id="cfgRotateNow" style="margin-top:8px">🔄 Rotate now</button>
+    </details>
+
     <!-- v5 — Copy AI-tutor brief -->
     <div style="margin-top:10px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#FAFBFC">
-      <div style="font-size:13px; font-weight:700; margin-bottom:4px">📋 AI tutor brief (v5)</div>
-      <div class="sub" style="color:var(--muted); font-size:11px; margin-bottom:6px">Copies a v5 JSON payload to clipboard — UDI scale, BKT confidences, Dreyfus stage per domain, frontier scores with downstream count, active era, and the embedded tutor system prompt.</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:4px">📋 AI tutor brief (v6)</div>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin-bottom:6px">Copies a v6 JSON payload to clipboard — UDI scale, sub-domain SL / T_peak / confidence, Dreyfus stage per sub-domain, typed-graph frontier scores, era + Active 10 + coaching picks + the embedded v6 tutor system prompt. (BKT removed.)</div>
       <button class="small primary" id="copyTutorBriefV5">📋 Copy AI tutor brief</button>
       <span id="copyTutorBriefV5Status" class="sub" style="color:var(--muted); font-size:11px; margin-left:8px"></span>
     </div>
@@ -2786,14 +3069,98 @@ state.vocabCustom = Array.isArray(state.vocabCustom) ? state.vocabCustom : [];
    coachingPicks   — top picks shown on dashboard (auto-populated)                */
 state.observations       = Array.isArray(state.observations) ? state.observations : [];
 state.masteryConfig      = Object.assign({
-  reverifyAfterDays: 60,
-  tierMultipliers:   { 0:1, 1:2, 2:4, 3:8, 4:16 },
-  statusXpFactor:    { mastered:1, practising:0.5, emerging:0.25, new:0, too_hard:0, already_mastered:0.9 },
+  // v3.1 / v5 legacy keys (retained for back-compat with skillXp)
+  reverifyAfterDays:    60,
+  tierMultipliers:      { 0:1, 1:2, 2:4, 3:8, 4:16, 5:32, 6:64, 7:128, 8:256, 9:512, 10:1024 },
+  statusXpFactor:       {
+    // v6 ladder
+    unknown:0, working_on_it:0.25, mastered:1, regressed:0, automatic:0.9,
+    // legacy ladder retained so any unmigrated observation still scores correctly
+    new:0, emerging:0.25, practising:0.5, too_hard:0, already_mastered:0.9
+  },
   frontierMaxPerDomain: 2,
+  // v6 — user-declared mastery, fixed reverification, ZPD-targeted backfill
+  reverifySchedule:     [30, 60, 120, 240],
+  automaticAfterDays:   60,
+  regressionWindowDays: 30,
+  targetDepth:          10,
+  zpdRange:             [-0.3, 1.5],
+  beginnerUdiCeiling:   2.0,
+  autoBackfill:         true,
+  maxCatalogueSize:     500
 }, state.masteryConfig || {});
 state.pendingGenerations = Array.isArray(state.pendingGenerations) ? state.pendingGenerations : [];
 state.reverifyQueue      = Array.isArray(state.reverifyQueue)      ? state.reverifyQueue      : [];
-state.coachingPicks      = Array.isArray(state.coachingPicks)      ? state.coachingPicks      : [];
+// v6 reshape — coachingPicks was previously a stub array; the v6 engine wants
+// an object. Coerce empty arrays/legacy values to {}.
+state.coachingPicks      = (state.coachingPicks && !Array.isArray(state.coachingPicks) && typeof state.coachingPicks === "object")
+                            ? state.coachingPicks : {};
+state.backfillQueue      = Array.isArray(state.backfillQueue)      ? state.backfillQueue      : [];
+// Game Creator scene rotation timestamps: { sceneId: ts }
+state._gcSceneShownAt    = (state._gcSceneShownAt && typeof state._gcSceneShownAt === "object" && !Array.isArray(state._gcSceneShownAt))
+                            ? state._gcSceneShownAt : {};
+
+/* v6 one-shot observation-schema migration. Maps the v5 status vocabulary
+   (new / emerging / practising / mastered / too_hard / already_mastered) onto
+   the v6 ladder (unknown / working_on_it / mastered / regressed). The
+   original status is preserved on `o.legacy_status` so we can reverse the
+   migration if needed. Gated by state._migratedObsSchemaV6.                  */
+(function migrateObservationsV6(){
+  if (state._migratedObsSchemaV6) return;
+  try {
+    const MAP = {
+      mastered:         "mastered",
+      already_mastered: "mastered",
+      practising:       "working_on_it",
+      emerging:         "working_on_it",
+      too_hard:         "working_on_it",
+      new:              "unknown"
+    };
+    let changed = 0;
+    (state.observations || []).forEach(o => {
+      if (!o || !o.status) return;
+      const next = MAP[o.status];
+      if (next && next !== o.status){
+        o.legacy_status = o.status;
+        o.status        = next;
+        changed++;
+      }
+    });
+    state._migratedObsSchemaV6 = true;
+    if (changed && typeof saveState === "function") saveState(state);
+  } catch(e){ console.warn("v6 observation schema migration failed", e); }
+})();
+
+/* v6 one-shot reverify-queue migration. The v5 queue carried entries shaped
+   like {id, lastTs}. The v6 engine expects per-due-date entries shaped like
+   {skillId, dueAt, completed, completed_at, completed_reason, offsetDays}.
+   Each legacy entry is fanned out into the 4-step v6 schedule offset from
+   lastTs. Gated by state._migratedReverifyQueueV6.                           */
+(function migrateReverifyQueueV6(){
+  if (state._migratedReverifyQueueV6) return;
+  try {
+    const schedule = (state.masteryConfig && state.masteryConfig.reverifySchedule) || [30,60,120,240];
+    const next = [];
+    (state.reverifyQueue || []).forEach(r => {
+      if (!r) return;
+      // Already-v6 entry — pass through unchanged.
+      if (r.skillId && typeof r.dueAt === "number"){ next.push(r); return; }
+      const skillId = r.skillId || r.id;
+      const lastTs  = typeof r.lastTs === "number" ? r.lastTs : Date.now();
+      if (!skillId) return;
+      schedule.forEach(days => {
+        next.push({
+          skillId, dueAt: lastTs + days * 86400000,
+          completed: false, completed_at: null, completed_reason: null,
+          offsetDays: days
+        });
+      });
+    });
+    state.reverifyQueue = next;
+    state._migratedReverifyQueueV6 = true;
+    if (typeof saveState === "function") saveState(state);
+  } catch(e){ console.warn("v6 reverify queue migration failed", e); }
+})();
 
 /* Orphan-observation scrub (Improvement 2 PART A).
    Targeted removal — only the 3 specific retired skill IDs.
@@ -3038,6 +3405,24 @@ function addVocabMastery(wordEn, lang, opts){
     notes:   (opts && opts.notes) || `${wordEn} (${lang}) via bingo`,
   });
   saveState(state);
+}
+
+/* Log a vocab EXPOSURE (not mastery). Used by the Game Creator when a scene
+   weaves a word in: we log that Maxine heard/used the word in context, but
+   mastery stays parent-declared (via Bingo or the catalogue). No mutation of
+   state.vocabMaster — just an event in the observation log.                  */
+function addVocabExposure(wordEn, lang, opts){
+  if (!wordEn || !lang) return;
+  state.observations = state.observations || [];
+  state.observations.push({
+    skillId: `vocab-${wordEn}_${lang}`,
+    status:  "working_on_it",
+    by:      (opts && opts.by) || state.currentUser || "—",
+    source:  (opts && opts.source) || "gc_scene",
+    ts:      Date.now(),
+    notes:   (opts && opts.notes) || `${wordEn} (${lang}) exposed via scene`,
+  });
+  // Caller is responsible for saveState — Game Creator batches them.
 }
 
 /* Choose how many cells to draw based on viewport (3×2 / 3×3 / 4×3). */
@@ -3344,6 +3729,339 @@ const GC_CTX_DOMAINS = {
   custom:     ["gross", "fine", "sensory", "cognitive", "vocab", "social"],
 };
 
+/**
+ * Scene-based play library for the Game Creator.
+ * Each scene is a coherent mini-scenario with setup, beats, tips, and target slots.
+ *
+ * Slot placeholders (filled at render time):
+ *   {VOCAB_1}, {VOCAB_2}, {VOCAB_3} — replaced with current theme's unmastered words
+ *
+ * If a scene specifies vocab_slot_count > available gaps, fall back to scene.default_vocab.
+ */
+const SCENES_LIBRARY = {
+  dollhouse: [
+    {
+      id: "dh-mealtime",
+      title: "Mealtime in the dollhouse",
+      emoji: "🍽️",
+      props: ["Dollhouse + 3–4 dolls", "Pretend food (toy or paper cut-outs)", "Tiny plates"],
+      duration_min: 10,
+      target_skill_ids: ["la-pronouns", "la-2word", "la-3word"],
+      target_subdomains: ["pragmatics", "expressive", "grammar"],
+      vocab_slot_count: 3,
+      default_vocab: ["cheese", "bread", "apple"],
+      beats: [
+        { actor: "Mama doll", line: "I want the {VOCAB_1}! Yummy!", action: "Hand the food to mama doll." },
+        { actor: "Papa doll", line: "Hmm, I want the {VOCAB_2}. Mine!", action: "Switch dolls — Maxine plays papa now." },
+        { actor: "Baby doll", line: "Mine! Mine!", action: "Baby reaches for the {VOCAB_3}. Use a high voice." },
+        { actor: "You", line: "What do YOU want, Maxine? Tell baby!", action: "Wait 5 seconds. Prompt 'I want…' if she pauses." },
+        { actor: "All dolls", line: "Thank you! Mmmm!", action: "Dolls rub their tummies. End the scene." }
+      ],
+      tips: [
+        "Pause and wait 5 seconds before giving her the next line — let her produce the word.",
+        "When she says 'mine', expand: 'Yes! It's MY {VOCAB_1}.' Mirror + extend.",
+        "Switch languages mid-scene: say the food in EN, then FR. She'll start to do the same.",
+        "If she stays quiet, hand her the doll and model both sides — she may copy days later."
+      ],
+      learning_focus: "Pronouns (I/me/mine/you) sit naturally in a doll's mouth. Food vocab is concrete and re-usable. (Tomasello — joint-attention frames.)"
+    },
+    {
+      id: "dh-bedtime",
+      title: "Bedtime routine in the dollhouse",
+      emoji: "🌙",
+      props: ["Dolls", "Tiny blanket / cloth", "Toothbrush (real or pretend)"],
+      duration_min: 12,
+      target_skill_ids: ["la-3word", "co-instr-2", "so-name-feeling"],
+      target_subdomains: ["pragmatics", "sequencing", "self_regulation"],
+      vocab_slot_count: 3,
+      default_vocab: ["pyjamas", "teeth", "blanket"],
+      beats: [
+        { actor: "You", line: "It's bedtime for the dolls! First, {VOCAB_1}. Where are the pyjamas?", action: "Help her find or pretend to find pyjamas." },
+        { actor: "You", line: "Now brush {VOCAB_2}. Brush, brush, brush!", action: "Mime brushing the doll's teeth." },
+        { actor: "Mama doll", line: "Time for a story. Snuggle in!", action: "Tuck the doll under the {VOCAB_3}." },
+        { actor: "Baby doll", line: "I'm sleepy. Goodnight, mama.", action: "Whisper. Lights low. Maxine says goodnight." },
+        { actor: "You", line: "How does baby feel? Happy? Tired?", action: "Wait for her to name the feeling." }
+      ],
+      tips: [
+        "Use 'first, next, last' to scaffold sequencing.",
+        "Lower your voice as the scene progresses — Maxine will mirror.",
+        "This scene works wonderfully right before her own bedtime — calming + skill-building."
+      ],
+      learning_focus: "Multi-step sequence + emotion-naming. Builds her own bedtime narrative. (Nelson — narrative scaffolding.)"
+    },
+    {
+      id: "dh-sick-day",
+      title: "Baby doll is sick",
+      emoji: "🤒",
+      props: ["1–2 baby dolls", "Tissue or cloth", "Toy thermometer or spoon"],
+      duration_min: 10,
+      target_skill_ids: ["so-empathy", "so-emotion-4", "la-body-5"],
+      target_subdomains: ["empathy_tom", "emotion_recognition", "expressive"],
+      vocab_slot_count: 3,
+      default_vocab: ["head", "tummy", "hot"],
+      beats: [
+        { actor: "Baby doll", line: "(soft cry) My {VOCAB_1} hurts!", action: "Touch the doll's head." },
+        { actor: "You", line: "Oh no! Baby is sick. How does baby feel?", action: "Wait for her to say 'sad' or 'sick'." },
+        { actor: "Mama doll", line: "Let me check your {VOCAB_2}. Hmm, you are {VOCAB_3}.", action: "Use the toy thermometer." },
+        { actor: "You", line: "What should we do? Hug? Drink water? Sleep?", action: "Let Maxine choose. Act it out." },
+        { actor: "Baby doll", line: "(small smile) Thank you. I feel better.", action: "End with a hug." }
+      ],
+      tips: [
+        "Caring play is huge for empathy at this age.",
+        "If she gets quiet — that's good. She's modelling the feeling.",
+        "Don't rush to 'fix' the doll. Let her sit with the 'sick' for a beat."
+      ],
+      learning_focus: "Empathy + body part vocab + emotion words in a meaningful context. (Hoffman — empathy stages.)"
+    },
+    {
+      id: "dh-family-visit",
+      title: "Grandma comes to visit",
+      emoji: "👵",
+      props: ["Dolls", "One small wrapped 'present' (any small object)"],
+      duration_min: 10,
+      target_skill_ids: ["so-please-thanks", "la-3word", "so-back-forth"],
+      target_subdomains: ["prosocial", "pragmatics", "empathy_tom"],
+      vocab_slot_count: 2,
+      default_vocab: ["hello", "present"],
+      beats: [
+        { actor: "Doorbell sound", line: "Ding dong!", action: "Make the sound. Excitement." },
+        { actor: "Grandma doll", line: "{VOCAB_1}, sweetie! I brought you a {VOCAB_2}!", action: "Hand over the wrapped object." },
+        { actor: "You", line: "What do we say, Maxine?", action: "Wait for 'thank you' / 'merci'." },
+        { actor: "Maxine's doll", line: "Thank you, grandma!", action: "Open the {VOCAB_2} together." },
+        { actor: "All dolls", line: "Big hug!", action: "Dolls all hug. End on warmth." }
+      ],
+      tips: [
+        "If she says 'merci' — beam. Don't correct. Bilingual choices are hers to make.",
+        "After the scene, mention: 'we say thank you when we get a present' — abstract → concrete.",
+        "Re-use the same scene next week with a different gift."
+      ],
+      learning_focus: "Politeness routines in a memorable context + 3-word phrases. (Montessori — grace & courtesy.)"
+    }
+  ],
+  baby_dolls: [
+    {
+      id: "bd-feeding",
+      title: "Feeding baby",
+      emoji: "🍼",
+      props: ["Baby doll", "Spoon or pretend bottle", "Bib (cloth)"],
+      duration_min: 10,
+      target_skill_ids: ["la-body-5", "so-empathy", "fm-spoon-fork"],
+      target_subdomains: ["expressive", "coregulation", "self_care"],
+      vocab_slot_count: 3,
+      default_vocab: ["hungry", "spoon", "full"],
+      beats: [
+        { actor: "Baby doll", line: "(cry) I'm {VOCAB_1}!", action: "Maxine identifies what baby wants." },
+        { actor: "You", line: "Time to eat! Where's the {VOCAB_2}?", action: "Find / hold the spoon together." },
+        { actor: "Maxine", line: "Open big!", action: "She feeds the doll. Each spoonful gets a happy 'mmm!' from baby." },
+        { actor: "Baby doll", line: "I'm {VOCAB_3}! Burp!", action: "Burp the baby on the shoulder." },
+        { actor: "You", line: "Good job feeding baby. Baby is happy.", action: "Process praise — 'you took care of baby'." }
+      ],
+      tips: [
+        "Mirror the spoon grip she uses on the doll back to her own meal at real lunchtime.",
+        "If she shakes her head, accept it — baby is full. Resistance is choice-making, valuable.",
+        "Bilingual: hungry → faim, full → rassasié."
+      ],
+      learning_focus: "Caretaking sequence + spoon-grip practice + body/feelings vocab. (Vygotsky ZPD on utensil use.)"
+    },
+    {
+      id: "bd-dressing",
+      title: "Dressing baby",
+      emoji: "👕",
+      props: ["Baby doll", "1–2 doll clothes (or scarves to improvise)"],
+      duration_min: 10,
+      target_skill_ids: ["fm-velcro", "fm-buttons-large", "la-body-5"],
+      target_subdomains: ["self_care", "expressive", "tool_use"],
+      vocab_slot_count: 3,
+      default_vocab: ["arm", "shirt", "feet"],
+      beats: [
+        { actor: "You", line: "Brrr, baby is cold! Let's find a shirt.", action: "Pick out clothing together." },
+        { actor: "You", line: "First one {VOCAB_1}, then the other.", action: "Maxine puts the doll's arm through the sleeve." },
+        { actor: "Baby doll", line: "Tickle, tickle!", action: "Pretend the baby giggles as Maxine pulls the {VOCAB_2} on." },
+        { actor: "You", line: "Now socks on the {VOCAB_3}.", action: "Help her with each foot." },
+        { actor: "Baby doll", line: "I look so nice! Thank you!", action: "Show off the dressed baby." }
+      ],
+      tips: [
+        "This builds the exact motor pattern she needs for dressing herself.",
+        "Praise effort, not outcome: 'you worked hard at that arm!'",
+        "If she gets frustrated, take over — model patience, don't add pressure."
+      ],
+      learning_focus: "Body part vocab + practical self-care skills practised on doll first. (Montessori practical life.)"
+    },
+    {
+      id: "bd-why-crying",
+      title: "Why is baby crying?",
+      emoji: "🕵️",
+      props: ["Baby doll", "Bottle / blanket / nappy / pacifier nearby"],
+      duration_min: 8,
+      target_skill_ids: ["so-empathy", "co-cause-effect", "la-3word"],
+      target_subdomains: ["empathy_tom", "cause_effect", "pragmatics"],
+      vocab_slot_count: 3,
+      default_vocab: ["hungry", "tired", "wet"],
+      beats: [
+        { actor: "Baby doll", line: "(loud cry) Waaaah!", action: "Baby is upset. Maxine looks worried." },
+        { actor: "You", line: "Why is baby crying? Is baby {VOCAB_1}?", action: "Offer the bottle. Did it work?" },
+        { actor: "You", line: "Hmm, still crying. Is baby {VOCAB_2}?", action: "Try the blanket. Still crying?" },
+        { actor: "You", line: "Is baby {VOCAB_3}? Let's check.", action: "Change the nappy. Baby stops crying!" },
+        { actor: "Baby doll", line: "(soft sigh) Aaaah. Better.", action: "Baby smiles. Maxine smiles." }
+      ],
+      tips: [
+        "This is a tiny lesson in hypothesis testing — perfect cognitive scaffold.",
+        "Let her pick the order. Even if 'wrong' she learns cause → effect.",
+        "When she does the same scene with you (during her own fuss), name what she might need."
+      ],
+      learning_focus: "Causal reasoning + empathy + 3-word problem-solving language. (Piaget — pre-operational stage.)"
+    }
+  ],
+  drawing: [
+    {
+      id: "dr-family-portrait",
+      title: "Draw the family",
+      emoji: "👨‍👩‍👧",
+      props: ["Big paper", "Chunky crayons (4 colours)"],
+      duration_min: 12,
+      target_skill_ids: ["fm-circle", "fm-lines-h", "la-body-5"],
+      target_subdomains: ["visual_motor", "tool_use", "expressive"],
+      vocab_slot_count: 3,
+      default_vocab: ["eyes", "nose", "mouth"],
+      beats: [
+        { actor: "You", line: "Let's draw mama. First, a big circle for the head.", action: "Maxine draws (or you guide her hand) a circle." },
+        { actor: "You", line: "Now two {VOCAB_1}!", action: "Two dots. She tries. Praise effort." },
+        { actor: "You", line: "A {VOCAB_2}.", action: "A line or curve in the middle." },
+        { actor: "You", line: "A {VOCAB_3}. Smile!", action: "Curve at the bottom." },
+        { actor: "Maxine", line: "Mama!", action: "She names what she made. Hang it on the fridge." }
+      ],
+      tips: [
+        "Don't fix her circles. Imperfect = perfect at 24m.",
+        "Let her name who she's drawing — papa, baby, herself.",
+        "Save the drawing — pin it up where she can see it for a week. Reinforces achievement."
+      ],
+      learning_focus: "Pre-writing strokes + body-part naming in a meaningful product. (Lowenfeld — scribble → schema stages.)"
+    },
+    {
+      id: "dr-shape-house",
+      title: "My house has shapes",
+      emoji: "🏠",
+      props: ["Paper", "Crayons"],
+      duration_min: 10,
+      target_skill_ids: ["fm-lines-v", "fm-circle", "se-shapes-3"],
+      target_subdomains: ["visual_motor", "visual_discr", "tool_use"],
+      vocab_slot_count: 3,
+      default_vocab: ["square", "triangle", "circle"],
+      beats: [
+        { actor: "You", line: "Let's draw a house. The walls are a big {VOCAB_1}.", action: "Draw a square together." },
+        { actor: "You", line: "The roof is a {VOCAB_2}!", action: "Triangle on top." },
+        { actor: "You", line: "The window is a {VOCAB_3}.", action: "Maxine adds a circle window." },
+        { actor: "You", line: "Who lives in your house?", action: "Let her draw or name family members." },
+        { actor: "Maxine", line: "My house!", action: "Show off the drawing." }
+      ],
+      tips: [
+        "Hand-over-hand at first if needed; gradually let her take over.",
+        "Talk through each shape as you draw — naming reinforces.",
+        "Later: 'find a square in the room!' Connect drawing to real world."
+      ],
+      learning_focus: "Shape recognition + drawing planning + spatial vocabulary. (Montessori geometry cabinet.)"
+    },
+    {
+      id: "dr-story-three-pictures",
+      title: "Tell a story in 3 pictures",
+      emoji: "📖",
+      props: ["Paper folded into 3 squares", "Crayons"],
+      duration_min: 15,
+      target_skill_ids: ["co-pretend", "co-instr-2", "la-3word"],
+      target_subdomains: ["sequencing", "symbolic_pretend", "pragmatics"],
+      vocab_slot_count: 3,
+      default_vocab: ["first", "next", "last"],
+      beats: [
+        { actor: "You", line: "A story has three parts. {VOCAB_1}…", action: "Pick a topic together: a walk, a meal, a bath." },
+        { actor: "Maxine", line: "…walk…", action: "Draws in box 1." },
+        { actor: "You", line: "{VOCAB_2}…", action: "Box 2." },
+        { actor: "You", line: "And {VOCAB_3}!", action: "Box 3." },
+        { actor: "Maxine", line: "My story!", action: "Tell it back. Mama tells her version." }
+      ],
+      tips: [
+        "Sequencing is huge for narrative. This is reading-readiness in seed form.",
+        "Even if the drawings are scribbles — the SEQUENCE is the skill.",
+        "Re-tell the story at bedtime — strengthens memory + language."
+      ],
+      learning_focus: "Sequential narrative + planning + symbolic representation. (Nelson — narrative practice predicts literacy.)"
+    }
+  ],
+  outside: [
+    {
+      id: "ot-treasure-hunt",
+      title: "Treasure hunt — 3 leaves, 2 sticks, 1 stone",
+      emoji: "🍃",
+      props: ["A small basket or bag"],
+      duration_min: 15,
+      target_skill_ids: ["co-count-3", "co-sort-color", "la-body-5"],
+      target_subdomains: ["number_quant", "classification", "expressive"],
+      vocab_slot_count: 3,
+      default_vocab: ["leaf", "stick", "stone"],
+      beats: [
+        { actor: "You", line: "Treasure hunt! Find me three {VOCAB_1}s.", action: "Maxine searches. Count together as she finds." },
+        { actor: "You", line: "Now two {VOCAB_2}s.", action: "Search and count." },
+        { actor: "You", line: "And one big {VOCAB_3}.", action: "Find the special stone." },
+        { actor: "You", line: "Let's sort them.", action: "Group by type back on a flat surface." },
+        { actor: "Maxine", line: "My treasure!", action: "Lay them out at home. Photograph it." }
+      ],
+      tips: [
+        "Counting + sorting in one. Big leverage.",
+        "If she finds extras — perfect. 'You found four!' Count that too.",
+        "End by bringing the treasure home — extends the memory + pride."
+      ],
+      learning_focus: "One-to-one counting + categorisation + nature vocab. (Dehaene — number sense.)"
+    },
+    {
+      id: "ot-animal-walk",
+      title: "Walk like an animal",
+      emoji: "🐻",
+      props: ["Open space (terrace, park, garden)"],
+      duration_min: 10,
+      target_skill_ids: ["gm-jump", "gm-balance-bike", "co-imitate-simple"],
+      target_subdomains: ["locomotion", "balance_vestibular", "cause_effect"],
+      vocab_slot_count: 3,
+      default_vocab: ["bear", "frog", "bird"],
+      beats: [
+        { actor: "You", line: "Walk like a {VOCAB_1}! (hands and feet, big steps)", action: "Demonstrate. Maxine copies." },
+        { actor: "You", line: "Now hop like a {VOCAB_2}!", action: "Both squat-hop." },
+        { actor: "You", line: "Now fly like a {VOCAB_3}!", action: "Run with arms wide." },
+        { actor: "Maxine", line: "Maxine's turn! She picks.", action: "Let her name an animal — copy her movement." },
+        { actor: "You", line: "Phew! Let's rest.", action: "Sit on the ground, breathe big." }
+      ],
+      tips: [
+        "Animal sounds count too — name + sound reinforces vocab.",
+        "End calm. Animal walks are physically intense — wind-down protects nap timing.",
+        "Repeat the same animals across days — repetition is how vocab sticks."
+      ],
+      learning_focus: "Gross motor variety + imitation + animal vocab. (Meltzoff — mirror neuron imitation.)"
+    },
+    {
+      id: "ot-colour-walk",
+      title: "Colour walk",
+      emoji: "🌈",
+      props: ["Just you two and the outdoors"],
+      duration_min: 10,
+      target_skill_ids: ["se-colors-3", "co-sort-color", "la-2word"],
+      target_subdomains: ["visual_discr", "classification", "grammar"],
+      vocab_slot_count: 3,
+      default_vocab: ["red", "yellow", "blue"],
+      beats: [
+        { actor: "You", line: "Today is a {VOCAB_1} day. Find something {VOCAB_1}!", action: "Walk together. Maxine points at red things." },
+        { actor: "You", line: "I see a {VOCAB_1} flower!", action: "Model: point + name." },
+        { actor: "You", line: "Now {VOCAB_2}. Find something {VOCAB_2}.", action: "Switch colour." },
+        { actor: "Maxine", line: "Yellow car!", action: "She names. Praise the 2-word combo." },
+        { actor: "You", line: "Last colour — {VOCAB_3}.", action: "Same pattern." }
+      ],
+      tips: [
+        "If she gets stuck, model: 'Look — a red leaf!' Then wait.",
+        "Even one find per colour is enough. Quality over quantity.",
+        "Photograph her finds — make a 'red book' she can flip through later."
+      ],
+      learning_focus: "Colour vocab + visual hunting + 2-word phrases. (Montessori — sensorial colour discrimination.)"
+    }
+  ]
+};
+
 // Domain → emoji + chip class. Reuses the existing DOMAINS array if it
 // exposes emoji, with a safe fallback table.
 function _gcDomainEmoji(dom){
@@ -3378,75 +4096,234 @@ function _gcTemplate(ctx, customLabel, skillLabel, word){
   }
 }
 
-/* generateGameSuggestions(contextKey, customLabel) → Array of 3-5 suggestion
-   objects: { text, skillId, domain, vocabWord, emoji }                       */
+/* generateGameSuggestions(contextKey, customLabel) → Array of resolved scene
+   objects (see _gcRenderScene). Custom context routes to a single fallback
+   scaffold scene. Picks 3 scenes per context, rotated by last-shown timestamp
+   with a random tiebreak so the same scene doesn't always come first.       */
 function generateGameSuggestions(contextKey, customLabel){
-  const ctx = GC_CTX_DOMAINS[contextKey] ? contextKey : "custom";
-  const lens = GC_CTX_DOMAINS[ctx];
+  const ctx = (typeof SCENES_LIBRARY !== "undefined" && SCENES_LIBRARY[contextKey])
+              ? contextKey
+              : (contextKey === "custom" ? "custom" : "dollhouse");
   const theme = (typeof pickTheme === "function") ? pickTheme() : null;
 
-  // Vocab gaps from the current theme's word list
+  // Vocab gaps from the current theme's word list (≤6 to seed up to two scenes).
   const themeWords = (theme && Array.isArray(theme.words)) ? theme.words : [];
-  const gaps = themeWords
-    .filter(w => Array.isArray(w) && w[0] && !(state.vocabMaster||{})[`${w[0]}_en`])
-    .slice(0, 3);
+  const vocabGaps = themeWords
+    .filter(w => Array.isArray(w) && w[0] && !(state.vocabMaster || {})[`${w[0]}_en`])
+    .map(w => ({ en: w[0], fr: w[1] || null, emoji: w[2] || null }))
+    .slice(0, 6);
 
-  // Frontier skills filtered by lens; top up from non-mastered in those
-  // domains if there aren't enough frontier picks.
-  let lensSkills = [];
-  try {
-    lensSkills = (typeof frontierSkills === "function" ? frontierSkills() : [])
-      .filter(s => lens.includes(s.dom));
-  } catch(e){ lensSkills = []; }
-  if (lensSkills.length < 4){
-    const have = new Set(lensSkills.map(s => s.id));
-    const extras = SKILLS
-      .filter(s => lens.includes(s.dom) && !have.has(s.id) &&
-                   deriveStatus(s.id) !== "mastered" &&
-                   deriveStatus(s.id) !== "already_mastered" &&
-                   deriveStatus(s.id) !== "too_hard")
-      .sort((a,b) => tierOf(a) - tierOf(b))
-      .slice(0, 6 - lensSkills.length);
-    lensSkills = lensSkills.concat(extras);
+  if (ctx === "custom"){
+    return _gcCustomSceneFallback(customLabel, vocabGaps);
   }
-  // Shuffle for re-roll variety
-  for (let i = lensSkills.length - 1; i > 0; i--){
-    const j = Math.floor(Math.random() * (i + 1));
-    [lensSkills[i], lensSkills[j]] = [lensSkills[j], lensSkills[i]];
-  }
-  lensSkills = lensSkills.slice(0, 4);
 
-  const suggestions = lensSkills.map((s, i) => {
-    const gap = gaps[i % Math.max(1, gaps.length)];
-    const word = gap && gap[0] ? gap[0] : null;
-    return {
-      text:      _gcTemplate(ctx, customLabel, s.t || s.id, word),
-      skillId:   s.id,
-      domain:    s.dom,
-      vocabWord: word,
-      emoji:     _gcDomainEmoji(s.dom),
-    };
-  });
+  const library = (typeof SCENES_LIBRARY !== "undefined" && SCENES_LIBRARY[ctx]) ? SCENES_LIBRARY[ctx] : [];
+  if (!library.length) return [];
 
-  // Theme immersion suggestion — pick an activity from the primary lens domain
-  // (or fall back to the first lens domain that has theme activities).
-  if (theme){
-    let primary = lens.find(d => Array.isArray(theme[d]) && theme[d].length) || lens[0];
-    const acts = (primary && Array.isArray(theme[primary])) ? theme[primary] : [];
-    const act = acts[Math.floor(Math.random() * acts.length)];
-    if (act && act.t){
-      const word = gaps[0] && gaps[0][0] ? gaps[0][0] : null;
-      suggestions.push({
-        text:      `🌟 Theme immersion — ${theme.title}: ${act.t}.` + (word ? ` Slip in the word "${word}".` : ""),
-        skillId:   null,
-        domain:    primary || "cognitive",
-        vocabWord: word,
-        emoji:     theme.emoji || "🌟",
-      });
+  // Rotation: oldest-shown first, with a random tiebreak for variety.
+  state._gcSceneShownAt = state._gcSceneShownAt || {};
+  const scored = library.map(scene => ({
+    scene,
+    lastShown: state._gcSceneShownAt[scene.id] || 0,
+    rand: Math.random()
+  }));
+  scored.sort((a, b) => (a.lastShown - b.lastShown) || (a.rand - b.rand));
+  const picks = scored.slice(0, 3).map(x => x.scene);
+
+  return picks.map(scene => _gcRenderScene(scene, vocabGaps, ctx));
+}
+
+/**
+ * Resolve a scene template into a ready-to-display object.
+ * - Fills vocab_slot_count slots from vocabGaps (falls back to scene.default_vocab).
+ * - Substitutes {VOCAB_1/2/3} placeholders in beats, tips, and learning_focus.
+ * - Maps target_skill_ids → human-readable titles via the full skill universe.
+ */
+function _gcRenderScene(scene, vocabGaps, contextKey){
+  const slots = [];
+  for (let i = 0; i < (scene.vocab_slot_count || 0); i++){
+    if (vocabGaps[i]) {
+      slots.push(vocabGaps[i]);
+    } else {
+      const fallback = scene.default_vocab[i] || scene.default_vocab[0] || "";
+      slots.push({ en: fallback, fr: null, emoji: null });
     }
   }
+  const v1 = slots[0]?.en || "";
+  const v2 = slots[1]?.en || "";
+  const v3 = slots[2]?.en || "";
+  const sub = (str) => String(str || "")
+    .replace(/\{VOCAB_1\}/g, v1)
+    .replace(/\{VOCAB_2\}/g, v2)
+    .replace(/\{VOCAB_3\}/g, v3);
 
-  return suggestions.slice(0, 5);
+  const allSkills = [
+    ...SKILLS,
+    ...(typeof SKILLS_CUSTOM_SEED !== "undefined" ? SKILLS_CUSTOM_SEED : []),
+    ...(state.skillsCustom || [])
+  ];
+  const skillLabels = (scene.target_skill_ids || []).map(id => {
+    const s = allSkills.find(x => x && x.id === id);
+    return s ? (s.t || s.id) : id;
+  });
+
+  return {
+    id: scene.id,
+    contextKey,
+    title: scene.title,
+    emoji: scene.emoji,
+    duration_min: scene.duration_min,
+    props: scene.props || [],
+    beats: (scene.beats || []).map(b => ({
+      actor: b.actor,
+      line: sub(b.line),
+      action: sub(b.action)
+    })),
+    tips: (scene.tips || []).map(sub),
+    learning_focus: sub(scene.learning_focus),
+    vocab_slots: slots,
+    target_skill_ids: scene.target_skill_ids || [],
+    target_skill_labels: skillLabels,
+    target_subdomains: scene.target_subdomains || []
+  };
+}
+
+/* buildGameCreatorScenePrompt — paste-ready Cowork prompt that asks for ONE
+   new scene appended to SCENES_LIBRARY[ctx]. Carries current frontier + vocab
+   gaps so Cowork can weave them in.                                          */
+function buildGameCreatorScenePrompt(ctx, customLabel, frontier, vocabGaps, theme){
+  const ctxLabel = ({
+    dollhouse:  "🏠 Dollhouse",
+    outside:    "🌳 Outside (terrace / garden)",
+    drawing:    "🖍️ Drawing",
+    baby_dolls: "👶 Baby dolls",
+    custom:     customLabel || "Custom play"
+  })[ctx] || ctx;
+
+  const frontierText = (frontier && frontier.length)
+    ? frontier.map(s => {
+        const udi = (typeof s.udi === "number") ? s.udi.toFixed(1) : "n/a";
+        const sub = s.subdomain || s.dom || "—";
+        return `  - ${s.id}: "${s.t || s.id}" (UDI ${udi}, ${sub})`;
+      }).join("\n")
+    : "  (none — pick any age-appropriate skill)";
+
+  const vocabText = (vocabGaps && vocabGaps.length)
+    ? vocabGaps.map(w => {
+        if (Array.isArray(w)) return `  - ${w[0]}${w[1] ? " / " + w[1] : ""}${w[2] ? " " + w[2] : ""}`;
+        return `  - ${w.en || w}${w.fr ? " / " + w.fr : ""}${w.emoji ? " " + w.emoji : ""}`;
+      }).join("\n")
+    : "  (none — pick fun age-appropriate words)";
+
+  const themeText = theme ? `Theme: Week ${theme.w} — ${theme.title} ${theme.emoji || ""}` : "(no active theme)";
+
+  return `You are writing a play scene for Maxine (24 months, EN/FR bilingual). The scene runs in this context: ${ctxLabel}.
+
+${themeText}
+
+She is currently working on these skills (try to weave 2–3 in naturally):
+${frontierText}
+
+She has not yet mastered these vocabulary words (weave 2–3 in naturally):
+${vocabText}
+
+Edit Maxine_Dashboard.html: APPEND ONE NEW SCENE object to the appropriate context array inside SCENES_LIBRARY (the constant is near the Game Creator code, right after GC_CTX_DOMAINS). Use this schema:
+
+{
+  id: "<kebab-case unique, prefix with context code e.g. dh-/bd-/dr-/ot-/cu->",
+  title: "<fun, evocative scene title>",
+  emoji: "<single emoji>",
+  props: ["<household item>", ...],
+  duration_min: <8-15>,
+  target_skill_ids: ["<frontier skill id>", ...],         // 2–3 ids from the list above
+  target_subdomains: ["<sub-domain key>", ...],
+  vocab_slot_count: 3,
+  default_vocab: ["<en word>", "<en word>", "<en word>"], // 3 from the vocab list above
+  beats: [
+    { actor: "<Mama doll | Baby doll | You | Maxine | a sound>", line: "<line to say, use {VOCAB_1}/{VOCAB_2}/{VOCAB_3} placeholders>", action: "<what the parent physically does>" },
+    ...
+    // 4-5 beats total — clear story arc: setup → action → climax → resolution
+  ],
+  tips: [
+    "<one tip for the parent>",
+    ...
+    // 3-4 tips: when to pause, how to extend, what to watch for, bilingual hints
+  ],
+  learning_focus: "<one sentence explaining what this scene exercises and why it sits naturally here, citing a framework: CDC / Bayley / Vygotsky / Tomasello / Piaget / Hoffman / etc.>"
+}
+
+Constraints:
+- The scene must be FUN and developmentally appropriate for ~24 months.
+- Materials must be household-available.
+- Each beat must be ONE clear line + ONE clear action — concrete and short.
+- Use {VOCAB_1}/{VOCAB_2}/{VOCAB_3} placeholders in beat lines wherever a vocab word fits.
+- The scene must exercise 2–3 of the listed frontier skills naturally (not contrived).
+- Do not modify any other part of the file. Only append the new scene object inside SCENES_LIBRARY.${ctx}.
+
+After editing, return JSON only:
+{"context":"${ctx}","scene_id":"<id>","title":"<title>","skill_ids":[...],"vocab":[...]}
+`;
+}
+
+/* detectGcSceneCompletions — runs at load. For each pending gc_scene entry in
+   status:"sent", compare SCENES_LIBRARY[entry.context] against the snapshot
+   captured at submission. Any new scene id flips the entry to "completed". */
+function detectGcSceneCompletions(){
+  if (!Array.isArray(state.pendingGenerations) || !state.pendingGenerations.length) return 0;
+  let completed = 0;
+  state.pendingGenerations.forEach(p => {
+    if (!p || p.type !== "gc_scene" || p.status !== "sent") return;
+    const ctx = p.context;
+    const lib = (typeof SCENES_LIBRARY !== "undefined" && SCENES_LIBRARY[ctx]) ? SCENES_LIBRARY[ctx] : [];
+    const captured = new Set(p.captured_scene_ids || []);
+    const fresh = lib.find(s => s && !captured.has(s.id));
+    if (fresh){
+      p.status = "completed";
+      p.completed_at = Date.now();
+      p.completed_scene_id = fresh.id;
+      completed++;
+    }
+  });
+  if (completed > 0 && typeof saveState === "function") saveState(state);
+  return completed;
+}
+
+/* _gcCustomSceneFallback — single scaffold scene built from current frontier
+   + vocab gaps. Encourages either picking a fixed context or generating a
+   fresh scene via Cowork.                                                    */
+function _gcCustomSceneFallback(customLabel, vocabGaps){
+  let frontier = [];
+  try {
+    frontier = (typeof frontierSkills === "function" ? frontierSkills() : []).slice(0, 3);
+  } catch(e){ frontier = []; }
+  const skillIds = frontier.map(s => s.id);
+  const skillLabels = frontier.map(s => s.t || s.id);
+  const v1 = vocabGaps[0] || { en: "this", fr: "ceci" };
+  const v2 = vocabGaps[1] || { en: "that", fr: "cela" };
+  const v3 = vocabGaps[2] || { en: "here", fr: "ici" };
+  return [{
+    id: `custom-${Date.now()}`,
+    contextKey: "custom",
+    title: customLabel ? `Custom play: ${customLabel}` : "Free play",
+    emoji: "✏️",
+    duration_min: 10,
+    props: ["Whatever you have at hand"],
+    beats: [
+      { actor: "You",    line: `Set up your activity (${customLabel || "free play"}).`, action: "" },
+      { actor: "You",    line: `As you play, weave in: ${v1.en}, ${v2.en}, ${v3.en}.`, action: "Use each word twice." },
+      { actor: "Maxine", line: "Her turn — let her lead a beat.", action: "Wait 5 seconds. Mirror what she says." },
+      { actor: "You",    line: "Process praise: 'You worked hard at that!'", action: "End on warmth." }
+    ],
+    tips: [
+      "For a richer scene, switch to a fixed context (dollhouse / baby dolls / drawing / outside).",
+      "Or — generate a fresh custom scene via Cowork (button below)."
+    ],
+    learning_focus: skillLabels.length ? `Targets: ${skillLabels.join(", ")}` : "Free play with prompted vocab.",
+    vocab_slots: [v1, v2, v3],
+    target_skill_ids: skillIds,
+    target_skill_labels: skillLabels,
+    target_subdomains: []
+  }];
 }
 
 // Current Game Creator UI state
@@ -3457,9 +4334,9 @@ function _gcRenderResults(){
   const root = document.getElementById("gcResults");
   if (!root) return;
   if (!_gcCurrentCtx){ root.innerHTML = ""; return; }
-  let suggestions;
+  let scenes;
   try {
-    suggestions = generateGameSuggestions(_gcCurrentCtx, _gcCustomLabel);
+    scenes = generateGameSuggestions(_gcCurrentCtx, _gcCustomLabel);
   } catch(err){
     console.warn("generateGameSuggestions failed", err);
     root.innerHTML = `<div class="sub" style="color:var(--muted); padding:10px">Game Creator unavailable — please reload.</div>`;
@@ -3467,33 +4344,59 @@ function _gcRenderResults(){
   }
   const theme = (typeof pickTheme === "function") ? pickTheme() : null;
   const themeBadge = theme
-    ? `<div class="gc-theme-badge">📅 Week ${theme.w} · ${escapeHtml(theme.title)} ${theme.emoji||""}</div>`
+    ? `<div class="gc-theme-badge">📅 Week ${theme.w} · ${escapeHtml(theme.title)} ${theme.emoji || ""}</div>`
     : "";
-  const cards = suggestions.map((s, i) => {
-    const domClass = `dom-${s.domain}`;
-    const vocabChip = s.vocabWord
-      ? `<span class="gc-vocab-chip" title="Vocab gap to weave in">💬 ${escapeHtml(s.vocabWord)}</span>` : "";
-    return `
-      <div class="gc-card ${domClass}" data-gc-idx="${i}">
-        <div class="gc-card-head">
-          <span class="gc-dom-chip ${domClass}">${escapeHtml(s.domain)}</span>
-          <span style="font-size:18px" aria-hidden="true">${s.emoji}</span>
+
+  const cards = (scenes || []).map((s, i) => {
+    const vocabChips = (s.vocab_slots || []).map(v =>
+      `<span class="gc-vocab-chip">💬 ${escapeHtml(v.en)}${v.fr ? ` / ${escapeHtml(v.fr)}` : ""}</span>`
+    ).join("");
+    const skillChips = (s.target_skill_labels || []).map(lbl =>
+      `<span class="gc-skill-chip">🎯 ${escapeHtml(lbl)}</span>`
+    ).join("");
+    const beatsHtml = (s.beats || []).map((b, bi) => `
+      <div class="gc-beat">
+        <div class="gc-beat-num">${bi + 1}</div>
+        <div class="gc-beat-body">
+          <div class="gc-beat-actor">${escapeHtml(b.actor)}:</div>
+          <div class="gc-beat-line">"${escapeHtml(b.line)}"</div>
+          ${b.action ? `<div class="gc-beat-action">↪ ${escapeHtml(b.action)}</div>` : ""}
         </div>
-        <div class="gc-card-text">${escapeHtml(s.text)}</div>
-        ${vocabChip}
+      </div>
+    `).join("");
+    const tipsHtml = (s.tips || []).map(t => `<li>${escapeHtml(t)}</li>`).join("");
+    const propsHtml = (s.props || []).map(p => `<span class="gc-prop">${escapeHtml(p)}</span>`).join("");
+
+    return `
+      <div class="gc-scene-card" data-gc-idx="${i}">
+        <div class="gc-scene-head">
+          <div class="gc-scene-title">${s.emoji || "✨"} ${escapeHtml(s.title)}</div>
+          <div class="gc-scene-meta">~${s.duration_min} min</div>
+        </div>
+        ${(skillChips || vocabChips) ? `<div class="gc-scene-chips">${skillChips}${vocabChips}</div>` : ""}
+        ${(s.props && s.props.length) ? `<div class="gc-scene-props"><strong>Setup:</strong> ${propsHtml}</div>` : ""}
+        <div class="gc-scene-beats">${beatsHtml}</div>
+        ${(s.tips && s.tips.length) ? `
+          <details class="gc-scene-tips">
+            <summary>💡 Tips (${s.tips.length})</summary>
+            <ul>${tipsHtml}</ul>
+          </details>` : ""}
+        ${s.learning_focus ? `<div class="gc-scene-focus">${escapeHtml(s.learning_focus)}</div>` : ""}
         <button class="gc-did-btn" data-gc-did="${i}">✓ We did this!</button>
       </div>
     `;
   }).join("");
+
   root.innerHTML = `
     ${themeBadge}
-    ${cards || `<div class="sub" style="color:var(--muted); padding:10px">No suggestions right now — try logging a few activities first.</div>`}
+    ${cards || `<div class="sub" style="color:var(--muted); padding:10px">No scenes available for this context.</div>`}
     <div class="gc-reroll-row">
-      <button class="gc-reroll-btn" id="gcReroll">🔀 New suggestions</button>
+      <button class="gc-reroll-btn" id="gcReroll">🔀 New scenes</button>
+      <button class="gc-cowork-btn" id="gcCoworkFresh">🎨 Generate fresh scene via Cowork</button>
     </div>
   `;
-  // Stash the rendered suggestions so the click handler can read them
-  root._gcSuggestions = suggestions;
+  // Stash the resolved scenes so the click handler can read them.
+  root._gcScenes = scenes;
 }
 
 // Click delegation for Game Creator
@@ -3547,54 +4450,91 @@ document.addEventListener("click", (e) => {
     _gcRenderResults();
     return;
   }
-  // "We did this!" — log the suggestion
+  // "Generate fresh scene via Cowork" — copy a structured prompt + enqueue
+  if (e.target.closest("#gcCoworkFresh")){
+    const ctx = _gcCurrentCtx || "dollhouse";
+    const lensDoms = GC_CTX_DOMAINS[ctx] || ["vocab", "social"];
+    let frontier = [];
+    try {
+      frontier = (typeof frontierSkills === "function" ? frontierSkills() : [])
+        .filter(s => lensDoms.includes(s.dom))
+        .slice(0, 5);
+    } catch(err){ frontier = []; }
+    const theme = (typeof pickTheme === "function") ? pickTheme() : null;
+    const vocabGaps = (theme && Array.isArray(theme.words) ? theme.words : [])
+      .filter(w => Array.isArray(w) && w[0] && !(state.vocabMaster || {})[`${w[0]}_en`])
+      .slice(0, 5);
+
+    const prompt = buildGameCreatorScenePrompt(ctx, _gcCustomLabel, frontier, vocabGaps, theme);
+    const capturedIds = (typeof SCENES_LIBRARY !== "undefined" && SCENES_LIBRARY[ctx])
+      ? SCENES_LIBRARY[ctx].map(s => s.id)
+      : [];
+
+    state.pendingGenerations = state.pendingGenerations || [];
+    const entryId = (typeof _v6Uuid === "function") ? _v6Uuid() : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8));
+    state.pendingGenerations.push({
+      id: entryId,
+      ts: Date.now(),
+      type: "gc_scene",
+      context: ctx,
+      custom_label: _gcCustomLabel || null,
+      status: "pending",
+      prompt,
+      captured_scene_ids: capturedIds
+    });
+    if (typeof saveState === "function") saveState(state);
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(prompt).then(
+          () => { if (typeof showToast === "function") showToast("🎨 Cowork prompt copied — paste into your Cowork chat"); },
+          () => { if (typeof showToast === "function") showToast("Couldn't copy — open Settings → Pending Cowork tasks"); }
+        );
+      } else {
+        if (typeof showToast === "function") showToast("Open Settings → Pending Cowork tasks to copy the prompt");
+      }
+    } catch(err){
+      if (typeof showToast === "function") showToast("Open Settings → Pending Cowork tasks to copy the prompt");
+    }
+    return;
+  }
+  // "We did this!" — log the full scene
   const didBtn = e.target.closest("[data-gc-did]");
   if (didBtn){
     const root = document.getElementById("gcResults");
-    const list = root && root._gcSuggestions || [];
+    const list = (root && root._gcScenes) || [];
     const idx = parseInt(didBtn.dataset.gcDid, 10);
-    const sug = list[idx]; if (!sug) return;
+    const scene = list[idx];
+    if (!scene) return;
     try {
-      if (sug.skillId && typeof addObservation === "function"){
-        addObservation({
-          skillId: sug.skillId,
-          status:  "practising",
-          source:  "activity",
-          notes:   `Game Creator — ${_gcCurrentCtx}${_gcCustomLabel ? " (" + _gcCustomLabel + ")" : ""}`,
-        });
-      } else if (sug.skillId){
-        state.observations = state.observations || [];
-        state.observations.push({
-          skillId: sug.skillId, status: "practising",
-          ts: Date.now(),
-          by: state.currentUser || "—",
-          source: "activity",
-          context: _gcCurrentCtx,
-          observer: "parent",
-          notes: `Game Creator — ${_gcCurrentCtx}${_gcCustomLabel ? " (" + _gcCustomLabel + ")" : ""}`,
-        });
-        // v5: BKT update for real skill IDs (vocab-* synthetic IDs handled separately)
-        if (typeof bktUpdate === "function" && SKILLS.find(x => x.id === sug.skillId)){
-          bktUpdate(sug.skillId, "partial"); // practising → partial evidence
+      // Log every target skill as "working_on_it" — the parent has not yet
+      // declared mastery. They observe Maxine and decide on the per-skill log.
+      (scene.target_skill_ids || []).forEach(skillId => {
+        if (typeof addObservation === "function"){
+          addObservation({
+            skillId,
+            status: "working_on_it",
+            source: "gc_scene",
+            notes:  `Game Creator scene: ${scene.title}`
+          });
         }
-        if (typeof saveState === "function") saveState(state);
-      }
-      if (sug.vocabWord){
-        if (typeof addVocabMastery === "function"){
-          addVocabMastery(sug.vocabWord, "en", { source: "activity" });
-        } else {
-          state.vocabMaster = state.vocabMaster || {};
-          state.vocabMaster[`${sug.vocabWord}_en`] = { ts: Date.now() };
-          if (typeof saveState === "function") saveState(state);
+      });
+      // Vocab exposure — NOT mastery. Parent stays the only path to mastery.
+      (scene.vocab_slots || []).forEach(v => {
+        if (v && v.en && typeof addVocabExposure === "function"){
+          addVocabExposure(v.en, "en", { notes: `Scene: ${scene.title}` });
         }
-      }
+      });
+      // Stamp last-shown timestamp so the rotation pushes this scene to the
+      // back of the queue next time.
+      state._gcSceneShownAt = state._gcSceneShownAt || {};
+      state._gcSceneShownAt[scene.id] = Date.now();
+      if (typeof saveState === "function") saveState(state);
       if (typeof syncPushDebounced === "function") syncPushDebounced();
-      // Replace this card's button with a "Logged" pill — don't re-render the panel
-      const card = didBtn.closest(".gc-card");
-      if (card){
-        didBtn.outerHTML = `<span class="gc-logged">✓ Logged!</span>`;
-      }
-      if (typeof showToast === "function") showToast(`✓ Logged · ${sug.domain}`);
+      // Replace this card's button with a "Logged" pill — don't re-render the panel.
+      const skillsN = (scene.target_skill_ids || []).length;
+      didBtn.outerHTML = `<span class="gc-logged">✓ Logged — scene complete!</span>`;
+      if (typeof showToast === "function") showToast(`✓ Scene complete · ${skillsN} skill${skillsN === 1 ? "" : "s"} practised`);
     } catch(err){
       console.warn("Game Creator log failed", err);
       if (typeof showToast === "function") showToast("Couldn't log — please retry");
@@ -4217,8 +5157,7 @@ function openSettings(){
   const ea = document.getElementById("cloudSyncEnterArea"); if(ea) ea.style.display="none";
   // (auto-sync panel renders itself via syncAutoInit)
   renderSyncStatus();
-  // v5 — render BKT diagnostics body on each open (cheap, ~90 rows).
-  if (typeof renderBktDiagnostics === "function") renderBktDiagnostics();
+  // v6 — BKT diagnostics removed (engine stripped). Skill graph + era schedule remain.
   if (typeof renderSkillGraph    === "function") renderSkillGraph();
   if (typeof renderEraSchedule   === "function") renderEraSchedule();
   // Wire the v5 tutor brief copy button once on first open.
@@ -4245,7 +5184,98 @@ function openSettings(){
       }
     });
   }
+  // v6 — populate + wire mastery / backfill / coaching settings on every open.
+  try { _renderV6Settings(); _wireV6Settings(); } catch(err){ console.warn("v6 settings wiring failed", err); }
   setModal.classList.add("open");
+}
+
+/* v6 — populate settings inputs from state on every Settings open. */
+function _renderV6Settings(){
+  const cfg = state.masteryConfig || {};
+  const get = (id) => document.getElementById(id);
+  if (get("cfgReverifySchedule")) get("cfgReverifySchedule").value = (cfg.reverifySchedule || [30, 60, 120, 240]).join(", ");
+  if (get("cfgAutomaticAfter"))   get("cfgAutomaticAfter").value   = cfg.automaticAfterDays   || 60;
+  if (get("cfgRegressionWindow")) get("cfgRegressionWindow").value = cfg.regressionWindowDays || 30;
+  if (get("cfgTargetDepth"))      get("cfgTargetDepth").value      = cfg.targetDepth          || 10;
+  if (get("cfgZpdRange"))         get("cfgZpdRange").value         = (cfg.zpdRange || [-0.3, 1.5]).join(", ");
+  if (get("cfgBeginnerUdi"))      get("cfgBeginnerUdi").value      = cfg.beginnerUdiCeiling   || 2.0;
+  if (get("cfgAutoBackfill"))     get("cfgAutoBackfill").checked   = (cfg.autoBackfill !== false);
+
+  const recent = get("cfgBackfillRecent");
+  if (recent){
+    const events = (state.backfillQueue || []).slice().sort((a, b) => (b.requested_at || 0) - (a.requested_at || 0)).slice(0, 20);
+    if (!events.length){
+      recent.innerHTML = `<div style="font-style:italic">No backfill events yet.</div>`;
+    } else {
+      recent.innerHTML = events.map(q => {
+        const dt = new Date(q.requested_at || 0).toLocaleString("en-GB", { dateStyle:"short", timeStyle:"short" });
+        const tag = q.status === "completed" ? "✓" : (q.status === "sent" ? "🚀" : "⏳");
+        return `<div>${escapeHtml(dt)} · ${escapeHtml(q.domain)} · +${q.needed_count} skills ${tag} ${escapeHtml(q.status)}</div>`;
+      }).join("");
+    }
+  }
+
+  const coaching = get("cfgCoachingBody");
+  if (coaching){
+    const picks = state.coachingPicks || {};
+    const last = picks.last_rotated ? new Date(picks.last_rotated).toLocaleDateString("en-GB", { year:"numeric", month:"short", day:"numeric" }) : "—";
+    const nextRotDays = picks.last_rotated
+      ? Math.max(0, Math.round((picks.last_rotated + COACHING_ROTATION_DAYS * 86400000 - Date.now()) / 86400000))
+      : "—";
+    const pulls = (picks.natural_pulls   || []).map(p => p.domain).join(", ") || "—";
+    const inv   = (picks.where_to_invest || []).map(p => p.domain).join(", ") || "—";
+    coaching.innerHTML = `Last rotated: <strong>${escapeHtml(last)}</strong> · next rotation in <strong>${nextRotDays}</strong>d<br/>Natural pull: <strong>${escapeHtml(pulls)}</strong><br/>Where to invest: <strong>${escapeHtml(inv)}</strong>`;
+  }
+}
+
+function _wireV6Settings(){
+  const once = (id, evt, fn) => {
+    const el = document.getElementById(id);
+    if (!el || el._wired) return;
+    el._wired = true;
+    el.addEventListener(evt, fn);
+  };
+  once("cfgMasterySave", "click", () => {
+    const schedRaw = (document.getElementById("cfgReverifySchedule") || {}).value || "";
+    const sched = schedRaw.split(/[,\s]+/).map(s => parseInt(s, 10)).filter(n => n > 0);
+    if (sched.length) state.masteryConfig.reverifySchedule = sched;
+    const auto = parseInt((document.getElementById("cfgAutomaticAfter") || {}).value, 10);
+    if (auto > 0) state.masteryConfig.automaticAfterDays = auto;
+    const regW = parseInt((document.getElementById("cfgRegressionWindow") || {}).value, 10);
+    if (regW > 0) state.masteryConfig.regressionWindowDays = regW;
+    if (typeof saveState === "function") saveState(state);
+    const status = document.getElementById("cfgMasterySaveStatus");
+    if (status) status.textContent = "✓ Saved.";
+  });
+  once("cfgBackfillSave", "click", () => {
+    const target = parseInt((document.getElementById("cfgTargetDepth") || {}).value, 10);
+    if (target > 0) state.masteryConfig.targetDepth = target;
+    const zpdRaw = (document.getElementById("cfgZpdRange") || {}).value || "";
+    const zpd = zpdRaw.split(/[,\s]+/).map(parseFloat).filter(n => !isNaN(n));
+    if (zpd.length === 2) state.masteryConfig.zpdRange = zpd;
+    const begin = parseFloat((document.getElementById("cfgBeginnerUdi") || {}).value);
+    if (!isNaN(begin)) state.masteryConfig.beginnerUdiCeiling = begin;
+    state.masteryConfig.autoBackfill = !!(document.getElementById("cfgAutoBackfill") || {}).checked;
+    if (typeof saveState === "function") saveState(state);
+    showToast("✓ Backfill config saved");
+  });
+  once("cfgBackfillRefill", "click", () => {
+    const n = (typeof backfillEngine === "function") ? backfillEngine() : 0;
+    showToast(n > 0 ? `🔄 Queued ${n} backfill task${n === 1 ? "" : "s"}` : "All domains are stocked");
+    _renderV6Settings();
+  });
+  once("cfgBackfillClear", "click", () => {
+    if (!confirm("Clear completed backfill events from the queue?")) return;
+    state.backfillQueue = (state.backfillQueue || []).filter(q => q && q.status !== "completed");
+    if (typeof saveState === "function") saveState(state);
+    _renderV6Settings();
+  });
+  once("cfgRotateNow", "click", () => {
+    if (typeof maybeRotateCoaching === "function") maybeRotateCoaching(true);
+    showToast("🔄 Coaching picks rotated");
+    if (typeof renderCoachingCard === "function") renderCoachingCard();
+    _renderV6Settings();
+  });
 }
 
 /* v5 — Skill graph list view. Per-domain expandable section; each skill
@@ -4294,48 +5324,9 @@ function renderSkillGraph(){
   }
 }
 
-/* v5 — BKT diagnostics table (Settings → advanced). Sortable by p_known desc.
-   Each row: skill label, p_known, p_slip, p_guess, last_observation_ts.    */
-function renderBktDiagnostics(){
-  const body = document.getElementById("bktDiagBody");
-  if (!body) return;
-  try {
-    const rows = SKILLS_ALL.map(s => {
-      const b = state.bkt[s.id] || { p_known: BKT_DEFAULTS.p_init, ...BKT_DEFAULTS };
-      const obs = (state.observations || []).filter(o => o.skillId === s.id);
-      const lastTs = obs.length ? Math.max(...obs.map(o => o.ts || 0)) : 0;
-      return { id: s.id, label: s.t, p_known: b.p_known, p_slip: b.p_slip, p_guess: b.p_guess, lastTs };
-    }).sort((a, b) => b.p_known - a.p_known);
-
-    body.innerHTML = `
-      <table style="width:100%; border-collapse:collapse; font-size:11px">
-        <thead>
-          <tr style="background:#F1F4FA; text-align:left">
-            <th style="padding:4px 6px">Skill</th>
-            <th style="padding:4px 6px; text-align:right">p_known</th>
-            <th style="padding:4px 6px; text-align:right">p_slip</th>
-            <th style="padding:4px 6px; text-align:right">p_guess</th>
-            <th style="padding:4px 6px">Last obs</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r => `
-            <tr style="border-bottom:1px solid var(--line)">
-              <td style="padding:3px 6px; font-weight:600">${escapeHtml(r.label || r.id)}</td>
-              <td style="padding:3px 6px; text-align:right; ${r.p_known >= 0.85 ? "color:#14532D; font-weight:700" : (r.p_known < 0.5 ? "color:#9D174D" : "")}">${r.p_known.toFixed(3)}</td>
-              <td style="padding:3px 6px; text-align:right; color:var(--muted)">${r.p_slip.toFixed(2)}</td>
-              <td style="padding:3px 6px; text-align:right; color:var(--muted)">${r.p_guess.toFixed(2)}</td>
-              <td style="padding:3px 6px; color:var(--muted)">${r.lastTs ? new Date(r.lastTs).toLocaleDateString("en-GB") : "—"}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `;
-  } catch(err){
-    console.warn("renderBktDiagnostics failed", err);
-    body.innerHTML = `<div class="sub" style="color:var(--muted)">Unavailable.</div>`;
-  }
-}
+/* v6 — BKT diagnostics function removed. The BKT engine has been stripped in
+   favor of user-declared mastery; per-skill probabilistic confidence is no
+   longer maintained.                                                          */
 $("closeSet").addEventListener("click", ()=> setModal.classList.remove("open"));
 setModal.addEventListener("click", (e)=>{
   if (e.target === setModal) setModal.classList.remove("open");
@@ -4442,7 +5433,7 @@ function _packUrl(){
   try {
     if(window.location.protocol === "file:") return null;
     const lz  = (typeof LZString !== "undefined") ? LZString : null;
-    const raw = JSON.stringify(state);
+    const raw = JSON.stringify(typeof _sanitiseSyncPayload === "function" ? _sanitiseSyncPayload(state) : state);
     const enc = lz ? lz.compressToEncodedURIComponent(raw) : btoa(encodeURIComponent(raw));
     return window.location.origin + window.location.pathname + "?d=" + enc;
   } catch(e){ return null; }
@@ -4495,6 +5486,15 @@ function _checkFbaseUrlParam(){
   return false;
 }
 
+/* v6 — strip legacy BKT keys from any outbound sync payload. The BKT engine
+   has been removed; remote clones that still carry `bkt` will be scrubbed on
+   their next load by scrubBktV6.                                            */
+function _sanitiseSyncPayload(s){
+  if (!s || typeof s !== "object") return s;
+  const { bkt, v5BktMigrationDone, v5BktMigratedAt, ...rest } = s;
+  return rest;
+}
+
 /* ── Push state to Firebase ── */
 async function syncPush(){
   const ep = _fbEndpoint();
@@ -4504,7 +5504,7 @@ async function syncPush(){
     const r = await _ft(ep, {
       method:"PUT", mode:"cors",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(state)
+      body:JSON.stringify(_sanitiseSyncPayload(state))
     });
     if(!r.ok) throw new Error("Firebase PUT " + r.status);
     const t = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
@@ -4622,7 +5622,7 @@ window._fbSaveUrl = async function(){
   const ns = _genNs();
   const ep = `${url}/maxine-sync/${ns}/state.json`;
   try {
-    const r = await _ft(ep,{method:"PUT",mode:"cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(state)});
+    const r = await _ft(ep,{method:"PUT",mode:"cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(typeof _sanitiseSyncPayload === "function" ? _sanitiseSyncPayload(state) : state)});
     if(!r.ok) throw new Error("HTTP "+r.status);
     _fbUrl=url; _fbNs=ns;
     localStorage.setItem(STORAGE_FBASE_URL,_fbUrl);
@@ -4823,7 +5823,7 @@ async function syncSaveToFolder(immediate){
     }
     const fh = await _syncDirHandle.getFileHandle("maxine-state.json",{ create:true });
     const wr = await fh.createWritable();
-    await wr.write(JSON.stringify(state));
+    await wr.write(JSON.stringify(typeof _sanitiseSyncPayload === "function" ? _sanitiseSyncPayload(state) : state));
     await wr.close();
     const ts = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
     setSyncTimestamp();
@@ -4951,7 +5951,7 @@ document.getElementById("syncFsaDisconnectBtn")?.addEventListener("click", syncF
 
 /* ── Clipboard copy/paste (fallback for all browsers) ── */
 async function syncCopyState(){
-  const json = JSON.stringify(state);
+  const json = JSON.stringify(typeof _sanitiseSyncPayload === "function" ? _sanitiseSyncPayload(state) : state);
   const btn = document.getElementById("syncCopyBtn") || document.getElementById("footerSyncBtn");
   try {
     if (navigator.clipboard && navigator.clipboard.writeText){
@@ -5683,16 +6683,28 @@ function renderProgressView(){
       ? `<div style="font-size:11px; color:#3730A3; margin-top:3px"><strong>Dreyfus:</strong> ${escapeHtml(dreyfus.stage)} — ${escapeHtml(TUTOR_MODE_LABELS[dreyfus.tutor_mode] || dreyfus.tutor_mode)}</div>`
       : "";
 
+    // v6 — sub-domain confidence chip + rate-limiter readout (used below).
+    const dConf = (typeof domainConfidence === "function") ? domainConfidence(d.key) : "low";
+    const tFloor = (typeof domainTFloor === "function") ? domainTFloor(d.key) : { value:null, subdomain_label:null };
+    const confColors = { high:["#14532D","#DCFCE7","🟢 high"], medium:["#854D0E","#FEF3C7","🟡 medium"], low:["#374151","#F3F4F6","⚪ low"] };
+    const [confColor, confBg, confEmoji] = confColors[dConf] || confColors.low;
+    const tFloorLine = (tFloor && tFloor.subdomain_label != null)
+      ? `T_floor ${(tFloor.value || 0).toFixed(1)} <span style="color:var(--muted)">(${escapeHtml(tFloor.subdomain_label)})</span>`
+      : "";
+
     const row = document.createElement("div");
     row.style.marginBottom = "8px";
     row.innerHTML = `
       <div onclick="toggleDomDetail('${d.key}')" style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--card); user-select:none">
         <span style="font-size:22px; line-height:1; flex:0 0 auto">${d.emoji}</span>
         <div style="flex:1; min-width:0">
-          <div style="font-weight:700; font-size:14px">${d.label}</div>
+          <div style="font-weight:700; font-size:14px">${d.label}
+            <span style="font-size:10px; font-weight:700; color:${confColor}; background:${confBg}; padding:1px 6px; border-radius:4px; margin-left:6px">${confEmoji}</span>
+          </div>
           <div class="progress-bar" style="margin:6px 0 4px; height:8px"><div style="width:${pctNext}%; background:${lvXp.color}; border-radius:999px"></div></div>
           <div style="font-size:12px; color:var(--muted)">
             ${v5Line}
+            ${tFloorLine ? ' · ' + tFloorLine : ''}
             ${masteredKeystones > 0 ? ` · <span style="background:#FEF3C7; color:#7C2D12; padding:1px 6px; border-radius:4px; font-weight:700; font-size:11px">🔑 ${masteredKeystones} keystone${masteredKeystones>1?'s':''}</span>` : ''}
           </div>
           <div style="font-size:11px; color:var(--muted); margin-top:2px; opacity:.8">
@@ -5727,8 +6739,18 @@ function renderProgressView(){
           <div style="font-size:11px; color:var(--muted); margin-top:8px; font-style:italic">Sources: ${[...new Set(nextSkills.map(s=>s.src).filter(Boolean))].join(", ") || "CDC/AAP milestones"}</div>
         ` : `<div style="font-size:13px; color:#166534">🌟 All tracked milestone skills mastered!</div>`}
       </div>
+      <!-- v6 mastery card: radar + Active 10 + Mastered Library -->
+      <div class="v6-domcard">
+        <div class="v6-radar-holder" id="v6Radar_${d.key}"></div>
+        <div class="v6-active10-holder" id="v6Active10_${d.key}"></div>
+        <div class="v6-mastered-holder" id="v6Mastered_${d.key}"></div>
+      </div>
     `;
     doms.appendChild(row);
+    // Populate v6 holders (typeof guards so a missing render fn doesn't crash).
+    try { if (typeof renderDomainRadar    === "function") renderDomainRadar(d.key, row.querySelector("#v6Radar_"+d.key)); } catch(e){ console.warn("v6 radar render failed", e); }
+    try { if (typeof renderActive10       === "function") renderActive10(d.key, row.querySelector("#v6Active10_"+d.key)); } catch(e){ console.warn("v6 Active10 render failed", e); }
+    try { if (typeof renderMasteredLibrary === "function") renderMasteredLibrary(d.key, row.querySelector("#v6Mastered_"+d.key)); } catch(e){ console.warn("v6 mastered library render failed", e); }
   });
 
   // Recent
@@ -6140,16 +7162,43 @@ function udiOf(skillOrId){
 (function migrateUdiV5(){
   try {
     SKILLS.forEach(s => {
-      if (typeof s.udi === "number") return; // already migrated this load
-      const hadExplicitTier = (typeof s.tier === "number");
-      const t = hadExplicitTier ? s.tier : tierOf(s);
-      const u = TIER_TO_UDI[t] != null ? TIER_TO_UDI[t] : 3.0;
-      s.udi = u;
-      s.udi_rationale = `Migrated from v4 ${hadExplicitTier ? "explicit tier "+s.tier : "derived tier "+t+" (age '"+(s.age||"?")+"')"}; refine via Calibration Wizard`;
-      if (hadExplicitTier) delete s.tier;
+      if (typeof s.udi !== "number"){
+        const hadExplicitTier = (typeof s.tier === "number");
+        const t = hadExplicitTier ? s.tier : tierOf(s);
+        const u = TIER_TO_UDI[t] != null ? TIER_TO_UDI[t] : 3.0;
+        s.udi = u;
+        s.udi_rationale = `Migrated from v4 ${hadExplicitTier ? "explicit tier "+s.tier : "derived tier "+t+" (age '"+(s.age||"?")+"')"}; refine via Calibration Wizard`;
+        if (hadExplicitTier) delete s.tier;
+      }
+      // v6 — populate optional schema fields if absent. parseAgeBand reads the
+      // s.age string (e.g. "24m", "24–30m", "~12m", "30m+") and returns months.
+      if (typeof s.age_min !== "number" || typeof s.age_max !== "number"){
+        const band = _parseAgeBand(s.age);
+        s.age_min = band.min;
+        s.age_max = band.max;
+      }
+      if (!Array.isArray(s.next_ids))          s.next_ids = [];
+      if (!Array.isArray(s.secondary_domains)) s.secondary_domains = [];
     });
-  } catch(e){ console.warn("v5 UDI migration failed", e); }
+  } catch(e){ console.warn("v5/v6 UDI+age migration failed", e); }
 })();
+
+/* _parseAgeBand("24–30m") → {min:24, max:30}; "~12m" → {min:12, max:12};
+   "30m+" → {min:30, max:60}; "15–24m" → {min:15, max:24}.                    */
+function _parseAgeBand(age){
+  if (typeof age !== "string" || !age) return { min: 24, max: 24 };
+  const cleaned = age.replace(/[~\s]/g, "");
+  // Range like "24-30m" or "24–30m" or "24–30 months"
+  const range = cleaned.match(/(\d+)[–—\-](\d+)/);
+  if (range) return { min: +range[1], max: +range[2] };
+  // Open-ended like "30m+" or "24+"
+  const open  = cleaned.match(/(\d+)\+/);
+  if (open) return { min: +open[1], max: Math.min(216, +open[1] + 36) };
+  // Single value like "24m" or "~12m"
+  const one   = cleaned.match(/(\d+)/);
+  if (one) return { min: +one[1], max: +one[1] };
+  return { min: 24, max: 24 };
+}
 
 /* ─────────────────────────────────────────────────────────────────────────
    IMPROVEMENT A — DOMAIN_SEED_BANK + autoSeedDomain
@@ -6298,9 +7347,11 @@ const DOMAIN_SEED_BANK = {
 };
 
 /* Normalise a seed (spec shape) into the legacy SKILLS shape used by the
-   existing renderer/modal. Both shapes coexist on the returned object. */
+   existing renderer/modal. Both shapes coexist on the returned object.
+   v6: also stamps subdomain via _inferSubdomain so the radar + Active 10
+   see auto-seeded skills correctly.                                          */
 function _normalizeSeed(seed){
-  return {
+  const out = {
     id:       seed.id,
     dom:      seed.domain,
     t:        seed.label,
@@ -6316,6 +7367,26 @@ function _normalizeSeed(seed){
     desc:     seed.desc,
     _seeded:  true,
   };
+  // v6 — stamp UDI + subdomain + edges + eras so v6 helpers (radar, frontier,
+  // backfill) see the seed correctly.
+  if (typeof TIER_TO_UDI !== "undefined" && TIER_TO_UDI[seed.tier] != null){
+    out.udi = TIER_TO_UDI[seed.tier];
+  } else {
+    out.udi = 3.0;
+  }
+  out.udi_rationale = "Auto-seeded (tier " + seed.tier + ")";
+  if (typeof _inferSubdomain === "function"){
+    const explicit = (typeof SKILL_SUBDOMAIN_MAP !== "undefined") ? SKILL_SUBDOMAIN_MAP[seed.id] : null;
+    out.subdomain = explicit || _inferSubdomain(out) || null;
+    if (!explicit && out.subdomain) out._subdomain_inferred = true;
+  }
+  out.edges = out.prereqs.map(p => ({ to: p, type: "prereq" }));
+  out.next_ids = [];
+  out.secondary_domains = [];
+  if (typeof eraForUdi === "function") out.eras = eraForUdi(out.udi);
+  const band = (typeof _parseAgeBand === "function") ? _parseAgeBand(out.age) : { min:24, max:24 };
+  out.age_min = band.min; out.age_max = band.max;
+  return out;
 }
 
 /* autoSeedDomain(domKey) — returns up to 5 normalised seed objects.
@@ -6479,9 +7550,9 @@ function _v5MeanTopUdi(skills, n){
   return top.reduce((a,b) => a + b, 0) / top.length;
 }
 
-function advancedSubdomains(/* domKey */){
-  // Sub-domain decomposition is a v4 feature not present in this dataset.
-  return [];
+function advancedSubdomains(domKey){
+  // Returns the sub-domain catalogue for a domain (v6).
+  return (typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[domKey]) ? SUBDOMAINS[domKey] : [];
 }
 function subdomainSL(domKey, subKey){
   const mastered = _v5MasteredInScope(s => s.dom === domKey && s.subdomain === subKey);
@@ -6492,166 +7563,351 @@ function subdomainPeak(domKey, subKey){
   if (!mastered.length) return null;
   return Math.max(...mastered.map(s => udiOf(s)));
 }
+/* Confidence in a sub-domain estimate: how much of its catalogue has been
+   assessed (any non-baseline declaration). Three buckets per v6 spec.        */
+function subdomainConfidence(domKey, subKey){
+  const subs = SKILLS_ALL.filter(s => s.dom === domKey && s.subdomain === subKey);
+  if (!subs.length) return "low";
+  const assessed = subs.filter(s => obsForSkill(s.id).some(o => o && o.source !== "baseline" && o.status !== "unknown")).length;
+  const cov = assessed / subs.length;
+  if (cov >= 0.6) return "high";
+  if (cov >= 0.3) return "medium";
+  return "low";
+}
 function domainSL(domKey){
-  // No sub-domains in current data → aggregate from domain skills directly.
+  // Mean of sub-domain SLs (each itself a top-3 mean), with a domain-level
+  // fallback for sub-domain-thin datasets.
+  const subs = advancedSubdomains(domKey);
+  const sls = subs.map(s => subdomainSL(domKey, s.key)).filter(v => v != null);
+  if (sls.length) return sls.reduce((a, b) => a + b, 0) / sls.length;
   const mastered = _v5MasteredInScope(s => s.dom === domKey);
   return _v5MeanTopUdi(mastered, 3);
 }
 function domainTPeak(domKey){
+  const subs = advancedSubdomains(domKey);
+  const peaks = subs.map(s => subdomainPeak(domKey, s.key)).filter(v => v != null);
+  if (peaks.length) return Math.max(...peaks);
   const mastered = _v5MasteredInScope(s => s.dom === domKey);
   if (!mastered.length) return null;
   return Math.max(...mastered.map(s => udiOf(s)));
 }
 function domainTFloor(domKey){
-  // Without sub-domains, the rate-limiter is the domain itself; floor === SL.
-  const sl = domainSL(domKey);
-  return { value: sl, subdomain: null };
+  // Rate-limiting sub-domain = the one with the lowest SL.
+  const subs = advancedSubdomains(domKey);
+  const pairs = subs.map(s => ({ key: s.key, label: s.label, sl: subdomainSL(domKey, s.key) })).filter(p => p.sl != null);
+  if (!pairs.length){
+    const sl = domainSL(domKey);
+    return { value: sl, subdomain: null, subdomain_label: null };
+  }
+  const min = pairs.reduce((a, b) => a.sl <= b.sl ? a : b);
+  return { value: min.sl, subdomain: min.key, subdomain_label: min.label };
 }
 function domainBreadth(domKey){
-  const total = SKILLS_ALL.filter(s => s.dom === domKey).length;
-  const mastered = _v5MasteredInScope(s => s.dom === domKey).length;
-  return { covered: mastered, total };
+  // Breadth = number of sub-domains with at least one mastered skill.
+  const subs = advancedSubdomains(domKey);
+  if (!subs.length){
+    const total = SKILLS_ALL.filter(s => s.dom === domKey).length;
+    const mastered = _v5MasteredInScope(s => s.dom === domKey).length;
+    return { covered: mastered, total };
+  }
+  const covered = subs.filter(s => subdomainSL(domKey, s.key) != null).length;
+  return { covered, total: subs.length };
+}
+function domainConfidence(domKey){
+  const subs = advancedSubdomains(domKey);
+  if (!subs.length) return "low";
+  const confs = subs.map(s => subdomainConfidence(domKey, s.key));
+  if (confs.filter(c => c === "high").length   >= 3) return "high";
+  if (confs.filter(c => c !== "low").length    >= 3) return "medium";
+  return "low";
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
-   v5 — BAYESIAN KNOWLEDGE TRACING (BKT)
+   v6 — BKT ENGINE REMOVED
    ═════════════════════════════════════════════════════════════════════════
-   Per-skill P(known) updated on every observation using the Corbett &
-   Anderson 1995 HMM. Drives confidence chip, adaptive reverification,
-   and downstream frontier scoring.
+   The Bayesian Knowledge Tracing engine (Corbett-Anderson 1995) has been
+   stripped. Mastery is now a single-tap user declaration: the parent
+   observes Maxine and decides. The dashboard records the decision and
+   surfaces the next thing to work on. Reverification runs on a fixed
+   schedule (30/60/120/240d) with smart implicit-verification via the typed
+   skill graph (see Phase 2 helpers).
 
-   State shape: state.bkt[skillId] = { p_known, p_init, p_learn, p_guess, p_slip }
+   Stub: `bktReady` retained as a no-op shim so any straggler caller returns
+   a neutral value instead of throwing. Will be removed once Phase 4 finishes.
    ───────────────────────────────────────────────────────────────────────── */
-const BKT_DEFAULTS = { p_init: 0.05, p_learn: 0.15, p_guess: 0.10, p_slip: 0.10 };
+function bktReady(/* skillId */){ return 0; }
 
-state.bkt = state.bkt || {};
-
-/* Status → BKT result mapping.
-   Existing observations carry `status`, not `result`. v5 hooks (and the
-   first-load replay) translate via this function. Returns null for
-   non-evidential statuses (e.g. "new") so the engine skips them.            */
-function bktResultFromStatus(status){
-  if (status === "mastered" || status === "already_mastered") return "success";
-  if (status === "practising")                                return "partial";
-  if (status === "emerging")                                  return "partial";
-  if (status === "too_hard")                                  return "fail";
-  return null;
-}
-
-/**
- * BKT update — Corbett & Anderson 1995 HMM equations.
- * Mutates state.bkt[skillId].p_known. Called whenever an observation is
- * appended to state.observations[id].
- *
- * @param {string} skillId
- * @param {"success"|"fail"|"partial"} result  (partial = half-strength success)
- */
-function bktUpdate(skillId, result){
-  if (!skillId || !result) return;
-  const params = state.bkt[skillId] || { p_known: BKT_DEFAULTS.p_init, ...BKT_DEFAULTS };
-  let p = params.p_known;
-  let p_evidence;
-
-  if (result === "success"){
-    p_evidence = p * (1 - params.p_slip) + (1 - p) * params.p_guess;
-    p = p_evidence > 0 ? (p * (1 - params.p_slip)) / p_evidence : p;
-  } else if (result === "fail"){
-    p_evidence = p * params.p_slip + (1 - p) * (1 - params.p_guess);
-    p = p_evidence > 0 ? (p * params.p_slip) / p_evidence : p;
-  } else if (result === "partial"){
-    p_evidence = p * (1 - params.p_slip * 0.5) + (1 - p) * params.p_guess * 0.5;
-    p = p_evidence > 0 ? (p * (1 - params.p_slip * 0.5)) / p_evidence : p;
-  } else {
-    return; // unknown result code → no-op
-  }
-
-  // Learning-transition step
-  p = p + (1 - p) * params.p_learn;
-  // Clamp [0, 1] (numerical safety)
-  if (p < 0) p = 0; if (p > 1) p = 1;
-
-  params.p_known = p;
-  state.bkt[skillId] = params;
-  // Note: saveState is called by the observation-append paths after this
-  // returns; we don't double-write here.
-}
-
-function bktReady(skillId){
-  return (state.bkt[skillId] && state.bkt[skillId].p_known) || BKT_DEFAULTS.p_init;
-}
-
-/* Adaptive reverification: 30d at p_known≈0.80; ~180d at 0.95.
-   Clamped [14, 365] so confidence never lets a skill go un-rechecked > 1y. */
-function nextReverifyDays(skillId){
-  const p = bktReady(skillId);
-  return Math.round(Math.max(14, Math.min(365, 30 + (p - 0.8) * 1000)));
-}
-
-/* Migration: initialise BKT params for every catalogue skill, then replay
-   each skill's observation history chronologically through bktUpdate so
-   p_known reflects accumulated evidence. State-gated by v5BktMigrationDone. */
-(function migrateBktV5(){
-  try {
-    if (state.v5BktMigrationDone) return;
-    SKILLS_ALL.forEach(s => {
-      state.bkt[s.id] = { p_known: BKT_DEFAULTS.p_init, ...BKT_DEFAULTS };
-      // state.observations is a flat array. Filter + sort per-skill.
-      const obs = (state.observations || [])
-        .filter(o => o && o.skillId === s.id)
-        .slice()
-        .sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      obs.forEach(o => {
-        const r = bktResultFromStatus(o.status);
-        if (r) bktUpdate(s.id, r);
-      });
-    });
-    state.v5BktMigrationDone = true;
-    state.v5BktMigratedAt = Date.now();
-    // No saveState here — _v31Bump is still in TDZ at this point in the
-    // file. The next user action that mutates state will persist.
-  } catch(e){ console.warn("v5 BKT migration failed", e); }
+/* One-time scrubber: delete legacy state.bkt blob + the v5 migration flags
+   so they no longer round-trip through localStorage / sync. */
+(function scrubBktV6(){
+  let dirty = false;
+  if (state.bkt)                { delete state.bkt;                dirty = true; }
+  if (state.v5BktMigrationDone) { delete state.v5BktMigrationDone; dirty = true; }
+  if (state.v5BktMigratedAt)    { delete state.v5BktMigratedAt;    dirty = true; }
+  if (dirty && typeof saveState === "function") saveState(state);
 })();
 
-/* Latest observation wins. Falls back to legacy skillStatus.
-   Memoized within a render tick. */
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — STATUS DERIVATION (user-declared mastery)
+   ═════════════════════════════════════════════════════════════════════════
+   The user observes Maxine and taps a status; the engine simply reads the
+   most recent declaration. No BKT, no trial-counting. Two derived behaviours:
+   - `regressed` honoured for `regressionWindowDays` after the declaration,
+     then decays back to `working_on_it`.
+   - `mastered` auto-promotes to `automatic` after `automaticAfterDays` so
+     long-mastered skills stop appearing in reverify prompts.
+   ───────────────────────────────────────────────────────────────────────── */
+function deriveStatusV6(skillId){
+  if (_v31Cache.statusV6 && _v31Cache.statusV6[skillId] !== undefined) return _v31Cache.statusV6[skillId];
+  _v31Cache.statusV6 = _v31Cache.statusV6 || {};
+  const cfg = state.masteryConfig || {};
+  const obs = obsForSkill(skillId).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  let result;
+  if (obs.length === 0){
+    // Fall back to legacy skillStatus mirror (v5 vocab) if present.
+    const legacy = state.skillStatus && state.skillStatus[skillId];
+    if (legacy && legacy.status){
+      const MAP = { mastered:"mastered", already_mastered:"mastered", practising:"working_on_it", emerging:"working_on_it", too_hard:"working_on_it", new:"unknown" };
+      result = MAP[legacy.status] || "unknown";
+    } else {
+      result = "unknown";
+    }
+  } else {
+    const latest = obs[obs.length - 1];
+    const ageDays = (Date.now() - (latest.ts || 0)) / 86400000;
+    if (latest.status === "regressed"){
+      result = ageDays < (cfg.regressionWindowDays || 30) ? "regressed" : "working_on_it";
+    } else if (latest.status === "mastered"){
+      result = ageDays >= (cfg.automaticAfterDays || 60) ? "automatic" : "mastered";
+    } else if (latest.status === "working_on_it" || latest.status === "unknown"){
+      result = latest.status;
+    } else {
+      // Legacy v5 value that survived migration (e.g. malformed import)
+      const MAP = { mastered:"mastered", already_mastered:"mastered", practising:"working_on_it", emerging:"working_on_it", too_hard:"working_on_it", new:"unknown" };
+      result = MAP[latest.status] || "unknown";
+    }
+  }
+  return _v31Cache.statusV6[skillId] = result;
+}
+
+/* Back-compat shim. Existing renderers compare statuses against the v5
+   vocabulary (new / emerging / practising / mastered / too_hard /
+   already_mastered). We translate v6 → v5 here. New code should call
+   deriveStatusV6 directly.                                                    */
 function deriveStatus(skillId){
   if (_v31Cache.status[skillId] !== undefined) return _v31Cache.status[skillId];
-  let latest = null;
-  try {
-    const obs = state.observations || [];
-    for (let i=0; i<obs.length; i++){
-      const o = obs[i];
-      if (!o || o.skillId !== skillId) continue;
-      if (!latest || (o.ts||0) > (latest.ts||0)) latest = o;
+  const v6 = deriveStatusV6(skillId);
+  const MAP = {
+    unknown:       "new",
+    working_on_it: "practising",
+    mastered:      "mastered",
+    automatic:     "already_mastered",
+    regressed:     "practising"
+  };
+  return _v31Cache.status[skillId] = (MAP[v6] || "new");
+}
+
+/* v6 helpers: mastery-state predicates used by the radar / Active 10 / backfill. */
+function isMasteredV6(s){
+  const st = deriveStatusV6(s.id);
+  return st === "mastered" || st === "automatic";
+}
+function isWorkingOnIt(s){ return deriveStatusV6(s.id) === "working_on_it"; }
+function isUnknownV6(s)  { return deriveStatusV6(s.id) === "unknown"; }
+function isRegressedV6(s){ return deriveStatusV6(s.id) === "regressed"; }
+
+/* ZPD check — skill UDI is within [SL+lower, SL+upper] of its sub-domain SL.
+   For un-assessed sub-domains we fall back to the beginnerUdiCeiling so
+   absolute-beginner skills appear in Active 10.                              */
+function isInZpd(s){
+  const cfg = state.masteryConfig || {};
+  const [lower, upper] = cfg.zpdRange || [-0.3, 1.5];
+  const sl = (typeof subdomainSL === "function") ? subdomainSL(s.dom, s.subdomain) : null;
+  const u  = (typeof udiOf === "function") ? udiOf(s) : 3.0;
+  if (sl == null) return u <= (cfg.beginnerUdiCeiling || 2.0);
+  return u >= sl + lower && u <= sl + upper;
+}
+
+/* Returns the prereq edges of a skill (v6 typed-graph reader). */
+function getEdges(skill, type){
+  return (skill && Array.isArray(skill.edges)) ? skill.edges.filter(e => !type || e.type === type) : [];
+}
+
+/* A skill is "frontier" in v6 iff unmastered AND every prereq is mastered. */
+function isFrontierV6(skill){
+  if (isMasteredV6(skill)) return false;
+  return getEdges(skill, "prereq").every(e => {
+    const ps = SKILLS_ALL.find(s => s.id === e.to);
+    return ps && isMasteredV6(ps);
+  });
+}
+
+/* "Available" = frontier + in-ZPD. This is the eligible pool for Active 10. */
+function isAvailable(skill){
+  return isFrontierV6(skill) && isInZpd(skill);
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — REVERIFICATION ENGINE
+   ═════════════════════════════════════════════════════════════════════════
+   Mastery declarations schedule reverification prompts at fixed offsets
+   ([30, 60, 120, 240] days by default). Implicit verification: if a
+   descendant skill in the same domain has been mastered more recently than
+   the last direct mastery declaration for an ancestor, the ancestor's due
+   reverify entry auto-completes (with completed_reason "implicit:<id>").
+   ───────────────────────────────────────────────────────────────────────── */
+function scheduleReverification(skillId, masteredAtTs){
+  state.reverifyQueue = state.reverifyQueue || [];
+  const schedule = (state.masteryConfig && state.masteryConfig.reverifySchedule) || [30, 60, 120, 240];
+  // Clear any existing not-yet-completed entries for this skill, then re-schedule.
+  state.reverifyQueue = state.reverifyQueue.filter(r => !(r && r.skillId === skillId && !r.completed));
+  schedule.forEach(days => {
+    state.reverifyQueue.push({
+      skillId,
+      dueAt: masteredAtTs + days * 86400000,
+      completed: false,
+      completed_at: null,
+      completed_reason: null,
+      offsetDays: days
+    });
+  });
+}
+
+function clearReverification(skillId){
+  state.reverifyQueue = (state.reverifyQueue || []).filter(r => !(r && r.skillId === skillId && !r.completed));
+}
+
+function dueReverifications(){
+  const now = Date.now();
+  return (state.reverifyQueue || []).filter(r => r && !r.completed && r.dueAt <= now);
+}
+
+/* BFS upstream through the typed-graph. Returns same-domain descendant skill
+   ids whose `edges[]` reach the target via prereq or reinforces edges, up to
+   maxDepth hops.                                                              */
+function descendantsOf(skillId, maxDepth){
+  if (!maxDepth) maxDepth = 3;
+  const start = SKILLS_ALL.find(s => s.id === skillId);
+  if (!start) return [];
+  const sameDom = SKILLS_ALL.filter(s => s.dom === start.dom);
+  const visited = new Set();
+  const queue = [{ id: skillId, depth: 0 }];
+  while (queue.length){
+    const { id, depth } = queue.shift();
+    if (depth >= maxDepth) continue;
+    sameDom.forEach(s => {
+      if (s.id === id || visited.has(s.id)) return;
+      const hits = (s.edges || []).some(e => e && e.to === id && (e.type === "prereq" || e.type === "reinforces"));
+      if (hits){
+        visited.add(s.id);
+        queue.push({ id: s.id, depth: depth + 1 });
+      }
+    });
+  }
+  return [...visited];
+}
+
+/* Does any descendant of `skillId` have a mastered observation more recent
+   than `sinceTs`? Returns the verifying descendant or {verified:false}.       */
+function smartReverifyCheck(skillId, sinceTs){
+  const descendants = descendantsOf(skillId, 3);
+  for (const dId of descendants){
+    const st = deriveStatusV6(dId);
+    if (st !== "mastered" && st !== "automatic") continue;
+    const masteredObs = obsForSkill(dId).filter(o => o && o.status === "mastered").sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    if (!masteredObs.length) continue;
+    const dTs = masteredObs[0].ts || 0;
+    if (dTs > sinceTs){
+      const dSkill = SKILLS_ALL.find(s => s.id === dId);
+      return { verified: true, by: dId, by_title: (dSkill && dSkill.t) || dId, ts: dTs };
     }
-  } catch(e){ /* fall through */ }
-  if (latest) return _v31Cache.status[skillId] = latest.status;
-  const legacy = state.skillStatus && state.skillStatus[skillId];
-  return _v31Cache.status[skillId] = (legacy && legacy.status) || "new";
+  }
+  return { verified: false };
+}
+
+/* Walks the reverify queue, auto-completing entries whose ancestor has been
+   verified implicitly by a more-recent descendant mastery. Logs a synthetic
+   "implicit_reverify" observation so the Mastered Library + SL math stay
+   accurate. Returns the count of auto-completed entries.                      */
+function processDueReverifications(){
+  const due = dueReverifications();
+  let autoCompleted = 0;
+  due.forEach(r => {
+    const directObs = obsForSkill(r.skillId)
+      .filter(o => o && o.status === "mastered" && (o.source === "manual" || o.source === "calibration"));
+    const lastDirectTs = directObs.length ? Math.max(...directObs.map(o => o.ts || 0)) : 0;
+    const check = smartReverifyCheck(r.skillId, lastDirectTs);
+    if (check.verified){
+      r.completed = true;
+      r.completed_at = Date.now();
+      r.completed_reason = "implicit:" + check.by;
+      state.observations = state.observations || [];
+      state.observations.push({
+        skillId: r.skillId,
+        status: "mastered",
+        by: state.currentUser || "—",
+        source: "implicit_reverify",
+        ts: Date.now(),
+        notes: 'Auto-verified via mastery of "' + ((SKILLS_ALL.find(s => s.id === check.by) || {}).t || check.by) + '"'
+      });
+      autoCompleted++;
+    }
+  });
+  if (autoCompleted > 0){
+    _v31Bump();
+    if (typeof saveState === "function") saveState(state);
+  }
+  return autoCompleted;
+}
+
+/* Active-era resolver. The era schema determines which domains the dashboard
+   surfaces. Falls back to all 6 foundation domains when no child is selected. */
+function getActiveDomainKeys(){
+  try {
+    const child = (typeof currentChild === "function") ? currentChild() : null;
+    if (!child) return DOMAINS.map(d => d.key);
+    const era = (typeof activeEra === "function") ? activeEra(child) : null;
+    if (!era) return DOMAINS.map(d => d.key);
+    const fromEra = era.foundation || era.foundation_chc || era.backbone || [];
+    // Only keep keys that match a real DOMAINS entry (drop "adaptive",
+    // "practical_life", etc. that don't have catalogue skills yet).
+    const real = fromEra.filter(k => DOMAINS.find(d => d.key === k));
+    return real.length ? real : DOMAINS.map(d => d.key);
+  } catch(e){ return DOMAINS.map(d => d.key); }
 }
 
 function addObservation({ skillId, status, by, source, notes }){
   if (!skillId || !status) return;
   state.observations = state.observations || [];
+  const ts = Date.now();
   state.observations.push({
     skillId, status,
     by: by || state.currentUser || "—",
     source: source || "manual",
-    ts: Date.now(),
+    ts,
     notes: notes || ""
   });
   // Keep legacy skillStatus mirror in sync so v3.0 code paths still work.
   state.skillStatus = state.skillStatus || {};
-  state.skillStatus[skillId] = { status, by: by || state.currentUser || "—", ts: Date.now() };
-  // v5: update Bayesian Knowledge Tracing for real (non-synthetic) skill IDs.
-  // Synthetic IDs like "vocab-cat_en" aren't in SKILLS and would create stray
-  // BKT entries — filter them out by membership in the catalogue.
-  if (typeof bktUpdate === "function" && SKILLS.find(x => x.id === skillId)){
-    const r = bktResultFromStatus(status);
-    if (r) bktUpdate(skillId, r);
+  state.skillStatus[skillId] = { status, by: by || state.currentUser || "—", ts };
+  // v6: mastery declarations schedule reverification; regressions clear it.
+  // Smart implicit-verification runs after every observation so newly-mastered
+  // descendants can auto-complete ancestor reverify entries.
+  if (status === "mastered" && SKILLS.find(x => x.id === skillId)){
+    if (typeof scheduleReverification === "function") scheduleReverification(skillId, ts);
+  }
+  if (status === "regressed" && SKILLS.find(x => x.id === skillId)){
+    if (typeof clearReverification === "function") clearReverification(skillId);
   }
   _v31Bump();
   saveState(state);
+  if (typeof processDueReverifications === "function") processDueReverifications();
+  if (typeof backfillEngine === "function") backfillEngine();
+}
+
+/* v6 helper: flat-array accessor used everywhere from Phase 2 onward. */
+function obsForSkill(skillId){
+  return (state.observations || []).filter(o => o && o.skillId === skillId);
 }
 
 function skillXp(skillId){
@@ -6777,19 +8033,20 @@ function countDownstream(skillId){
   return explicit + implicit;
 }
 
-/* Frontier ranking score (Vygotsky ZPD weighted).
-   R = P(ready) × (1 + downstream × 0.15) × keystone_w × zpd_proximity
+/* v6 frontier ranking score (Vygotsky ZPD weighted, no BKT term).
+   R = (1 + downstream × 0.15) × keystone_w × zpd_proximity
    zpd_proximity = exp(-0.7 × |child_SL − skill.udi|)
    Peaks when skill UDI is slightly above current SL.                       */
 function frontierScore(skill){
-  const p_ready = (typeof bktReady === "function") ? bktReady(skill.id) : 0.05;
   const downstream = countDownstream(skill.id);
   const keystone_w = skill.keystone ? 1.5 : 1.0;
   const childSL = (typeof domainSL === "function" ? domainSL(skill.dom) : null) || 0;
   const u = (typeof udiOf === "function") ? udiOf(skill) : 3.0;
   const zpd_proximity = Math.exp(-0.7 * Math.abs(childSL - u));
-  return p_ready * (1 + downstream * 0.15) * keystone_w * zpd_proximity;
+  return (1 + downstream * 0.15) * keystone_w * zpd_proximity;
 }
+/* Phase-2 alias — `frontierScoreV6` is the canonical name in new code. */
+function frontierScoreV6(skill){ return frontierScore(skill); }
 
 /* v5 edge migration: populate `edges` from existing `prereqs`. Keeps
    `s.prereqs` for back-compat; canonical reads go through getPrereqs.    */
@@ -6802,6 +8059,206 @@ function frontierScore(skill){
         : [];
     });
   } catch(e){ console.warn("v5 edges migration failed", e); }
+})();
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — SUB-DOMAIN DECOMPOSITION
+   ═════════════════════════════════════════════════════════════════════════
+   Each foundation domain breaks into 5–6 sub-domains. Skills carry exactly
+   one primary `subdomain` field (set during Phase 1 migration). Used by
+   `subdomainSL`, the radar chart, and the backfill prompt builder.
+   ───────────────────────────────────────────────────────────────────────── */
+const SUBDOMAINS = {
+  gross: [
+    { key:"locomotion",         label:"Locomotion",            desc:"Walking, running, jumping, hopping, stairs" },
+    { key:"balance_vestibular", label:"Balance & vestibular",  desc:"Standing on one foot, spinning, balance" },
+    { key:"strength_climbing",  label:"Strength & climbing",   desc:"Carrying heavy, climbing, pulling" },
+    { key:"bilateral_gross",    label:"Bilateral coord",       desc:"Kicking, throwing, catching" },
+    { key:"rhythm_motor",       label:"Rhythm / music-motor",  desc:"Dance, clapping to beat" }
+  ],
+  fine: [
+    { key:"pincer_strength",    label:"Pincer & hand strength",desc:"Pincer grasp, squeezing" },
+    { key:"wrist_rotation",     label:"Wrist rotation",        desc:"Twisting lids, doorknobs" },
+    { key:"bilateral_fine",     label:"Bilateral hand use",    desc:"Threading, scissors, stabilising" },
+    { key:"visual_motor",       label:"Visual-motor / pre-writing", desc:"Lines, circles, copying" },
+    { key:"tool_use",           label:"Tool use",              desc:"Crayons, utensils, hammers" },
+    { key:"self_care",          label:"Self-care",             desc:"Buttons, zippers, dressing" }
+  ],
+  sensory: [
+    { key:"visual_discr",       label:"Visual discrimination", desc:"Colors, shapes, matching" },
+    { key:"auditory_discr",     label:"Auditory",              desc:"Sound matching, music" },
+    { key:"tactile_stereo",     label:"Tactile & stereognosis",desc:"Textures, mystery bag" },
+    { key:"olfact_gust",        label:"Olfactory & gustatory", desc:"Smell, taste" },
+    { key:"vestibular",         label:"Vestibular",            desc:"Spinning, swinging" },
+    { key:"proprioceptive",     label:"Proprioceptive",        desc:"Body awareness, heavy work" }
+  ],
+  cognitive: [
+    { key:"number_quant",       label:"Number & quantification", desc:"Counting, more/less" },
+    { key:"classification",     label:"Classification",        desc:"Sorting" },
+    { key:"sequencing",         label:"Sequencing & order",    desc:"Patterns, story order" },
+    { key:"executive_function", label:"Executive function",    desc:"Working memory, attention" },
+    { key:"cause_effect",       label:"Cause-effect",          desc:"What if?, predict" },
+    { key:"symbolic_pretend",   label:"Symbolic / pretend",    desc:"Pretend play" }
+  ],
+  vocab: [
+    { key:"receptive",          label:"Receptive vocab",       desc:"Comprehension" },
+    { key:"expressive",         label:"Expressive vocab",      desc:"Spoken words" },
+    { key:"grammar",            label:"Grammar / syntax",      desc:"Sentence length" },
+    { key:"phonology",          label:"Phonology",             desc:"Sounds, rhyming" },
+    { key:"pragmatics",         label:"Pragmatics",            desc:"Conversation, turn-taking" },
+    { key:"bilingual",          label:"Bilingual production",  desc:"Active 2+ languages" }
+  ],
+  social: [
+    { key:"emotion_recognition",label:"Emotion recognition",   desc:"Names emotions" },
+    { key:"self_regulation",    label:"Self-regulation",       desc:"Calming alone" },
+    { key:"coregulation",       label:"Co-regulation",         desc:"Recovers with caregiver" },
+    { key:"empathy_tom",        label:"Empathy / ToM",         desc:"Notices others' feelings" },
+    { key:"prosocial",          label:"Pro-social",            desc:"Sharing, manners" },
+    { key:"independence",       label:"Independence",          desc:"Self-directed activity" }
+  ]
+};
+
+/* v6 subdomain assignment table. Skill-id → subdomain key (within the skill's
+   domain). Skills not listed here fall through to a domain-default chosen by
+   `_inferSubdomain` (see below). Applied by `migrateSubdomainsV6` on load.   */
+const SKILL_SUBDOMAIN_MAP = {
+  // ── GROSS MOTOR ─────────────────────────────────────────
+  "gm-walk":"locomotion", "gm-run":"locomotion", "gm-jump":"locomotion",
+  "gm-stairs-up":"locomotion",
+  "gm-one-foot":"balance_vestibular", "gm-balance-bike":"balance_vestibular",
+  "gm-carry-heavy":"strength_climbing", "gm-climb":"strength_climbing",
+  "gm-kick":"bilateral_gross", "gm-throw":"bilateral_gross", "gm-catch":"bilateral_gross",
+  "gm-dance-rhythm":"rhythm_motor",
+  // T0 infant
+  "gm-head-control":"locomotion", "gm-rolls":"locomotion", "gm-sits":"locomotion",
+  "gm-crawls":"locomotion", "gm-stand-unsup":"locomotion", "gm-squat-play":"locomotion",
+  "gm-push-pull":"locomotion", "gm-walk-stairs-hand":"locomotion",
+  "gm-pulls-to-stand":"locomotion",
+  // ── FINE MOTOR ───────────────────────────────────────────
+  "fm-pincer":"pincer_strength", "fm-stack-3":"pincer_strength", "fm-stack-6":"pincer_strength",
+  "fm-lids":"wrist_rotation",
+  "fm-thread":"bilateral_fine", "fm-scissors":"bilateral_fine",
+  "fm-circle":"visual_motor", "fm-lines-h":"visual_motor", "fm-lines-v":"visual_motor",
+  "fm-scribble":"visual_motor",
+  "fm-crayon":"tool_use", "fm-pages":"tool_use", "fm-point":"tool_use",
+  "fm-spoon-basic":"self_care", "fm-spoon-fork":"self_care", "fm-velcro":"self_care",
+  "fm-buttons-large":"self_care", "fm-zip":"self_care",
+  // ── SENSORY ──────────────────────────────────────────────
+  "se-colors-3":"visual_discr", "se-basic-colors":"visual_discr",
+  "se-shapes-3":"visual_discr", "se-pink-tower":"visual_discr",
+  "se-sound":"auditory_discr", "se-sound-react":"auditory_discr",
+  "se-mystery":"tactile_stereo", "se-texture-2":"tactile_stereo",
+  "se-smell":"olfact_gust",
+  // ── COGNITIVE ────────────────────────────────────────────
+  "co-count-3":"number_quant", "co-count-5":"number_quant",
+  "co-sort-color":"classification", "co-sort-size":"classification",
+  "co-same-diff":"classification", "co-sort-shape":"classification",
+  "co-puzzle-6":"sequencing",
+  "co-missing":"executive_function", "co-instr-1":"executive_function", "co-instr-2":"executive_function",
+  "co-cause-effect":"cause_effect", "co-obj-perm":"cause_effect",
+  "co-imitate-simple":"cause_effect", "co-1word-instr":"cause_effect",
+  "co-pretend":"symbolic_pretend",
+  // ── VOCAB ────────────────────────────────────────────────
+  "la-points-pic":"receptive", "la-bilingual-aware":"receptive",
+  "la-words-50":"expressive", "la-words-200":"expressive", "la-body-5":"expressive",
+  "la-2word":"grammar", "la-3word":"grammar", "la-pronouns":"grammar",
+  "lang_plural_s":"grammar", "lang_past_tense":"grammar",
+  "la-why":"pragmatics", "la-story-5min":"pragmatics",
+  "lang_question_what":"pragmatics", "lang_question_where":"pragmatics",
+  "lang_narrative":"pragmatics",
+  "lang_bilingual_switch":"bilingual",
+  // ── SOCIAL ───────────────────────────────────────────────
+  "so-emotion-4":"emotion_recognition", "so-name-feeling":"emotion_recognition",
+  "so-coreg":"coregulation", "so-attach-secure":"coregulation",
+  "so-empathy":"empathy_tom", "so-back-forth":"empathy_tom",
+  "so-please-thanks":"prosocial", "so-parallel":"prosocial",
+  "so-point-share":"prosocial", "so-wave-bye":"prosocial",
+  "so-separation":"independence"
+};
+
+/* Domain-level fallback subdomain for any skill not explicitly mapped. Picked
+   to match the most common pattern in each domain. Auto-seeded skills from
+   DOMAIN_SEED_BANK + Cowork-generated skills can also assign their own
+   subdomain — if absent, we infer here. Inferred assignments are flagged at
+   runtime with `s._subdomain_inferred = true` for downstream review.         */
+function _inferSubdomain(skill){
+  const dom = skill.dom;
+  const text = ((skill.t || "") + " " + (skill.what || "") + " " + (skill.why || "")).toLowerCase();
+  // gross
+  if (dom === "gross"){
+    if (/hop|jump|run|walk|stair|gallop|skip|broad/.test(text)) return "locomotion";
+    if (/balance|beam|tiptoe|one foot|bike/.test(text))         return "balance_vestibular";
+    if (/climb|carry|push|pull|broad|strength/.test(text))      return "strength_climbing";
+    if (/kick|throw|catch|aim|target/.test(text))               return "bilateral_gross";
+    if (/dance|rhythm|clap|music/.test(text))                   return "rhythm_motor";
+    return "locomotion";
+  }
+  // fine
+  if (dom === "fine"){
+    if (/scissor|thread|button|zip/.test(text))                 return "bilateral_fine";
+    if (/line|circle|copy|trace|draw|write/.test(text))         return "visual_motor";
+    if (/dress|spoon|fork|utensil|shoe|sock|self/.test(text))   return "self_care";
+    if (/lid|twist|knob|wrist|jar/.test(text))                  return "wrist_rotation";
+    if (/crayon|pencil|brush|tool|hammer|page/.test(text))      return "tool_use";
+    if (/pinch|pincer|squeeze|stack|grasp/.test(text))          return "pincer_strength";
+    return "pincer_strength";
+  }
+  // sensory
+  if (dom === "sensory"){
+    if (/color|shape|match|sort|visual/.test(text))             return "visual_discr";
+    if (/sound|listen|auditory|music|tone/.test(text))          return "auditory_discr";
+    if (/texture|tactile|touch|fabric|rough|smooth/.test(text)) return "tactile_stereo";
+    if (/smell|taste|olfact|gust/.test(text))                   return "olfact_gust";
+    if (/spin|swing|vestibul|balance/.test(text))               return "vestibular";
+    if (/heavy|proprio|body awareness|squeeze/.test(text))      return "proprioceptive";
+    return "visual_discr";
+  }
+  // cognitive
+  if (dom === "cognitive"){
+    if (/count|number|how many|quantit/.test(text))             return "number_quant";
+    if (/sort|classify|group|category/.test(text))              return "classification";
+    if (/sequence|order|pattern|story.*order/.test(text))       return "sequencing";
+    if (/memory|attention|inhibit|working|executive/.test(text))return "executive_function";
+    if (/cause|effect|why|predict|what if/.test(text))          return "cause_effect";
+    if (/pretend|symbolic|imagin/.test(text))                   return "symbolic_pretend";
+    if (/instruct|step|follow/.test(text))                      return "executive_function";
+    return "cause_effect";
+  }
+  // vocab
+  if (dom === "vocab"){
+    if (/bilingual|code-switch|french|english/.test(text))      return "bilingual";
+    if (/question|conversation|story|narrat/.test(text))        return "pragmatics";
+    if (/grammar|plural|past tense|pronoun|sentence/.test(text))return "grammar";
+    if (/sound|rhyme|phon/.test(text))                          return "phonology";
+    if (/points to|understand|receptive|comprehend/.test(text)) return "receptive";
+    return "expressive";
+  }
+  // social
+  if (dom === "social"){
+    if (/emotion|feeling|happy|sad|angry/.test(text))           return "emotion_recognition";
+    if (/co-?reg|caregiver|attach|secure/.test(text))           return "coregulation";
+    if (/self.?reg|calm|alone|tantrum/.test(text))              return "self_regulation";
+    if (/empathy|other|theory of mind|tom/.test(text))          return "empathy_tom";
+    if (/share|please|thank|manners|pro-?social|peer/.test(text))return "prosocial";
+    if (/independ|separat|solo/.test(text))                     return "independence";
+    return "prosocial";
+  }
+  return null;
+}
+
+/* One-shot per-load assignment of `s.subdomain`. Idempotent — skips skills
+   that already carry a subdomain. Runs after SKILLS_CUSTOM_SEED is merged
+   into SKILLS so T0 entries also get tagged.                                 */
+(function migrateSubdomainsV6(){
+  try {
+    SKILLS.forEach(s => {
+      if (s.subdomain) return;
+      const explicit = SKILL_SUBDOMAIN_MAP[s.id];
+      if (explicit){ s.subdomain = explicit; return; }
+      const inferred = _inferSubdomain(s);
+      if (inferred){ s.subdomain = inferred; s._subdomain_inferred = true; }
+    });
+  } catch(e){ console.warn("v6 subdomain migration failed", e); }
 })();
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -7055,6 +8512,208 @@ const TUTOR_SYSTEM_PROMPT_V5 = [
   "Output JSON only: { activity_title, materials, steps[3–7 depending on mode], domain, primary_subdomain, secondary_subdomains[], targets_skills[], rationale, framework_citation, expected_duration_min, allocation_bucket, tutor_mode, language_labels{en, fr, ...} }. No prose, no markdown."
 ].join("\n");
 
+/* v6 tutor system prompt — replaces V5. Drops BKT references; teaches the
+   model that mastery is a single-tap user declaration (no trial-counting,
+   no probability terms). Verbatim from spec §4.3.                            */
+const TUTOR_SYSTEM_PROMPT_V6 = [
+  "You are an adaptive tutor for Maxine. Use the payload to propose 1–2 activities per session. Allocate per coaching.allocation_directive (60% natural-pull · 30% rate-limiting sub-domain · 10% consolidation/play).",
+  "",
+  "Tutor mode varies by target skill UDI:",
+  "— UDI < 4: ZPD scaffolding (Vygotsky) with caregiver co-doing. Playful, repetition-rich. ≤10 min.",
+  "— UDI 4–6: Mastery learning (Bloom). Immediate feedback. ~15 min.",
+  "— UDI 6–7: Deliberate practice (Ericsson). Focused effort, weakness-targeted. ~25 min.",
+  "— UDI 7–8: Self-directed practice + coach checkpoints. ~30–45 min.",
+  "— UDI ≥ 8: Coach-feedback model.",
+  "",
+  "Rules:",
+  "(1) Within each chosen domain, target frontier sorted by frontier_score.",
+  "(2) Prefer cross-domain activities (secondary_domains non-empty) for leverage.",
+  "(3) Stretch only when sub-domain confidence is high.",
+  "(4) Replace activities for stale skills with reverification.",
+  "(5) Mastery is user-declared — never assume mastery from observation counts. Treat the latest declaration as authoritative.",
+  "(6) For 'invest' bucket, weight toward rate_limiting sub-domain + keystones.missing.",
+  "(7) Cite developmental 'why' with framework (CDC / Bayley / Vygotsky / Piaget / Ericsson / Dehaene / Tomasello / etc.).",
+  "(8) Bilingual labels EN+FR.",
+  "(9) Materials: household for UDI<6.",
+  "",
+  "Output JSON only:",
+  "{ activity_title, materials, steps[3–7], domain, primary_subdomain, secondary_subdomains[], targets_skills[], rationale, framework_citation, expected_duration_min, allocation_bucket: \"pull\"|\"invest\"|\"consolidation\", tutor_mode, language_labels{en, fr} }",
+  "No prose, no markdown."
+].join("\n");
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — UI: radar charts + Active 10 + Mastered Library + one-tap Log form
+   ═════════════════════════════════════════════════════════════════════════
+   Each function takes a `container` HTMLElement and writes into its
+   innerHTML. The triple lives inside the v6 per-domain card, appended by
+   renderProgressView after the existing v5 panel.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* renderDomainRadar — pure SVG. Axes = sub-domains; blue polygon = sub-domain
+   SLs; dashed green polygon = sub-domain peaks. Hidden when the domain has no
+   sub-domains in SUBDOMAINS (shouldn't happen in v6 but degrade gracefully). */
+function renderDomainRadar(domKey, container){
+  if (!container) return;
+  const subs = (typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[domKey]) ? SUBDOMAINS[domKey] : [];
+  if (!subs.length){ container.innerHTML = ""; return; }
+  const N = subs.length;
+  const cx = 100, cy = 100, R = 70;
+  const angleStep = (2 * Math.PI) / N;
+  const slPts = [];
+  const peakPts = [];
+  subs.forEach((s, i) => {
+    const angle = -Math.PI/2 + i * angleStep;
+    const sl   = subdomainSL(domKey, s.key);
+    const peak = subdomainPeak(domKey, s.key);
+    const rSl  = ((sl   || 0) / 10) * R;
+    const rPk  = ((peak || 0) / 10) * R;
+    slPts.push({ x: cx + rSl * Math.cos(angle), y: cy + rSl * Math.sin(angle) });
+    peakPts.push({ x: cx + rPk * Math.cos(angle), y: cy + rPk * Math.sin(angle) });
+  });
+  const slPath   = "M " + slPts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ") + " Z";
+  const peakPath = "M " + peakPts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ") + " Z";
+  const axes = subs.map((s, i) => {
+    const angle = -Math.PI/2 + i * angleStep;
+    const x2 = cx + R * Math.cos(angle), y2 = cy + R * Math.sin(angle);
+    const lx = cx + (R + 18) * Math.cos(angle), ly = cy + (R + 18) * Math.sin(angle);
+    const anchor = Math.abs(Math.cos(angle)) < 0.3 ? "middle" : (Math.cos(angle) > 0 ? "start" : "end");
+    return `<line x1="${cx}" y1="${cy}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#E6E2DA" stroke-width="1"/>`
+         + `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="middle" font-size="8" fill="#5C6680">${escapeHtml(s.label)}</text>`;
+  }).join("");
+  const rings = [2, 4, 6, 8, 10].map(v =>
+    `<circle cx="${cx}" cy="${cy}" r="${(v/10)*R}" fill="none" stroke="#F1F4FA" stroke-width="1"/>`
+  ).join("");
+  container.innerHTML = `
+    <div class="v6-radar-wrap">
+      <svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(domKey)} sub-domain radar">
+        ${rings}
+        ${axes}
+        <path d="${peakPath}" fill="none" stroke="#16A34A" stroke-width="1" stroke-dasharray="3,2"/>
+        <path d="${slPath}" fill="#2E5BFF22" stroke="#2E5BFF" stroke-width="1.5"/>
+      </svg>
+      <div class="v6-radar-legend">
+        <span><span class="dot sl"></span> Sustained Level</span>
+        <span><span class="dot peak"></span> Peak (max UDI)</span>
+      </div>
+    </div>`;
+}
+
+/* Backfill-chip text: "N/10 active" or "Backfill pending — Cowork generating". */
+function _backfillChipText(domKey){
+  const target = (state.masteryConfig && state.masteryConfig.targetDepth) || 10;
+  const avail = SKILLS_ALL.filter(s => s.dom === domKey && isAvailable(s)).length;
+  const pending = (state.backfillQueue || []).some(q => q && q.domain === domKey && q.status !== "completed");
+  if (avail >= target) return `${target}/${target} active`;
+  if (pending) return `${avail}/${target} · 🔄 backfill pending`;
+  return `${avail}/${target} active`;
+}
+
+/* renderActive10 — top-N unmastered+prereq-met+in-ZPD skills by frontierScoreV6.
+   Placeholders fill any gap so the user can see backfill progress.            */
+function renderActive10(domKey, container){
+  if (!container) return;
+  const target = (state.masteryConfig && state.masteryConfig.targetDepth) || 10;
+  const available = SKILLS_ALL
+    .filter(s => s.dom === domKey && isAvailable(s))
+    .sort((a, b) => frontierScoreV6(b) - frontierScoreV6(a))
+    .slice(0, target);
+  const subOf = (key) => (SUBDOMAINS[domKey] || []).find(x => x.key === key);
+  const rows = available.map((s, i) => {
+    const subLabel = (subOf(s.subdomain) || {}).label || (s.subdomain || "—");
+    return `<div class="active10-row" data-skill="${escapeHtml(s.id)}">
+      <span class="rank">${i+1}.</span>
+      <span class="title">${escapeHtml(s.t || s.id)}</span>
+      <span class="meta">
+        <span class="udi">UDI ${(typeof s.udi === "number" ? s.udi : 3).toFixed(1)}</span>
+        <span class="sub">${escapeHtml(subLabel)}</span>
+        ${s.keystone ? '<span class="ks" title="keystone">⭐</span>' : ''}
+      </span>
+      <button type="button" class="small log-toggle" data-skill="${escapeHtml(s.id)}" aria-label="Log status for ${escapeHtml(s.t)}">Log ▾</button>
+    </div>`;
+  }).join("");
+  let placeholders = "";
+  for (let i = available.length; i < target; i++){
+    placeholders += `<div class="active10-row placeholder">${i+1}. <span class="title">📍 Backfill pending — Cowork generating new skills</span></div>`;
+  }
+  container.innerHTML = `
+    <div class="active10-header">
+      <h4>🎯 Active ${target} — what she's ready to work on</h4>
+      <span class="backfill-chip">${escapeHtml(_backfillChipText(domKey))}</span>
+    </div>
+    <div class="active10-list">${rows}${placeholders}</div>`;
+  _bindActive10Handlers(container);
+}
+
+/* Inline one-tap log form: ⏳ Working on it / ✅ Mastered / ↩️ Lost it. */
+function _bindActive10Handlers(container){
+  container.querySelectorAll(".log-toggle").forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const skillId = btn.dataset.skill;
+      const row = btn.closest(".active10-row");
+      if (!row) return;
+      const existing = row.querySelector(".log-form");
+      if (existing){ existing.remove(); return; }
+      const form = document.createElement("div");
+      form.className = "log-form";
+      form.innerHTML = `
+        <button type="button" class="small status-btn" data-status="working_on_it">⏳ Working on it</button>
+        <button type="button" class="small status-btn primary" data-status="mastered">✅ Mastered</button>
+        <button type="button" class="small status-btn" data-status="regressed">↩️ Lost it</button>
+        <input type="text" class="log-notes" placeholder="Notes (optional)" />
+      `;
+      row.appendChild(form);
+      form.querySelectorAll(".status-btn").forEach(b => {
+        b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const status = b.dataset.status;
+          const notes  = (form.querySelector(".log-notes") || {}).value || "";
+          try { addObservation({ skillId, status, source: "manual", notes }); } catch(err){ console.warn("v6 log failed", err); }
+          showToast(status === "mastered" ? "✅ Mastered!" : (status === "regressed" ? "↩️ Logged — back to working on it" : "⏳ Logged"));
+          // Re-render the whole progress view so radar + Active 10 + Mastered
+          // library refresh in sync.
+          try { renderProgressView(); } catch(err){ console.warn("post-log re-render failed", err); }
+        });
+      });
+    });
+  });
+}
+
+/* renderMasteredLibrary — collapsed by default. Lists every mastered/automatic
+   skill in the domain with declaration date, automatic-promotion indicator,
+   and next reverify date.                                                     */
+function renderMasteredLibrary(domKey, container){
+  if (!container) return;
+  const mastered = SKILLS_ALL.filter(s => s.dom === domKey && isMasteredV6(s))
+                             .sort((a, b) => (b.udi || 0) - (a.udi || 0));
+  if (!mastered.length){
+    container.innerHTML = `<details class="mastered-library"><summary>📚 No mastered skills in this domain yet</summary></details>`;
+    return;
+  }
+  const subOf = (key) => (SUBDOMAINS[domKey] || []).find(x => x.key === key);
+  const rows = mastered.map(s => {
+    const sub = (subOf(s.subdomain) || {}).label || (s.subdomain || "—");
+    const masteredObs = obsForSkill(s.id).filter(o => o && o.status === "mastered");
+    const lastTs = masteredObs.length ? Math.max(...masteredObs.map(o => o.ts || 0)) : 0;
+    const lastDate = lastTs ? new Date(lastTs).toLocaleDateString("en-GB", { year:"numeric", month:"short", day:"numeric" }) : "—";
+    const nextRev = (state.reverifyQueue || []).filter(r => r && r.skillId === s.id && !r.completed).sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0))[0];
+    const nextDate = nextRev ? new Date(nextRev.dueAt).toLocaleDateString("en-GB", { year:"numeric", month:"short", day:"numeric" }) : "—";
+    const isAuto = deriveStatusV6(s.id) === "automatic";
+    // Detect last implicit-reverify event so we can surface the 🔗 marker.
+    const implicit = obsForSkill(s.id).filter(o => o && o.source === "implicit_reverify").sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+    const implicitTag = implicit ? `<span class="implicit-tag" title="${escapeHtml(implicit.notes || "Auto-verified via descendant mastery")}">🔗 implicit</span>` : "";
+    return `<div class="mastered-row">
+      ${isAuto ? "🌟" : "✅"} <strong>${escapeHtml(s.t || s.id)}</strong>
+      <span class="meta">UDI ${(typeof s.udi === "number" ? s.udi : 3).toFixed(1)} · ${escapeHtml(sub)}</span>
+      <div class="mastered-meta">Declared ${lastDate}${isAuto ? " · automatic" : ""} · Next check ${nextDate} ${implicitTag}</div>
+    </div>`;
+  }).join("");
+  container.innerHTML = `<details class="mastered-library">
+    <summary>📚 Mastered library — ${mastered.length} skill${mastered.length === 1 ? "" : "s"}</summary>
+    <div class="mastered-library-body">${rows}</div>
+  </details>`;
+}
+
 /* exportTutorBrief() — v5 payload schema. Builds a comprehensive snapshot
    of every signal the AI tutor needs. v4 features that don't exist in
    this dataset (sub_domains, multi-observer, rotation, archive) are
@@ -7066,17 +8725,11 @@ function exportTutorBrief(){
   const ageMonths = chronoAgeMonths(child);
   const stale30 = Date.now() - 30 * 86400000;
 
-  // BKT confidence summary
-  const bktSummary = { high_confidence: 0, medium_confidence: 0, low_confidence: 0 };
-  SKILLS_ALL.forEach(s => {
-    const p = bktReady(s.id);
-    if (p >= 0.85)      bktSummary.high_confidence++;
-    else if (p >= 0.50) bktSummary.medium_confidence++;
-    else                bktSummary.low_confidence++;
-  });
+  // v6: BKT removed — confidence now derives from sub-domain assessment coverage.
 
   // Per-domain breakdown
   const by_domain = {};
+  const reverifyDays = (state.masteryConfig && state.masteryConfig.reverifyAfterDays) || 60;
   DOMAINS.forEach(d => {
     const sl    = domainSL(d.key);
     const tp    = domainTPeak(d.key);
@@ -7091,13 +8744,12 @@ function exportTutorBrief(){
     });
     const keystoneMissing = keystoneAll.filter(s => !keystoneMastered.includes(s)).map(s => s.id);
 
-    // Frontier with v5 metadata
+    // Frontier with v6 metadata (no BKT P(ready))
     const frontier = frontierSkills(d.key, 5).map(s => ({
       skill_id:       s.id,
       label:          s.t,
       udi:            s.udi,
       frontier_score: frontierScore(s),
-      p_ready:        bktReady(s.id),
       downstream:     countDownstream(s.id),
       keystone:       !!s.keystone,
       why:            s.why || ""
@@ -7117,18 +8769,33 @@ function exportTutorBrief(){
       .map(s => {
         const obs = (state.observations || []).filter(o => o.skillId === s.id);
         const last = obs.length ? Math.max(...obs.map(o => o.ts || 0)) : 0;
-        const due = last + nextReverifyDays(s.id) * 86400000;
+        const due = last + reverifyDays * 86400000;
         return { skill_id: s.id, label: s.t, due_at: due, overdue: Date.now() > due };
       })
       .filter(x => x.overdue);
+
+    // v6 — per-sub-domain SL_sub / T_peak_sub / confidence / dreyfus_stage
+    const sub_domains = ((typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[d.key]) ? SUBDOMAINS[d.key] : []).map(s => {
+      const slSub = (typeof subdomainSL    === "function") ? subdomainSL(d.key, s.key)    : null;
+      const tpSub = (typeof subdomainPeak  === "function") ? subdomainPeak(d.key, s.key)  : null;
+      const conf  = (typeof subdomainConfidence === "function") ? subdomainConfidence(d.key, s.key) : "low";
+      return {
+        key: s.key, label: s.label,
+        SL_sub: slSub, T_peak_sub: tpSub,
+        confidence: conf,
+        rate_limiting: (tf && tf.subdomain === s.key),
+        dreyfus_stage: (slSub != null) ? dreyfusStage(slSub) : null
+      };
+    });
 
     by_domain[d.key] = {
       SL_dom: sl,
       T_peak_dom: tp,
       T_floor: tf,
       breadth: brdth,
-      confidence_dom: bktSummary.high_confidence > 0 ? "calibrated" : "preliminary",
+      confidence_dom: (typeof domainConfidence === "function") ? domainConfidence(d.key) : "low",
       dreyfus_stage: stage,
+      sub_domains_v6: sub_domains,
       keystones: {
         mastered: keystoneMastered.length,
         total:    keystoneAll.length,
@@ -7171,15 +8838,19 @@ function exportTutorBrief(){
     by_domain,
     unlock_progress: {},
     coaching: {
-      natural_pulls:   [],
-      where_to_invest: [],
-      rotation: { last_rotated: null, next_rotation_in_days: null },
+      natural_pulls:   (state.coachingPicks && state.coachingPicks.natural_pulls)   || [],
+      where_to_invest: (state.coachingPicks && state.coachingPicks.where_to_invest) || [],
+      rotation: {
+        last_rotated: (state.coachingPicks && state.coachingPicks.last_rotated) || null,
+        next_rotation_in_days: (state.coachingPicks && state.coachingPicks.last_rotated)
+          ? Math.max(0, Math.round((state.coachingPicks.last_rotated + COACHING_ROTATION_DAYS * 86400000 - Date.now()) / 86400000))
+          : null
+      },
       allocation_directive
     },
-    bkt_summary: bktSummary,
     recent_observations,
     parent_notes,
-    tutor_system_prompt: TUTOR_SYSTEM_PROMPT_V5
+    tutor_system_prompt: TUTOR_SYSTEM_PROMPT_V6
   };
 }
 
@@ -7303,23 +8974,28 @@ function _persistReadinessSnapshot(masteredIds, dismissed){
   } catch(e){}
 }
 
-/* Re-verify queue: mastered skills not re-observed in >reverifyAfterDays.
-   Auto-refreshed; result stored on state.reverifyQueue for sync visibility.   */
+/* v6 — Re-verify queue READER. The queue itself is maintained by
+   scheduleReverification (on mastery) and processDueReverifications (which
+   auto-completes any entry implicitly verified by a more-recent descendant).
+   This helper returns the due-but-not-implicitly-verified entries that
+   actually need parental attention, in the legacy {id, lastTs} shape so the
+   existing banner renderer keeps working.                                    */
 function refreshReverifyQueue(){
-  const days = state.masteryConfig.reverifyAfterDays || 60;
-  const cutoff = Date.now() - days*86400000;
-  const queue = [];
-  for (const s of SKILLS){
-    const st = deriveStatus(s.id);
-    if (st !== "mastered") continue;
-    const obs = (state.observations||[]).filter(o => o.skillId === s.id);
-    const last = obs.length
-      ? Math.max(...obs.map(o=>o.ts||0))
-      : ((state.skillStatus[s.id]||{}).ts || 0);
-    if (last && last < cutoff) queue.push({ id:s.id, lastTs:last });
+  if (typeof processDueReverifications === "function"){
+    try { processDueReverifications(); } catch(e){ /* surface to console only */ }
   }
-  state.reverifyQueue = queue;
-  return queue;
+  const now = Date.now();
+  const seen = new Set();
+  const out = [];
+  (state.reverifyQueue || []).forEach(r => {
+    if (!r || r.completed || (r.dueAt || 0) > now) return;
+    if (seen.has(r.skillId)) return;
+    seen.add(r.skillId);
+    const obs = (state.observations || []).filter(o => o && o.skillId === r.skillId && o.status === "mastered");
+    const last = obs.length ? Math.max(...obs.map(o => o.ts || 0)) : (r.dueAt - (r.offsetDays || 60) * 86400000);
+    out.push({ id: r.skillId, lastTs: last });
+  });
+  return out;
 }
 
 /* Legacy accessor — now reads via observation log (with fallback). */
@@ -7330,13 +9006,29 @@ function setSkillStatus(id, status){
   addObservation({ skillId:id, status, source:"manual" });
 }
 
-const STATUS_COLORS = { new:"#F3F4F6", emerging:"#FEF3C7", practising:"#FDE68A", mastered:"#DCFCE7", too_hard:"#FEE2E2", already_mastered:"#E5E7EB" };
-const STATUS_LABEL  = { new:"New", emerging:"Emerging", practising:"Practising", mastered:"Mastered ✓", too_hard:"Too hard", already_mastered:"Already mastered" };
-const STATUS_ORDER  = ["new", "emerging", "practising", "mastered"];
+/* v6 status ladder. The legacy keys (new / emerging / practising / too_hard /
+   already_mastered) remain in the maps so unmigrated observations and the
+   deriveStatus back-compat path still render with reasonable colours.        */
+const STATUS_COLORS = {
+  // v6
+  unknown:"#F3F4F6", working_on_it:"#FEF3C7", mastered:"#DCFCE7", regressed:"#FEE2E2", automatic:"#E5E7EB",
+  // legacy passthrough
+  new:"#F3F4F6", emerging:"#FEF3C7", practising:"#FDE68A", too_hard:"#FEE2E2", already_mastered:"#E5E7EB"
+};
+const STATUS_LABEL  = {
+  // v6
+  unknown:"Unknown", working_on_it:"Working on it", mastered:"Mastered ✓", regressed:"Lost it", automatic:"Automatic 🌟",
+  // legacy passthrough
+  new:"New", emerging:"Emerging", practising:"Practising", too_hard:"Too hard", already_mastered:"Already mastered"
+};
+const STATUS_ORDER  = ["unknown", "working_on_it", "mastered"];
 
 function cycleSkillStatus(cur){
-  const i = STATUS_ORDER.indexOf(cur || "new");
-  return STATUS_ORDER[(i + 1) % STATUS_ORDER.length];
+  // Map any legacy status to its v6 equivalent before cycling.
+  const LEGACY_MAP = { new:"unknown", emerging:"working_on_it", practising:"working_on_it", too_hard:"working_on_it", already_mastered:"mastered" };
+  const v6cur = LEGACY_MAP[cur] || cur || "unknown";
+  const i = STATUS_ORDER.indexOf(v6cur);
+  return STATUS_ORDER[((i < 0 ? 0 : i) + 1) % STATUS_ORDER.length];
 }
 
 /* Hidden-toggle state (Improvement 3). Defaulted false; persisted in
@@ -7753,192 +9445,538 @@ const DOMAIN_GUIDANCE = {
   social: { strong:"Strong social-emotional — extend playdates, name subtle emotions (proud/disappointed/curious), Brackett RULER vocabulary.", growth:"Daily emotion-naming, calm jar, time-ins (not time-outs). Co-regulation precedes self-regulation (Perry). Connect before redirect (Siegel)." },
 };
 
-/* ─────────────────────────────────────────────────────────────────────────
-   FEATURE B — Coaching view (rewrite of renderTailoredAssessment)
-   Two columns answering the two questions parents actually ask:
-     LEFT  "Ready for a push" — top 2 by stallScore
-     RIGHT "Riding the wave"  — top 2 by momentumScore
-   Uses v3.1 signals (frontierSkills, deriveStatus, state.observations,
-   skillXp). Copy stays kind — no judgement-laden words anywhere in the UI.
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — COACHING (Natural pull · Where to invest · quarterly rotation)
+   ═════════════════════════════════════════════════════════════════════════
+   Replaces the v5 renderTailoredAssessment + 6 _coach* helpers.
+
+   Two buckets, each derived from z-scored domain signals:
+     Natural pull   — top 2 by pullScore   (xp30 + tierCeiling above median)
+     Where to invest— top 2 by investScore (stalled, missing keystones,
+                       regressions; penalised by xp30)
+
+   Rotated every 90 days unless the user taps "Rotate now". Words like
+   "weakness / behind / delay / deficit / lagging" are banned.
    ───────────────────────────────────────────────────────────────────────── */
 
-/* Sum of XP for skills in `domKey` whose latest observation is within the
-   last `daysAgo`. Approximates "XP earned in window".                       */
-function _coachXpInWindow(domKey, daysAgo){
-  const cutoff = Date.now() - daysAgo * 86400000;
+/* xpEarnedSince(domKey, sinceTs) — proxies "momentum" using v6 observations.
+   A skill scores skillXp(s.id) if it has any observation in the window. */
+function xpEarnedSince(domKey, sinceTs){
   let total = 0;
   for (const s of SKILLS){
     if (s.dom !== domKey) continue;
-    const obs = (state.observations || []).filter(o => o.skillId === s.id && (o.ts||0) >= cutoff);
-    if (obs.length) total += skillXp(s.id);
-  }
-  return total;
-}
-
-function _coachWeeklyXp(domKey, weekIdx){
-  const now = Date.now();
-  const end = now - weekIdx * 7 * 86400000;
-  const start = end - 7 * 86400000;
-  let total = 0;
-  for (const s of SKILLS){
-    if (s.dom !== domKey) continue;
-    const hit = (state.observations || []).some(o => o.skillId === s.id && (o.ts||0) >= start && (o.ts||0) < end);
+    const hit = (state.observations || []).some(o => o && o.skillId === s.id && (o.ts || 0) >= sinceTs);
     if (hit) total += skillXp(s.id);
   }
   return total;
 }
 
-function _coachStallScore(domKey){
-  let score = 0;
-  const cutoff21 = Date.now() - 21 * 86400000;
-  for (const s of SKILLS){
-    if (s.dom !== domKey) continue;
-    const st = deriveStatus(s.id);
-    if (st === "practising"){
-      const lastTs = (state.observations || [])
-        .filter(o => o.skillId === s.id).map(o => o.ts || 0)
-        .reduce((a,b) => Math.max(a,b), 0);
-      if (lastTs && lastTs < cutoff21) score += 1;
-    }
-    if (s.keystone && st !== "mastered" && st !== "already_mastered") score += 1;
-  }
-  if (_coachXpInWindow(domKey, 7) === 0) score += 1;
-  return score;
-}
-
-function _coachMomentumScore(domKey){
-  const meanXp = DOMAINS.reduce((s,d) => s + _coachXpInWindow(d.key, 7), 0) / Math.max(1, DOMAINS.length);
-  const xp7 = _coachXpInWindow(domKey, 7);
-  let score = meanXp > 0 ? (xp7 / meanXp) : 0;
-  const cutoff30 = Date.now() - 30 * 86400000;
-  const recentMast = (state.observations || []).filter(o => {
-    const sk = SKILLS.find(x => x.id === o.skillId);
-    return sk && sk.dom === domKey && o.status === "mastered" && (o.ts||0) >= cutoff30;
+/* domainCoachingSignals(domKey) — the raw signal bundle scored across all
+   domains. tierCeiling is the highest UDI ever mastered in the domain;
+   stalled = number of working_on_it skills with no obs in 30d; keystoneGap =
+   missing keystones; regressions60 = skills currently in regressed state
+   that flipped within the last 60 days.                                      */
+function domainCoachingSignals(domKey){
+  const now = Date.now();
+  const D = 86400000;
+  const domSkills = SKILLS.filter(s => s.dom === domKey);
+  const xp7   = xpEarnedSince(domKey, now -  7 * D);
+  const xp30  = xpEarnedSince(domKey, now - 30 * D);
+  const ceiling = domSkills.filter(s => isMasteredV6(s))
+                           .reduce((max, s) => Math.max(max, (typeof s.udi === "number" ? s.udi : 0)), 0);
+  const stalled = domSkills.filter(s => {
+    if (deriveStatusV6(s.id) !== "working_on_it") return false;
+    const last = obsForSkill(s.id).map(o => o.ts || 0).reduce((a, b) => Math.max(a, b), 0);
+    return last && (now - last) > 30 * D;
   }).length;
-  score += recentMast * 0.5;
-  // Cross-domain skills (skill.secondary_domains non-empty). Field is optional
-  // in the SKILLS schema; default to 0 when absent.
-  const crossCount = SKILLS.filter(s => s.dom === domKey && Array.isArray(s.secondary_domains) && s.secondary_domains.length).length;
-  score += crossCount * 0.25;
-  return score;
-}
-
-/* Confidence chip from observation density. Design decision: define locally
-   since no §12d source-of-truth exists in the file. Maps observations in the
-   last 14 days for the domain to 3 buckets.                                  */
-function _coachConfidence(domKey){
-  const cutoff = Date.now() - 14 * 86400000;
-  const n = (state.observations || []).filter(o => {
-    const sk = SKILLS.find(x => x.id === o.skillId);
-    return sk && sk.dom === domKey && (o.ts||0) >= cutoff;
+  const keystoneGap = domSkills.filter(s => s.keystone && !isMasteredV6(s)).length;
+  const regressions60 = domSkills.filter(s => {
+    const obs = obsForSkill(s.id).filter(o => o && o.status === "regressed").sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+    return obs && (now - (obs.ts || 0)) < 60 * D;
   }).length;
-  if (n >= 4) return { label:"High confidence",   color:"#14532D", bg:"#DCFCE7" };
-  if (n >= 1) return { label:"Medium confidence", color:"#854D0E", bg:"#FEF3C7" };
-  return        { label:"Light data",        color:"#374151", bg:"#F3F4F6" };
+  const coverage = domSkills.length
+    ? domSkills.filter(s => obsForSkill(s.id).some(o => o && o.source !== "baseline")).length / domSkills.length
+    : 0;
+  const tFloor = (typeof domainTFloor === "function") ? domainTFloor(domKey) : { subdomain: null, subdomain_label: null };
+  return {
+    xp7, xp30,
+    tierCeiling: ceiling,
+    stalled, keystoneGap, regressions60,
+    coverage,
+    rate_limiting_sub:       tFloor.subdomain || null,
+    rate_limiting_sub_label: tFloor.subdomain_label || null,
+    confidence:              (typeof domainConfidence === "function") ? domainConfidence(domKey) : "low"
+  };
 }
 
-/* Bottleneck hint for the frontier skill — answers "one more observation
-   needed in: ___". Inspects the skill's observation pattern.                 */
-function _coachBottleneck(skill){
-  const obs = (state.observations || []).filter(o => o.skillId === skill.id);
-  if (obs.length === 0) return "a first observation in any context";
-  const observers = new Set(obs.map(o => o.by || "—"));
-  if (observers.size === 1) return "a second observer (try the other parent)";
-  const spread = (Math.max(...obs.map(o => o.ts||0)) - Math.min(...obs.map(o => o.ts||0))) / 86400000;
-  if (spread < 14) return "a 14-day spread (re-check next week)";
-  return "another session to lock it in";
+function _zScore(values, x){
+  if (!values.length) return 0;
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((a, b) => a + (b - mean) * (b - mean), 0) / values.length;
+  const sd = Math.sqrt(variance) || 1;
+  return (x - mean) / sd;
 }
 
-function renderTailoredAssessment(){
-  const el = document.getElementById("tailoredAssessment");
+function computeCoachingPicks(){
+  const active = (typeof getActiveDomainKeys === "function") ? getActiveDomainKeys() : DOMAINS.map(d => d.key);
+  const rows = active.map(d => ({ d, sig: domainCoachingSignals(d) }));
+  const xp30Vals  = rows.map(x => x.sig.xp30);
+  const ceilVals  = rows.map(x => x.sig.tierCeiling);
+  const stallVals = rows.map(x => x.sig.stalled);
+  const ksVals    = rows.map(x => x.sig.keystoneGap);
+  const regVals   = rows.map(x => x.sig.regressions60);
+  rows.forEach(x => {
+    x.pullScore   = _zScore(xp30Vals, x.sig.xp30) + _zScore(ceilVals, x.sig.tierCeiling);
+    x.investScore = _zScore(stallVals, x.sig.stalled)
+                  + _zScore(ksVals, x.sig.keystoneGap)
+                  + 0.5 * _zScore(regVals, x.sig.regressions60)
+                  - _zScore(xp30Vals, x.sig.xp30);
+  });
+  const natural    = [...rows].sort((a, b) => b.pullScore   - a.pullScore  ).slice(0, 2);
+  const invest     = [...rows].sort((a, b) => b.investScore - a.investScore).slice(0, 2);
+  return {
+    natural_pulls:   natural.map(x => ({ domain: x.d, signals: x.sig, score: x.pullScore })),
+    where_to_invest: invest .map(x => ({ domain: x.d, signals: x.sig, score: x.investScore })),
+    computed_at: Date.now()
+  };
+}
+
+const COACHING_ROTATION_DAYS = 90;
+
+function maybeRotateCoaching(force){
+  state.coachingPicks = state.coachingPicks || {};
+  const last = state.coachingPicks.last_rotated || 0;
+  const dueAt = last + COACHING_ROTATION_DAYS * 86400000;
+  if (!force && last && Date.now() < dueAt) return false;
+  const picks = computeCoachingPicks();
+  state.coachingPicks = {
+    natural_pulls:   picks.natural_pulls.map(x => ({ domain: x.domain.key, rate_limiting_sub: x.signals.rate_limiting_sub, signals: x.signals })),
+    where_to_invest: picks.where_to_invest.map(x => ({ domain: x.domain.key, rate_limiting_sub: x.signals.rate_limiting_sub, signals: x.signals })),
+    last_rotated: Date.now()
+  };
+  if (typeof saveState === "function") saveState(state);
+  return true;
+}
+
+function renderCoachingCard(){
+  const el = document.getElementById("v6Coaching");
   if (!el) return;
   try {
-    const totalObs = (state.observations || []).length;
-    if (totalObs < 5){
-      const pct = Math.min(100, Math.round(totalObs / 5 * 100));
-      el.innerHTML = `
-        <div style="text-align:center; padding:18px 8px">
-          <div style="font-size:32px; line-height:1; margin-bottom:6px">🧭</div>
-          <div style="font-weight:700; font-size:15px; margin-bottom:4px">Log a few more activities to unlock coaching insights</div>
-          <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">${totalObs}/5 observations · ${5-totalObs} more to start your tailored picture</div>
-          <div class="progress-bar" style="max-width:280px; margin:0 auto"><div style="width:${pct}%"></div></div>
-        </div>`;
-      return;
+    // Ensure picks exist (first-load case).
+    if (!state.coachingPicks || !state.coachingPicks.last_rotated){
+      try { maybeRotateCoaching(true); } catch(e){ /* ignore */ }
     }
+    const picks = state.coachingPicks || { natural_pulls: [], where_to_invest: [], last_rotated: 0 };
+    const lastRot = picks.last_rotated ? new Date(picks.last_rotated).toLocaleDateString("en-GB", { year:"numeric", month:"short", day:"numeric" }) : "—";
+    const nextRotDays = picks.last_rotated
+      ? Math.max(0, Math.round((picks.last_rotated + COACHING_ROTATION_DAYS * 86400000 - Date.now()) / 86400000))
+      : 0;
 
-    // Score every domain on both axes
-    const scored = DOMAINS.map(d => ({
-      d,
-      stall:    _coachStallScore(d.key),
-      momentum: _coachMomentumScore(d.key),
-      weekly:   [3,2,1,0].map(i => _coachWeeklyXp(d.key, i)),
-      conf:     _coachConfidence(d.key),
-      frontier: frontierSkills().find(s => s.dom === d.key) || null,
-    }));
+    const domByKey = (k) => DOMAINS.find(d => d.key === k);
+    const subLabelFor = (domKey, subKey) => {
+      const subs = (typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[domKey]) ? SUBDOMAINS[domKey] : [];
+      return (subs.find(s => s.key === subKey) || {}).label || subKey || "—";
+    };
 
-    const stalls    = [...scored].sort((a,b) => b.stall    - a.stall   ).slice(0, 2);
-    const momentums = [...scored].sort((a,b) => b.momentum - a.momentum).slice(0, 2);
-    const theme = pickTheme();
+    const renderRow = (pick, bucket) => {
+      const d = domByKey(pick.domain) || { emoji:"·", label: pick.domain };
+      const sig = pick.signals || {};
+      const lowConf = sig.confidence === "low";
+      const confEmoji = sig.confidence === "high" ? "🟢" : (sig.confidence === "medium" ? "🟡" : "⚪");
+      let signalLine;
+      if (bucket === "pull"){
+        signalLine = `xp30 ${sig.xp30 || 0} · ceiling UDI ${(sig.tierCeiling || 0).toFixed(1)} · ${confEmoji} ${sig.confidence}`;
+      } else {
+        const subTxt = pick.rate_limiting_sub
+          ? `rate-limiter: <strong>${escapeHtml(subLabelFor(pick.domain, pick.rate_limiting_sub))}</strong>`
+          : "no rate-limiter identified yet";
+        signalLine = `${subTxt} · missing keystones: ${sig.keystoneGap || 0} · ${confEmoji} ${sig.confidence}`;
+      }
+      return `<div class="dom-row">
+        <strong>${d.emoji} ${escapeHtml(d.label)}</strong>${lowConf ? ' <span style="color:#92400E; font-size:10px">(light data — interpret loosely)</span>' : ''}
+        <div class="signals">${signalLine}</div>
+      </div>`;
+    };
 
-    // Domain-card renderer (used in both columns)
-    function card(item, side){
-      const { d, frontier, weekly, conf } = item;
-      const maxXp = Math.max(1, ...weekly);
-      const spark = weekly.map(v => {
-        const h = Math.max(3, Math.round((v / maxXp) * 28));
-        return `<div title="${v} XP" style="width:8px; height:${h}px; background:${side==="left"?"#F59E0B":"#3B82F6"}; border-radius:2px; opacity:${v?1:0.25}"></div>`;
-      }).join("");
-      const themeActs = (theme && Array.isArray(theme[d.key])) ? theme[d.key].slice(0, 2) : [];
-      const acts = themeActs.length
-        ? themeActs.map(a => `<li style="margin:2px 0">${escapeHtml(a.t)}<span style="color:var(--muted); font-size:11px; margin-left:6px">${a.d||""}</span></li>`).join("")
-        : `<li style="color:var(--muted)">Open this week's activities to pick a quick win.</li>`;
-      const sideBg     = side === "left" ? "#FFF7ED" : "#EEF2FF";
-      const sideBorder = side === "left" ? "#FED7AA" : "#C7D2FE";
-      const sideAccent = side === "left" ? "#92400E" : "#3730A3";
-      return `
-        <div style="background:${sideBg}; border:1px solid ${sideBorder}; border-radius:12px; padding:12px; margin-bottom:10px">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; margin-bottom:6px">
-            <div style="font-weight:700; font-size:14px; color:${sideAccent}">${d.emoji} ${escapeHtml(d.label)}</div>
-            <span style="font-size:10px; font-weight:700; color:${conf.color}; background:${conf.bg}; padding:2px 7px; border-radius:6px">${conf.label}</span>
-          </div>
-          ${frontier
-            ? `<div style="font-size:12px; margin-bottom:4px"><strong>Next unlock:</strong> ${escapeHtml(frontier.t)}<span style="color:var(--muted); margin-left:4px">${escapeHtml(frontier.age||"")}</span></div>
-               <div style="font-size:11px; color:${sideAccent}; margin-bottom:6px">📝 One more observation: ${escapeHtml(_coachBottleneck(frontier))}</div>`
-            : `<div style="font-size:12px; margin-bottom:6px; color:${sideAccent}">🌟 Every catalogue skill at her tier is mastered — keep playing for breadth.</div>`}
-          <div style="font-size:11px; color:var(--muted); margin-bottom:3px; text-transform:uppercase; letter-spacing:.06em; font-weight:700">Quick wins from this week's theme</div>
-          <ul style="margin:0 0 8px 18px; padding:0; font-size:12px; line-height:1.45">${acts}</ul>
-          <div style="display:flex; align-items:flex-end; gap:3px; height:30px; margin-top:6px" title="Weekly XP (4 wks)">${spark}</div>
-          <div style="font-size:10px; color:var(--muted); margin-top:2px">XP over last 4 weeks (oldest → this week)</div>
-        </div>
-      `;
-    }
+    const pullRows   = (picks.natural_pulls   || []).map(p => renderRow(p, "pull")).join("")
+                       || `<div class="signals">Log a few mastery declarations to surface natural-pull domains.</div>`;
+    const investRows = (picks.where_to_invest || []).map(p => renderRow(p, "invest")).join("")
+                       || `<div class="signals">No invest candidates yet — keep playing for breadth.</div>`;
+
+    const anyLow = (picks.natural_pulls || []).concat(picks.where_to_invest || []).some(p => (p.signals || {}).confidence === "low");
+    const caveat = anyLow
+      ? `<div class="low-conf-caveat">⚠️ One or more domains has light data — these picks will sharpen as you log more observations.</div>`
+      : "";
+
+    // Pending-Cowork pill: surface when there's anything for the parent to do.
+    const pendingCount = ((state.pendingGenerations || []).filter(p => p && p.status !== "completed").length)
+                       + ((state.backfillQueue || []).filter(q => q && q.status !== "completed").length);
+    const pendingPill = pendingCount > 0
+      ? `<button class="cowork-pending-pill" onclick="openPendingCoworkModal()">🤝 ${pendingCount} Cowork task${pendingCount === 1 ? "" : "s"}</button>`
+      : "";
 
     el.innerHTML = `
-      <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:12px">
-        Based on ${totalObs} observation${totalObs===1?'':'s'} across ${SKILLS.length} catalogue skills. Kept gentle — every domain shows a building block and her natural momentum.
-      </div>
-      <div style="display:grid; grid-template-columns: 1fr; gap:12px" id="coachGrid">
-        <div>
-          <div style="font-weight:700; font-size:14px; color:#92400E; margin-bottom:8px">🎯 Ready for a push</div>
-          ${stalls.map(s => card(s, "left")).join("") || `<div class="sub" style="color:var(--muted)">No domain is stalling — keep the routine.</div>`}
-        </div>
-        <div>
-          <div style="font-weight:700; font-size:14px; color:#3730A3; margin-bottom:2px">🚀 Riding the wave</div>
-          <div class="sub" style="color:var(--muted); font-size:11px; margin-bottom:8px">Natural momentum — domains where she's pulling ahead</div>
-          ${momentums.map(m => card(m, "right")).join("") || `<div class="sub" style="color:var(--muted)">Momentum builds with the next session.</div>`}
+      <div class="v6-coaching-header">
+        <h3>🧭 Coaching · last rotated ${escapeHtml(lastRot)} · next rotation in ${nextRotDays}d</h3>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+          ${pendingPill}
+          <button class="small rotate-btn" id="v6RotateNow">🔄 Rotate now</button>
         </div>
       </div>
-      <div style="margin-top:12px; font-size:11px; color:var(--muted); font-style:italic">
-        Two-column layout becomes side-by-side on tablet/desktop. Mantra: stretch one area at a time, joy &gt; pressure (Gopnik, "The Gardener and The Carpenter").
+      <div class="v6-coaching-grid">
+        <div class="v6-coaching-col">
+          <h4 class="pull-h">🌟 Natural pull (lean in)</h4>
+          ${pullRows}
+        </div>
+        <div class="v6-coaching-col">
+          <h4 class="invest-h">🌱 Where to invest</h4>
+          ${investRows}
+        </div>
       </div>
-      <style>
-        @media (min-width: 720px){ #coachGrid{ grid-template-columns: 1fr 1fr; } }
-      </style>
+      ${caveat}
     `;
+    const rb = document.getElementById("v6RotateNow");
+    if (rb && !rb._wired){
+      rb._wired = true;
+      rb.addEventListener("click", () => {
+        try { maybeRotateCoaching(true); } catch(e){ console.warn("rotate failed", e); }
+        showToast("🔄 Coaching picks rotated");
+        renderCoachingCard();
+      });
+    }
   } catch(err){
-    console.warn("renderTailoredAssessment failed", err);
+    console.warn("v6 renderCoachingCard failed", err);
     el.innerHTML = `<div class="sub" style="color:var(--muted)">Coaching insights unavailable — please reload.</div>`;
   }
+}
+
+/* Back-compat shim: existing callers (Vocab quickflow, renderProgressView)
+   call renderTailoredAssessment(). Map them to the v6 coaching card.        */
+function renderTailoredAssessment(){
+  return renderCoachingCard();
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — BACKFILL ENGINE (Cowork-mediated)
+   ═════════════════════════════════════════════════════════════════════════
+   When an active-era domain has < targetDepth (10) available skills, the
+   engine captures a domain-state snapshot, builds a paste-ready Cowork
+   prompt, and pushes a pending entry to state.backfillQueue. The parent
+   copies the prompt, runs it through Cowork (which edits this file), then
+   detectBackfillCompletions() flips the entry to "completed" on next load.
+
+   Runs alongside the existing in-memory autoSeedDomain (which provides an
+   immediate seed-bank floor of 10 outstanding skills). The backfill engine
+   produces *permanent* catalogue additions.
+   ───────────────────────────────────────────────────────────────────────── */
+
+function _v6Uuid(){
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function countAvailableSkills(domKey){
+  return SKILLS_ALL.filter(s => s.dom === domKey && isAvailable(s)).length;
+}
+function countDomainSkills(domKey){
+  return SKILLS_ALL.filter(s => s.dom === domKey).length;
+}
+
+function captureDomainState(domKey){
+  const subs = ((typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[domKey]) ? SUBDOMAINS[domKey] : []).map(s => ({
+    key: s.key, label: s.label,
+    SL_sub: subdomainSL(domKey, s.key),
+    n_mastered: SKILLS_ALL.filter(sk => sk.dom === domKey && sk.subdomain === s.key && isMasteredV6(sk)).length,
+    confidence: subdomainConfidence(domKey, s.key)
+  }));
+  const mastered = SKILLS_ALL
+    .filter(sk => sk.dom === domKey && isMasteredV6(sk))
+    .map(sk => ({ id: sk.id, title: sk.t, subdomain: sk.subdomain, udi: sk.udi }));
+  const frontier = SKILLS_ALL
+    .filter(sk => sk.dom === domKey && isAvailable(sk))
+    .map(sk => ({ id: sk.id, title: sk.t, subdomain: sk.subdomain, udi: sk.udi }));
+  const keystone_gaps = SKILLS_ALL
+    .filter(sk => sk.dom === domKey && sk.keystone && !isMasteredV6(sk))
+    .map(sk => ({ id: sk.id, title: sk.t, sub: sk.subdomain, udi: sk.udi }));
+  const child = (typeof currentChild === "function") ? currentChild() : null;
+  return {
+    SL_dom: domainSL(domKey),
+    T_peak: domainTPeak(domKey),
+    T_floor: domainTFloor(domKey),
+    sub_domains: subs,
+    mastered, frontier, keystone_gaps,
+    era: (child && typeof activeEra === "function") ? activeEra(child).key : (state.lastKnownEra || "infant"),
+    chrono_age_months: (child && typeof chronoAgeMonths === "function") ? chronoAgeMonths(child) : 24
+  };
+}
+
+/* Sub-domain gap distribution. Returns a {subKey: count} map summing to
+   `totalNeeded` (rounded). Sub-domains with fewer available skills get more
+   slots, so backfill restores balance.                                        */
+function subdomainGaps(domKey, totalNeeded){
+  const subs = ((typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[domKey]) ? SUBDOMAINS[domKey] : []).map(s => s.key);
+  if (!subs.length) return { _default: totalNeeded };
+  const fairShare = Math.ceil(totalNeeded / subs.length);
+  const gaps = {};
+  let totalGap = 0;
+  subs.forEach(sub => {
+    const curr = SKILLS_ALL.filter(s => s.dom === domKey && s.subdomain === sub && isAvailable(s)).length;
+    const g = Math.max(0, fairShare - curr);
+    gaps[sub] = g; totalGap += g;
+  });
+  if (totalGap > 0){
+    Object.keys(gaps).forEach(k => { gaps[k] = Math.round((gaps[k] / totalGap) * totalNeeded); });
+  } else {
+    // Every sub-domain at fair share — distribute evenly anyway.
+    subs.forEach((sub, i) => {
+      gaps[sub] = i < (totalNeeded % subs.length) ? Math.ceil(totalNeeded / subs.length) : Math.floor(totalNeeded / subs.length);
+    });
+  }
+  return gaps;
+}
+
+function buildBackfillPrompt(domKey, needed, ds){
+  const SL = ds.SL_dom != null ? ds.SL_dom.toFixed(2) : "null (no masteries)";
+  const slNum = ds.SL_dom || 0;
+  const subStatusText = ds.sub_domains.map(s =>
+    `  - ${s.key} (${s.label}): SL=${s.SL_sub != null ? s.SL_sub.toFixed(2) : "—"}, ${s.n_mastered} mastered, ${s.confidence} confidence`
+  ).join("\n");
+  const subGaps = subdomainGaps(domKey, needed);
+  const subGapText = Object.entries(subGaps).filter(([k,v]) => v > 0)
+    .map(([k,v]) => `  - ${k}: ${v} skill${v === 1 ? "" : "s"}`).join("\n");
+  const masteredText = ds.mastered.length
+    ? ds.mastered.map(m => `  - ${m.id}: "${m.title}" (UDI ${m.udi}, ${m.subdomain})`).join("\n")
+    : "  (none yet)";
+  const frontierText = ds.frontier.length
+    ? ds.frontier.map(f => `  - ${f.id}: "${f.title}" (UDI ${f.udi}, ${f.subdomain})`).join("\n")
+    : "  (none available)";
+  const keystoneText = ds.keystone_gaps.length
+    ? ds.keystone_gaps.map(k => `  - ${k.id}: "${k.title}" (UDI ${k.udi}, ${k.sub})`).join("\n")
+    : "  (none missing)";
+  const tFloor = (ds.T_floor && ds.T_floor.subdomain) ? `${ds.T_floor.subdomain} (SL ${ds.T_floor.value != null ? ds.T_floor.value.toFixed(2) : "—"})` : "—";
+
+  return `You are extending Maxine's developmental-skill catalogue in Maxine_Dashboard.html.
+
+CURRENT STATE FOR DOMAIN ${domKey.toUpperCase()}:
+  Current era: ${ds.era}
+  Child chrono age: ${ds.chrono_age_months} months
+  Domain Sustained Level: ${SL}
+  Rate-limiting sub-domain: ${tFloor}
+
+Sub-domain status:
+${subStatusText}
+
+Already mastered skills (DO NOT DUPLICATE; reference for prereqs):
+${masteredText}
+
+Currently available frontier skills (DO NOT DUPLICATE):
+${frontierText}
+
+Keystone gaps (PRIORITY — mark keystone:true where these are addressed):
+${keystoneText}
+
+GENERATE EXACTLY ${needed} NEW SKILLS for domain ${domKey} with these constraints:
+
+1. Sub-domain distribution (target counts):
+${subGapText || "  (no gap data — distribute evenly)"}
+
+2. UDI band distribution within the ${needed} skills:
+   - 30% at UDI ${slNum.toFixed(1)} to ${(slNum + 0.3).toFixed(1)} (consolidation)
+   - 50% at UDI ${(slNum + 0.3).toFixed(1)} to ${(slNum + 0.7).toFixed(1)} (sweet-spot ZPD — Vygotsky)
+   - 20% at UDI ${(slNum + 0.7).toFixed(1)} to ${(slNum + 1.5).toFixed(1)} (stretch — Ericsson deliberate practice)
+
+3. Each skill MUST:
+   - Be observable (clear success criteria)
+   - Be household-feasible (UDI<6) or use instruments/sport equipment (UDI≥6)
+   - Cite a framework in src (CDC / Bayley / Brazelton / Montessori / Vygotsky / Piaget / Dehaene / Tomasello / Hart-Risley / Ericsson / etc.)
+   - Reference prereqs from existing mastered or frontier skills only — never invent skill IDs
+   - Set keystone:true only when addressing a listed keystone gap
+   - Set eras: ["${ds.era}"]
+
+EDIT Maxine_Dashboard.html: APPEND ${needed} new skill objects to SKILLS_CUSTOM_SEED between the marker comments. Schema:
+
+{
+  id: "<kebab-case unique, prefix gm-/fm-/se-/co-/la-/so->",
+  dom: "${domKey}",
+  t: "<title>",
+  age: "<age band>",
+  what: "<observable behaviour>",
+  why: "<developmental rationale>",
+  how: "<how to support at home>",
+  next: "<harder version hint>",
+  src: "<framework citation>",
+  subdomain: "<sub-domain key from the status list>",
+  udi: <decimal 0-10>,
+  udi_rationale: "<calibration reasoning>",
+  keystone: <boolean>,
+  prereqs: ["<existing-id>"],
+  edges: [{to:"<id>", type:"prereq"}, {to:"<id>", type:"enables"}],
+  age_min: <months>, age_max: <months>,
+  next_ids: [], secondary_domains: [], eras: ["${ds.era}"]
+}
+
+DO NOT modify any other part of the file.
+
+After editing, return JSON only:
+{"domain":"${domKey}","added_count":${needed},"skills":[{"id":"<id>","title":"<t>","subdomain":"<sub>","udi":<udi>,"udi_band":"consolidation|sweet_spot|stretch"}]}
+`;
+}
+
+function backfillEngine(){
+  if (!state.masteryConfig || state.masteryConfig.autoBackfill === false) return 0;
+  state.backfillQueue = state.backfillQueue || [];
+  const target = state.masteryConfig.targetDepth || 10;
+  const maxCat = state.masteryConfig.maxCatalogueSize || 500;
+  const active = (typeof getActiveDomainKeys === "function") ? getActiveDomainKeys() : DOMAINS.map(d => d.key);
+  let enqueued = 0;
+  active.forEach(domKey => {
+    if (countDomainSkills(domKey) >= maxCat) return;
+    if (countAvailableSkills(domKey) >= target) return;
+    const existing = state.backfillQueue.find(q => q && q.domain === domKey && (q.status === "pending" || q.status === "sent"));
+    if (existing) return;
+    const needed = target - countAvailableSkills(domKey);
+    const ds = captureDomainState(domKey);
+    state.backfillQueue.push({
+      id: _v6Uuid(),
+      domain: domKey,
+      requested_at: Date.now(),
+      needed_count: needed,
+      domain_state: ds,
+      status: "pending",
+      prompt: buildBackfillPrompt(domKey, needed, ds),
+      completed_skill_ids: [],
+      completed_at: null
+    });
+    enqueued++;
+  });
+  if (enqueued > 0 && typeof saveState === "function") saveState(state);
+  return enqueued;
+}
+
+function detectBackfillCompletions(){
+  if (!state.backfillQueue || !state.backfillQueue.length) return 0;
+  let completed = 0;
+  state.backfillQueue.forEach(q => {
+    if (!q || q.status !== "sent") return;
+    const known = new Set([].concat(q.domain_state.mastered || [], q.domain_state.frontier || []).map(s => s.id));
+    const newSkills = SKILLS_ALL.filter(s => s.dom === q.domain && !known.has(s.id)).map(s => s.id);
+    if (newSkills.length >= q.needed_count){
+      q.status = "completed";
+      q.completed_skill_ids = newSkills.slice(0, q.needed_count);
+      q.completed_at = Date.now();
+      completed++;
+    }
+  });
+  if (completed > 0 && typeof saveState === "function") saveState(state);
+  return completed;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — Pending Cowork tasks modal
+   ═════════════════════════════════════════════════════════════════════════ */
+function renderPendingGenerationsModal(){
+  const modal = document.getElementById("pendingCoworkModal");
+  if (!modal) return;
+  const body = modal.querySelector(".panel-body");
+  if (!body) return;
+  const items = [];
+  (state.pendingGenerations || []).forEach(p => {
+    if (!p || p.status === "completed") return;
+    // v6 friendly titles per pending-generation type.
+    let title;
+    if (p.type === "era_retagging"){
+      title = `Era retagging: ${p.from} → ${p.to}`;
+    } else if (p.type === "gc_scene"){
+      const ctxLabel = p.custom_label ? `${p.context} — ${p.custom_label}` : p.context;
+      title = `🎮 Game Creator: ${ctxLabel}`;
+    } else {
+      title = `Pending generation: ${p.type || "unknown"}`;
+    }
+    items.push({
+      kind: p.type === "gc_scene" ? "gc_scene" : "pending",
+      type: p.type || "generation",
+      domain: p.from && p.to ? (p.from + "→" + p.to) : (p.context || "—"),
+      title,
+      prompt: p.prompt || "(no prompt; era_retagging is informational)",
+      ref: p
+    });
+  });
+  (state.backfillQueue || []).forEach(q => {
+    if (!q || q.status === "completed") return;
+    items.push({
+      kind: "backfill",
+      type: "backfill",
+      domain: q.domain,
+      title: `Backfill: ${q.domain} (+${q.needed_count} skills)`,
+      prompt: q.prompt,
+      ref: q
+    });
+  });
+  if (!items.length){
+    body.innerHTML = `<div class="sub" style="color:var(--muted)">No pending Cowork tasks — every active domain has 10 available skills and no era transitions are pending.</div>`;
+    return;
+  }
+  body.innerHTML = items.map((it, idx) => `
+    <div class="cowork-item" data-idx="${idx}" data-kind="${it.kind}">
+      <div class="cw-title">
+        <span class="cw-tag cw-tag-${escapeHtml(it.kind)}">${escapeHtml(it.kind)}</span>
+        <strong>${escapeHtml(it.title)}</strong>
+        <span class="cw-status status-${it.ref.status || "pending"}">${escapeHtml(it.ref.status || "pending")}</span>
+      </div>
+      <details class="cw-prompt">
+        <summary>📋 View prompt</summary>
+        <pre>${escapeHtml(it.prompt || "(no prompt)")}</pre>
+      </details>
+      <div class="cw-actions">
+        <button class="small cw-copy" data-idx="${idx}">📋 Copy prompt</button>
+        <button class="small cw-sent" data-idx="${idx}">✅ Mark sent</button>
+        ${(it.kind === "backfill" || it.kind === "gc_scene") ? `<button class="small cw-discard" data-idx="${idx}">🗑 Discard</button>` : ''}
+      </div>
+    </div>
+  `).join("");
+  // wire buttons
+  body.querySelectorAll(".cw-copy").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const it = items[+btn.dataset.idx];
+      try {
+        await navigator.clipboard.writeText(it.prompt || "");
+        showToast("📋 Prompt copied");
+      } catch(e){ console.warn("copy failed", e); showToast("Copy failed — select manually"); }
+    });
+  });
+  body.querySelectorAll(".cw-sent").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const it = items[+btn.dataset.idx];
+      it.ref.status = "sent";
+      it.ref.sent_at = Date.now();
+      if (typeof saveState === "function") saveState(state);
+      renderPendingGenerationsModal();
+    });
+  });
+  body.querySelectorAll(".cw-discard").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const it = items[+btn.dataset.idx];
+      // Discard from whichever queue holds the entry. gc_scene + era_retagging
+      // live in pendingGenerations; backfill lives in backfillQueue.
+      if (it.kind === "backfill"){
+        state.backfillQueue = (state.backfillQueue || []).filter(q => q !== it.ref);
+      } else {
+        state.pendingGenerations = (state.pendingGenerations || []).filter(p => p !== it.ref);
+      }
+      if (typeof saveState === "function") saveState(state);
+      renderPendingGenerationsModal();
+    });
+  });
+}
+
+function openPendingCoworkModal(){
+  const modal = document.getElementById("pendingCoworkModal");
+  if (!modal) return;
+  renderPendingGenerationsModal();
+  modal.classList.add("open");
+}
+function closePendingCoworkModal(){
+  const modal = document.getElementById("pendingCoworkModal");
+  if (modal) modal.classList.remove("open");
 }
 
 /* Memory view */
@@ -9515,10 +11553,12 @@ function renderSkillVocabProgress(){
     vocabCard.id = "progVocabCard";
     vocabCard.className = "card";
     vocabCard.style.marginBottom = "14px";
-    // Insert before tailoredAssessment card
-    const ta = document.getElementById("tailoredAssessment");
-    if (ta && ta.parentElement) ta.parentElement.insertBefore(vocabCard, ta.parentElement.querySelector(".card:has(#tailoredAssessment)") || ta.parentElement.children[0]);
-    else { const ps = document.getElementById("progressView"); if(ps) ps.appendChild(vocabCard); }
+    // Insert before the v6 coaching card (renamed from tailoredAssessment).
+    const ta = document.getElementById("v6Coaching") || document.getElementById("tailoredAssessment");
+    if (ta && ta.parentElement){
+      const coachingCard = ta.closest(".card") || ta.parentElement;
+      coachingCard.parentElement.insertBefore(vocabCard, coachingCard);
+    } else { const ps = document.getElementById("progressView"); if(ps) ps.appendChild(vocabCard); }
   }
   let totalV=0, mEn=0, mFr=0, mBoth=0;
   VOCAB_MASTER.forEach(cat => cat.words.forEach(w => {
@@ -9631,6 +11671,18 @@ window._sobTransfer = async function(){
     if(out && url){ out.style.display="block"; out.style.color="#FCA5A5"; out.textContent="Copy this: " + url.substring(0,60)+"…"; }
   }
 };
+
+/* v6 — load-time hooks. Each runs once on every page load, after all the
+   migration IIFEs and after the catalogue + state are fully populated. The
+   typeof-guards let phases be developed independently — a Phase-3 build
+   without backfillEngine still boots cleanly.                                */
+(function v6LoadHooks(){
+  try { if (typeof processDueReverifications  === "function") processDueReverifications();  } catch(e){ console.warn("v6: processDueReverifications failed", e); }
+  try { if (typeof maybeRotateCoaching        === "function") maybeRotateCoaching();        } catch(e){ console.warn("v6: maybeRotateCoaching failed", e); }
+  try { if (typeof detectBackfillCompletions  === "function") detectBackfillCompletions();  } catch(e){ console.warn("v6: detectBackfillCompletions failed", e); }
+  try { if (typeof detectGcSceneCompletions   === "function") detectGcSceneCompletions();   } catch(e){ console.warn("v6: detectGcSceneCompletions failed", e); }
+  try { if (typeof backfillEngine             === "function") backfillEngine();             } catch(e){ console.warn("v6: backfillEngine failed", e); }
+})();
 
 </script>
 </body>
