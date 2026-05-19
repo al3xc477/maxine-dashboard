@@ -6870,6 +6870,69 @@ function showEraTransitionModal(fromKey, toKey){
   modal.classList.add("open");
 }
 
+/* Render the era banner at top of Progress view. Falls back gracefully if
+   no child has a usable dob.                                              */
+function renderEraBanner(){
+  const el = document.getElementById("eraBanner");
+  if (!el) return;
+  const child = currentChild();
+  if (!child || !child.dob){ el.style.display = "none"; return; }
+  const m = chronoAgeMonths(child);
+  const era = activeEra(child);
+  const idx = ERAS.indexOf(era);
+  const next = idx >= 0 && idx < ERAS.length - 1 ? ERAS[idx + 1] : null;
+  const nextNewDomains = next ? (next.advanced || next.backbone || next.foundation_chc || []) : [];
+  const transitionMonths = era.age_band_months[1];
+  // Compute approximate transition date
+  let transitionDateStr = "";
+  if (next){
+    const birth = new Date(child.dob);
+    const dt = new Date(birth.getFullYear(), birth.getMonth() + transitionMonths, birth.getDate());
+    transitionDateStr = dt.toLocaleDateString("en-GB", { year:"numeric", month:"short" });
+  }
+  const ageBand = `${era.age_band_months[0]/12 | 0}–${era.age_band_months[1]/12 | 0}y`;
+  el.style.display = "";
+  el.innerHTML = `
+    <div style="display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap">
+      <div style="font-size:24px; line-height:1">🌱</div>
+      <div style="flex:1; min-width:180px">
+        <div style="font-size:14px; font-weight:700; color:#14532D">Current era: ${escapeHtml(era.label)} <span style="color:var(--muted); font-weight:400; font-size:12px">(${ageBand})</span> · age ${m}m</div>
+        ${next
+          ? `<div style="font-size:12px; color:var(--muted); margin-top:3px">Next era transition at ~${transitionMonths}m → ${escapeHtml(next.label)}${nextNewDomains.length ? ` (introduces: ${nextNewDomains.slice(0,4).map(escapeHtml).join(", ")}${nextNewDomains.length > 4 ? "…" : ""})` : ""}${transitionDateStr ? ` · ~${transitionDateStr}` : ""}</div>`
+          : `<div style="font-size:12px; color:var(--muted); margin-top:3px">Final era reached.</div>`}
+        <div style="font-size:10px; color:var(--muted); margin-top:4px; font-style:italic">${escapeHtml(era.source || "")}</div>
+      </div>
+    </div>
+  `;
+}
+
+/* Settings → Era schedule panel populated on settings open. */
+function renderEraSchedule(){
+  const el = document.getElementById("eraScheduleBody");
+  if (!el) return;
+  const child = currentChild();
+  if (!child){ el.innerHTML = `<div class="sub" style="color:var(--muted)">No child selected.</div>`; return; }
+  const m = chronoAgeMonths(child);
+  const curKey = activeEra(child).key;
+  const birth = child.dob ? new Date(child.dob) : null;
+  const rows = ERAS.map(e => {
+    const [from, to] = e.age_band_months;
+    const isCurrent = e.key === curKey;
+    let transitionStr = "";
+    if (birth && !isNaN(birth.getTime())){
+      const dt = new Date(birth.getFullYear(), birth.getMonth() + from, birth.getDate());
+      transitionStr = dt.toLocaleDateString("en-GB", { year:"numeric", month:"short" });
+    }
+    return `<div style="display:flex; gap:8px; padding:4px 6px; border-bottom:1px dotted var(--line); font-size:12px; ${isCurrent ? "background:#FFFBEB; font-weight:700" : ""}">
+      <span style="flex:1">${escapeHtml(e.label)}</span>
+      <span style="color:var(--muted); width:60px">${from/12 | 0}-${to/12 | 0}y</span>
+      <span style="color:var(--muted); width:80px; text-align:right">${transitionStr}</span>
+      ${isCurrent ? '<span style="color:#14532D; font-weight:700">[current]</span>' : ''}
+    </div>`;
+  }).join("");
+  el.innerHTML = `<div style="font-size:11px; color:var(--muted); margin-bottom:4px">Child: ${escapeHtml(child.name)} · age ${m}m</div>${rows}`;
+}
+
 /* v5 frontierSkills — accepts (domKey, maxN). When called with no args,
    preserves the v3.1 "max-per-domain cap" multi-domain view so existing
    callers (Game Creator, coaching) keep working. When called with a
