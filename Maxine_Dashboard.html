@@ -6431,6 +6431,11 @@ function cycleSkillStatus(cur){
 let _catShowHidden = false;
 try { _catShowHidden = localStorage.getItem("maxine-show-hidden") === "true"; } catch(e){}
 
+/* Focus-mode (Improvement B) — when on, the catalogue only shows the
+   top-5 globally prioritised skills. Persisted via localStorage.            */
+let _catFocusMode = false;
+try { _catFocusMode = localStorage.getItem("maxine-focus-mode") === "true"; } catch(e){}
+
 function renderSkillCatalogue(){
   // Populate domain filter once
   const dom = document.getElementById("skillDomain");
