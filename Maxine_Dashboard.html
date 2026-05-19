@@ -872,10 +872,9 @@
       <h2>Domain mastery</h2>
       <div id="progDomains"></div>
     </div>
-    <!-- Tailored assessment (auto from Skill Catalogue + Memory) -->
-    <div class="card" style="margin-bottom:14px; background: linear-gradient(135deg, #FFFBEB, #F0FDF4); border-color:#FCD34D" id="sec-prog-assess">
-      <h2>🎓 Coaching — ready for a push &amp; riding the wave</h2>
-      <div id="tailoredAssessment"></div>
+    <!-- v6 coaching card (Natural pull · Where to invest, quarterly rotation) -->
+    <div class="card v6-coaching" style="margin-bottom:14px" id="sec-prog-assess">
+      <div id="v6Coaching"></div>
     </div>
 
     <!-- Quick log (moved from dashboard sidebar) -->
@@ -1635,8 +1634,8 @@
 
     <!-- v5 — Copy AI-tutor brief -->
     <div style="margin-top:10px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#FAFBFC">
-      <div style="font-size:13px; font-weight:700; margin-bottom:4px">📋 AI tutor brief (v5)</div>
-      <div class="sub" style="color:var(--muted); font-size:11px; margin-bottom:6px">Copies a v5 JSON payload to clipboard — UDI scale, BKT confidences, Dreyfus stage per domain, frontier scores with downstream count, active era, and the embedded tutor system prompt.</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:4px">📋 AI tutor brief (v6)</div>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin-bottom:6px">Copies a v6 JSON payload to clipboard — UDI scale, sub-domain SL / T_peak / confidence, Dreyfus stage per sub-domain, typed-graph frontier scores, era + Active 10 + coaching picks + the embedded v6 tutor system prompt. (BKT removed.)</div>
       <button class="small primary" id="copyTutorBriefV5">📋 Copy AI tutor brief</button>
       <span id="copyTutorBriefV5Status" class="sub" style="color:var(--muted); font-size:11px; margin-left:8px"></span>
     </div>
@@ -7666,6 +7665,35 @@ const TUTOR_SYSTEM_PROMPT_V5 = [
   "Output JSON only: { activity_title, materials, steps[3–7 depending on mode], domain, primary_subdomain, secondary_subdomains[], targets_skills[], rationale, framework_citation, expected_duration_min, allocation_bucket, tutor_mode, language_labels{en, fr, ...} }. No prose, no markdown."
 ].join("\n");
 
+/* v6 tutor system prompt — replaces V5. Drops BKT references; teaches the
+   model that mastery is a single-tap user declaration (no trial-counting,
+   no probability terms). Verbatim from spec §4.3.                            */
+const TUTOR_SYSTEM_PROMPT_V6 = [
+  "You are an adaptive tutor for Maxine. Use the payload to propose 1–2 activities per session. Allocate per coaching.allocation_directive (60% natural-pull · 30% rate-limiting sub-domain · 10% consolidation/play).",
+  "",
+  "Tutor mode varies by target skill UDI:",
+  "— UDI < 4: ZPD scaffolding (Vygotsky) with caregiver co-doing. Playful, repetition-rich. ≤10 min.",
+  "— UDI 4–6: Mastery learning (Bloom). Immediate feedback. ~15 min.",
+  "— UDI 6–7: Deliberate practice (Ericsson). Focused effort, weakness-targeted. ~25 min.",
+  "— UDI 7–8: Self-directed practice + coach checkpoints. ~30–45 min.",
+  "— UDI ≥ 8: Coach-feedback model.",
+  "",
+  "Rules:",
+  "(1) Within each chosen domain, target frontier sorted by frontier_score.",
+  "(2) Prefer cross-domain activities (secondary_domains non-empty) for leverage.",
+  "(3) Stretch only when sub-domain confidence is high.",
+  "(4) Replace activities for stale skills with reverification.",
+  "(5) Mastery is user-declared — never assume mastery from observation counts. Treat the latest declaration as authoritative.",
+  "(6) For 'invest' bucket, weight toward rate_limiting sub-domain + keystones.missing.",
+  "(7) Cite developmental 'why' with framework (CDC / Bayley / Vygotsky / Piaget / Ericsson / Dehaene / Tomasello / etc.).",
+  "(8) Bilingual labels EN+FR.",
+  "(9) Materials: household for UDI<6.",
+  "",
+  "Output JSON only:",
+  "{ activity_title, materials, steps[3–7], domain, primary_subdomain, secondary_subdomains[], targets_skills[], rationale, framework_citation, expected_duration_min, allocation_bucket: \"pull\"|\"invest\"|\"consolidation\", tutor_mode, language_labels{en, fr} }",
+  "No prose, no markdown."
+].join("\n");
+
 /* ═════════════════════════════════════════════════════════════════════════
    v6 — UI: radar charts + Active 10 + Mastered Library + one-tap Log form
    ═════════════════════════════════════════════════════════════════════════
@@ -7899,13 +7927,28 @@ function exportTutorBrief(){
       })
       .filter(x => x.overdue);
 
+    // v6 — per-sub-domain SL_sub / T_peak_sub / confidence / dreyfus_stage
+    const sub_domains = ((typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[d.key]) ? SUBDOMAINS[d.key] : []).map(s => {
+      const slSub = (typeof subdomainSL    === "function") ? subdomainSL(d.key, s.key)    : null;
+      const tpSub = (typeof subdomainPeak  === "function") ? subdomainPeak(d.key, s.key)  : null;
+      const conf  = (typeof subdomainConfidence === "function") ? subdomainConfidence(d.key, s.key) : "low";
+      return {
+        key: s.key, label: s.label,
+        SL_sub: slSub, T_peak_sub: tpSub,
+        confidence: conf,
+        rate_limiting: (tf && tf.subdomain === s.key),
+        dreyfus_stage: (slSub != null) ? dreyfusStage(slSub) : null
+      };
+    });
+
     by_domain[d.key] = {
       SL_dom: sl,
       T_peak_dom: tp,
       T_floor: tf,
       breadth: brdth,
-      confidence_dom: "preliminary",  // refined in Phase 4 with sub-domain confidence
+      confidence_dom: (typeof domainConfidence === "function") ? domainConfidence(d.key) : "low",
       dreyfus_stage: stage,
+      sub_domains_v6: sub_domains,
       keystones: {
         mastered: keystoneMastered.length,
         total:    keystoneAll.length,
@@ -7948,14 +7991,19 @@ function exportTutorBrief(){
     by_domain,
     unlock_progress: {},
     coaching: {
-      natural_pulls:   [],
-      where_to_invest: [],
-      rotation: { last_rotated: null, next_rotation_in_days: null },
+      natural_pulls:   (state.coachingPicks && state.coachingPicks.natural_pulls)   || [],
+      where_to_invest: (state.coachingPicks && state.coachingPicks.where_to_invest) || [],
+      rotation: {
+        last_rotated: (state.coachingPicks && state.coachingPicks.last_rotated) || null,
+        next_rotation_in_days: (state.coachingPicks && state.coachingPicks.last_rotated)
+          ? Math.max(0, Math.round((state.coachingPicks.last_rotated + COACHING_ROTATION_DAYS * 86400000 - Date.now()) / 86400000))
+          : null
+      },
       allocation_directive
     },
     recent_observations,
     parent_notes,
-    tutor_system_prompt: TUTOR_SYSTEM_PROMPT_V5
+    tutor_system_prompt: TUTOR_SYSTEM_PROMPT_V6
   };
 }
 
@@ -8550,192 +8598,205 @@ const DOMAIN_GUIDANCE = {
   social: { strong:"Strong social-emotional — extend playdates, name subtle emotions (proud/disappointed/curious), Brackett RULER vocabulary.", growth:"Daily emotion-naming, calm jar, time-ins (not time-outs). Co-regulation precedes self-regulation (Perry). Connect before redirect (Siegel)." },
 };
 
-/* ─────────────────────────────────────────────────────────────────────────
-   FEATURE B — Coaching view (rewrite of renderTailoredAssessment)
-   Two columns answering the two questions parents actually ask:
-     LEFT  "Ready for a push" — top 2 by stallScore
-     RIGHT "Riding the wave"  — top 2 by momentumScore
-   Uses v3.1 signals (frontierSkills, deriveStatus, state.observations,
-   skillXp). Copy stays kind — no judgement-laden words anywhere in the UI.
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — COACHING (Natural pull · Where to invest · quarterly rotation)
+   ═════════════════════════════════════════════════════════════════════════
+   Replaces the v5 renderTailoredAssessment + 6 _coach* helpers.
+
+   Two buckets, each derived from z-scored domain signals:
+     Natural pull   — top 2 by pullScore   (xp30 + tierCeiling above median)
+     Where to invest— top 2 by investScore (stalled, missing keystones,
+                       regressions; penalised by xp30)
+
+   Rotated every 90 days unless the user taps "Rotate now". Words like
+   "weakness / behind / delay / deficit / lagging" are banned.
    ───────────────────────────────────────────────────────────────────────── */
 
-/* Sum of XP for skills in `domKey` whose latest observation is within the
-   last `daysAgo`. Approximates "XP earned in window".                       */
-function _coachXpInWindow(domKey, daysAgo){
-  const cutoff = Date.now() - daysAgo * 86400000;
+/* xpEarnedSince(domKey, sinceTs) — proxies "momentum" using v6 observations.
+   A skill scores skillXp(s.id) if it has any observation in the window. */
+function xpEarnedSince(domKey, sinceTs){
   let total = 0;
   for (const s of SKILLS){
     if (s.dom !== domKey) continue;
-    const obs = (state.observations || []).filter(o => o.skillId === s.id && (o.ts||0) >= cutoff);
-    if (obs.length) total += skillXp(s.id);
-  }
-  return total;
-}
-
-function _coachWeeklyXp(domKey, weekIdx){
-  const now = Date.now();
-  const end = now - weekIdx * 7 * 86400000;
-  const start = end - 7 * 86400000;
-  let total = 0;
-  for (const s of SKILLS){
-    if (s.dom !== domKey) continue;
-    const hit = (state.observations || []).some(o => o.skillId === s.id && (o.ts||0) >= start && (o.ts||0) < end);
+    const hit = (state.observations || []).some(o => o && o.skillId === s.id && (o.ts || 0) >= sinceTs);
     if (hit) total += skillXp(s.id);
   }
   return total;
 }
 
-function _coachStallScore(domKey){
-  let score = 0;
-  const cutoff21 = Date.now() - 21 * 86400000;
-  for (const s of SKILLS){
-    if (s.dom !== domKey) continue;
-    const st = deriveStatus(s.id);
-    if (st === "practising"){
-      const lastTs = (state.observations || [])
-        .filter(o => o.skillId === s.id).map(o => o.ts || 0)
-        .reduce((a,b) => Math.max(a,b), 0);
-      if (lastTs && lastTs < cutoff21) score += 1;
-    }
-    if (s.keystone && st !== "mastered" && st !== "already_mastered") score += 1;
-  }
-  if (_coachXpInWindow(domKey, 7) === 0) score += 1;
-  return score;
-}
-
-function _coachMomentumScore(domKey){
-  const meanXp = DOMAINS.reduce((s,d) => s + _coachXpInWindow(d.key, 7), 0) / Math.max(1, DOMAINS.length);
-  const xp7 = _coachXpInWindow(domKey, 7);
-  let score = meanXp > 0 ? (xp7 / meanXp) : 0;
-  const cutoff30 = Date.now() - 30 * 86400000;
-  const recentMast = (state.observations || []).filter(o => {
-    const sk = SKILLS.find(x => x.id === o.skillId);
-    return sk && sk.dom === domKey && o.status === "mastered" && (o.ts||0) >= cutoff30;
+/* domainCoachingSignals(domKey) — the raw signal bundle scored across all
+   domains. tierCeiling is the highest UDI ever mastered in the domain;
+   stalled = number of working_on_it skills with no obs in 30d; keystoneGap =
+   missing keystones; regressions60 = skills currently in regressed state
+   that flipped within the last 60 days.                                      */
+function domainCoachingSignals(domKey){
+  const now = Date.now();
+  const D = 86400000;
+  const domSkills = SKILLS.filter(s => s.dom === domKey);
+  const xp7   = xpEarnedSince(domKey, now -  7 * D);
+  const xp30  = xpEarnedSince(domKey, now - 30 * D);
+  const ceiling = domSkills.filter(s => isMasteredV6(s))
+                           .reduce((max, s) => Math.max(max, (typeof s.udi === "number" ? s.udi : 0)), 0);
+  const stalled = domSkills.filter(s => {
+    if (deriveStatusV6(s.id) !== "working_on_it") return false;
+    const last = obsForSkill(s.id).map(o => o.ts || 0).reduce((a, b) => Math.max(a, b), 0);
+    return last && (now - last) > 30 * D;
   }).length;
-  score += recentMast * 0.5;
-  // Cross-domain skills (skill.secondary_domains non-empty). Field is optional
-  // in the SKILLS schema; default to 0 when absent.
-  const crossCount = SKILLS.filter(s => s.dom === domKey && Array.isArray(s.secondary_domains) && s.secondary_domains.length).length;
-  score += crossCount * 0.25;
-  return score;
-}
-
-/* Confidence chip from observation density. Design decision: define locally
-   since no §12d source-of-truth exists in the file. Maps observations in the
-   last 14 days for the domain to 3 buckets.                                  */
-function _coachConfidence(domKey){
-  const cutoff = Date.now() - 14 * 86400000;
-  const n = (state.observations || []).filter(o => {
-    const sk = SKILLS.find(x => x.id === o.skillId);
-    return sk && sk.dom === domKey && (o.ts||0) >= cutoff;
+  const keystoneGap = domSkills.filter(s => s.keystone && !isMasteredV6(s)).length;
+  const regressions60 = domSkills.filter(s => {
+    const obs = obsForSkill(s.id).filter(o => o && o.status === "regressed").sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+    return obs && (now - (obs.ts || 0)) < 60 * D;
   }).length;
-  if (n >= 4) return { label:"High confidence",   color:"#14532D", bg:"#DCFCE7" };
-  if (n >= 1) return { label:"Medium confidence", color:"#854D0E", bg:"#FEF3C7" };
-  return        { label:"Light data",        color:"#374151", bg:"#F3F4F6" };
+  const coverage = domSkills.length
+    ? domSkills.filter(s => obsForSkill(s.id).some(o => o && o.source !== "baseline")).length / domSkills.length
+    : 0;
+  const tFloor = (typeof domainTFloor === "function") ? domainTFloor(domKey) : { subdomain: null, subdomain_label: null };
+  return {
+    xp7, xp30,
+    tierCeiling: ceiling,
+    stalled, keystoneGap, regressions60,
+    coverage,
+    rate_limiting_sub:       tFloor.subdomain || null,
+    rate_limiting_sub_label: tFloor.subdomain_label || null,
+    confidence:              (typeof domainConfidence === "function") ? domainConfidence(domKey) : "low"
+  };
 }
 
-/* Bottleneck hint for the frontier skill — answers "one more observation
-   needed in: ___". Inspects the skill's observation pattern.                 */
-function _coachBottleneck(skill){
-  const obs = (state.observations || []).filter(o => o.skillId === skill.id);
-  if (obs.length === 0) return "a first observation in any context";
-  const observers = new Set(obs.map(o => o.by || "—"));
-  if (observers.size === 1) return "a second observer (try the other parent)";
-  const spread = (Math.max(...obs.map(o => o.ts||0)) - Math.min(...obs.map(o => o.ts||0))) / 86400000;
-  if (spread < 14) return "a 14-day spread (re-check next week)";
-  return "another session to lock it in";
+function _zScore(values, x){
+  if (!values.length) return 0;
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((a, b) => a + (b - mean) * (b - mean), 0) / values.length;
+  const sd = Math.sqrt(variance) || 1;
+  return (x - mean) / sd;
 }
 
-function renderTailoredAssessment(){
-  const el = document.getElementById("tailoredAssessment");
+function computeCoachingPicks(){
+  const active = (typeof getActiveDomainKeys === "function") ? getActiveDomainKeys() : DOMAINS.map(d => d.key);
+  const rows = active.map(d => ({ d, sig: domainCoachingSignals(d) }));
+  const xp30Vals  = rows.map(x => x.sig.xp30);
+  const ceilVals  = rows.map(x => x.sig.tierCeiling);
+  const stallVals = rows.map(x => x.sig.stalled);
+  const ksVals    = rows.map(x => x.sig.keystoneGap);
+  const regVals   = rows.map(x => x.sig.regressions60);
+  rows.forEach(x => {
+    x.pullScore   = _zScore(xp30Vals, x.sig.xp30) + _zScore(ceilVals, x.sig.tierCeiling);
+    x.investScore = _zScore(stallVals, x.sig.stalled)
+                  + _zScore(ksVals, x.sig.keystoneGap)
+                  + 0.5 * _zScore(regVals, x.sig.regressions60)
+                  - _zScore(xp30Vals, x.sig.xp30);
+  });
+  const natural    = [...rows].sort((a, b) => b.pullScore   - a.pullScore  ).slice(0, 2);
+  const invest     = [...rows].sort((a, b) => b.investScore - a.investScore).slice(0, 2);
+  return {
+    natural_pulls:   natural.map(x => ({ domain: x.d, signals: x.sig, score: x.pullScore })),
+    where_to_invest: invest .map(x => ({ domain: x.d, signals: x.sig, score: x.investScore })),
+    computed_at: Date.now()
+  };
+}
+
+const COACHING_ROTATION_DAYS = 90;
+
+function maybeRotateCoaching(force){
+  state.coachingPicks = state.coachingPicks || {};
+  const last = state.coachingPicks.last_rotated || 0;
+  const dueAt = last + COACHING_ROTATION_DAYS * 86400000;
+  if (!force && last && Date.now() < dueAt) return false;
+  const picks = computeCoachingPicks();
+  state.coachingPicks = {
+    natural_pulls:   picks.natural_pulls.map(x => ({ domain: x.domain.key, rate_limiting_sub: x.signals.rate_limiting_sub, signals: x.signals })),
+    where_to_invest: picks.where_to_invest.map(x => ({ domain: x.domain.key, rate_limiting_sub: x.signals.rate_limiting_sub, signals: x.signals })),
+    last_rotated: Date.now()
+  };
+  if (typeof saveState === "function") saveState(state);
+  return true;
+}
+
+function renderCoachingCard(){
+  const el = document.getElementById("v6Coaching");
   if (!el) return;
   try {
-    const totalObs = (state.observations || []).length;
-    if (totalObs < 5){
-      const pct = Math.min(100, Math.round(totalObs / 5 * 100));
-      el.innerHTML = `
-        <div style="text-align:center; padding:18px 8px">
-          <div style="font-size:32px; line-height:1; margin-bottom:6px">🧭</div>
-          <div style="font-weight:700; font-size:15px; margin-bottom:4px">Log a few more activities to unlock coaching insights</div>
-          <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">${totalObs}/5 observations · ${5-totalObs} more to start your tailored picture</div>
-          <div class="progress-bar" style="max-width:280px; margin:0 auto"><div style="width:${pct}%"></div></div>
-        </div>`;
-      return;
+    // Ensure picks exist (first-load case).
+    if (!state.coachingPicks || !state.coachingPicks.last_rotated){
+      try { maybeRotateCoaching(true); } catch(e){ /* ignore */ }
     }
+    const picks = state.coachingPicks || { natural_pulls: [], where_to_invest: [], last_rotated: 0 };
+    const lastRot = picks.last_rotated ? new Date(picks.last_rotated).toLocaleDateString("en-GB", { year:"numeric", month:"short", day:"numeric" }) : "—";
+    const nextRotDays = picks.last_rotated
+      ? Math.max(0, Math.round((picks.last_rotated + COACHING_ROTATION_DAYS * 86400000 - Date.now()) / 86400000))
+      : 0;
 
-    // Score every domain on both axes
-    const scored = DOMAINS.map(d => ({
-      d,
-      stall:    _coachStallScore(d.key),
-      momentum: _coachMomentumScore(d.key),
-      weekly:   [3,2,1,0].map(i => _coachWeeklyXp(d.key, i)),
-      conf:     _coachConfidence(d.key),
-      frontier: frontierSkills().find(s => s.dom === d.key) || null,
-    }));
+    const domByKey = (k) => DOMAINS.find(d => d.key === k);
+    const subLabelFor = (domKey, subKey) => {
+      const subs = (typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[domKey]) ? SUBDOMAINS[domKey] : [];
+      return (subs.find(s => s.key === subKey) || {}).label || subKey || "—";
+    };
 
-    const stalls    = [...scored].sort((a,b) => b.stall    - a.stall   ).slice(0, 2);
-    const momentums = [...scored].sort((a,b) => b.momentum - a.momentum).slice(0, 2);
-    const theme = pickTheme();
+    const renderRow = (pick, bucket) => {
+      const d = domByKey(pick.domain) || { emoji:"·", label: pick.domain };
+      const sig = pick.signals || {};
+      const lowConf = sig.confidence === "low";
+      const confEmoji = sig.confidence === "high" ? "🟢" : (sig.confidence === "medium" ? "🟡" : "⚪");
+      let signalLine;
+      if (bucket === "pull"){
+        signalLine = `xp30 ${sig.xp30 || 0} · ceiling UDI ${(sig.tierCeiling || 0).toFixed(1)} · ${confEmoji} ${sig.confidence}`;
+      } else {
+        const subTxt = pick.rate_limiting_sub
+          ? `rate-limiter: <strong>${escapeHtml(subLabelFor(pick.domain, pick.rate_limiting_sub))}</strong>`
+          : "no rate-limiter identified yet";
+        signalLine = `${subTxt} · missing keystones: ${sig.keystoneGap || 0} · ${confEmoji} ${sig.confidence}`;
+      }
+      return `<div class="dom-row">
+        <strong>${d.emoji} ${escapeHtml(d.label)}</strong>${lowConf ? ' <span style="color:#92400E; font-size:10px">(light data — interpret loosely)</span>' : ''}
+        <div class="signals">${signalLine}</div>
+      </div>`;
+    };
 
-    // Domain-card renderer (used in both columns)
-    function card(item, side){
-      const { d, frontier, weekly, conf } = item;
-      const maxXp = Math.max(1, ...weekly);
-      const spark = weekly.map(v => {
-        const h = Math.max(3, Math.round((v / maxXp) * 28));
-        return `<div title="${v} XP" style="width:8px; height:${h}px; background:${side==="left"?"#F59E0B":"#3B82F6"}; border-radius:2px; opacity:${v?1:0.25}"></div>`;
-      }).join("");
-      const themeActs = (theme && Array.isArray(theme[d.key])) ? theme[d.key].slice(0, 2) : [];
-      const acts = themeActs.length
-        ? themeActs.map(a => `<li style="margin:2px 0">${escapeHtml(a.t)}<span style="color:var(--muted); font-size:11px; margin-left:6px">${a.d||""}</span></li>`).join("")
-        : `<li style="color:var(--muted)">Open this week's activities to pick a quick win.</li>`;
-      const sideBg     = side === "left" ? "#FFF7ED" : "#EEF2FF";
-      const sideBorder = side === "left" ? "#FED7AA" : "#C7D2FE";
-      const sideAccent = side === "left" ? "#92400E" : "#3730A3";
-      return `
-        <div style="background:${sideBg}; border:1px solid ${sideBorder}; border-radius:12px; padding:12px; margin-bottom:10px">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; margin-bottom:6px">
-            <div style="font-weight:700; font-size:14px; color:${sideAccent}">${d.emoji} ${escapeHtml(d.label)}</div>
-            <span style="font-size:10px; font-weight:700; color:${conf.color}; background:${conf.bg}; padding:2px 7px; border-radius:6px">${conf.label}</span>
-          </div>
-          ${frontier
-            ? `<div style="font-size:12px; margin-bottom:4px"><strong>Next unlock:</strong> ${escapeHtml(frontier.t)}<span style="color:var(--muted); margin-left:4px">${escapeHtml(frontier.age||"")}</span></div>
-               <div style="font-size:11px; color:${sideAccent}; margin-bottom:6px">📝 One more observation: ${escapeHtml(_coachBottleneck(frontier))}</div>`
-            : `<div style="font-size:12px; margin-bottom:6px; color:${sideAccent}">🌟 Every catalogue skill at her tier is mastered — keep playing for breadth.</div>`}
-          <div style="font-size:11px; color:var(--muted); margin-bottom:3px; text-transform:uppercase; letter-spacing:.06em; font-weight:700">Quick wins from this week's theme</div>
-          <ul style="margin:0 0 8px 18px; padding:0; font-size:12px; line-height:1.45">${acts}</ul>
-          <div style="display:flex; align-items:flex-end; gap:3px; height:30px; margin-top:6px" title="Weekly XP (4 wks)">${spark}</div>
-          <div style="font-size:10px; color:var(--muted); margin-top:2px">XP over last 4 weeks (oldest → this week)</div>
-        </div>
-      `;
-    }
+    const pullRows   = (picks.natural_pulls   || []).map(p => renderRow(p, "pull")).join("")
+                       || `<div class="signals">Log a few mastery declarations to surface natural-pull domains.</div>`;
+    const investRows = (picks.where_to_invest || []).map(p => renderRow(p, "invest")).join("")
+                       || `<div class="signals">No invest candidates yet — keep playing for breadth.</div>`;
+
+    const anyLow = (picks.natural_pulls || []).concat(picks.where_to_invest || []).some(p => (p.signals || {}).confidence === "low");
+    const caveat = anyLow
+      ? `<div class="low-conf-caveat">⚠️ One or more domains has light data — these picks will sharpen as you log more observations.</div>`
+      : "";
 
     el.innerHTML = `
-      <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:12px">
-        Based on ${totalObs} observation${totalObs===1?'':'s'} across ${SKILLS.length} catalogue skills. Kept gentle — every domain shows a building block and her natural momentum.
+      <div class="v6-coaching-header">
+        <h3>🧭 Coaching · last rotated ${escapeHtml(lastRot)} · next rotation in ${nextRotDays}d</h3>
+        <button class="small rotate-btn" id="v6RotateNow">🔄 Rotate now</button>
       </div>
-      <div style="display:grid; grid-template-columns: 1fr; gap:12px" id="coachGrid">
-        <div>
-          <div style="font-weight:700; font-size:14px; color:#92400E; margin-bottom:8px">🎯 Ready for a push</div>
-          ${stalls.map(s => card(s, "left")).join("") || `<div class="sub" style="color:var(--muted)">No domain is stalling — keep the routine.</div>`}
+      <div class="v6-coaching-grid">
+        <div class="v6-coaching-col">
+          <h4 class="pull-h">🌟 Natural pull (lean in)</h4>
+          ${pullRows}
         </div>
-        <div>
-          <div style="font-weight:700; font-size:14px; color:#3730A3; margin-bottom:2px">🚀 Riding the wave</div>
-          <div class="sub" style="color:var(--muted); font-size:11px; margin-bottom:8px">Natural momentum — domains where she's pulling ahead</div>
-          ${momentums.map(m => card(m, "right")).join("") || `<div class="sub" style="color:var(--muted)">Momentum builds with the next session.</div>`}
+        <div class="v6-coaching-col">
+          <h4 class="invest-h">🌱 Where to invest</h4>
+          ${investRows}
         </div>
       </div>
-      <div style="margin-top:12px; font-size:11px; color:var(--muted); font-style:italic">
-        Two-column layout becomes side-by-side on tablet/desktop. Mantra: stretch one area at a time, joy &gt; pressure (Gopnik, "The Gardener and The Carpenter").
-      </div>
-      <style>
-        @media (min-width: 720px){ #coachGrid{ grid-template-columns: 1fr 1fr; } }
-      </style>
+      ${caveat}
     `;
+    const rb = document.getElementById("v6RotateNow");
+    if (rb && !rb._wired){
+      rb._wired = true;
+      rb.addEventListener("click", () => {
+        try { maybeRotateCoaching(true); } catch(e){ console.warn("rotate failed", e); }
+        showToast("🔄 Coaching picks rotated");
+        renderCoachingCard();
+      });
+    }
   } catch(err){
-    console.warn("renderTailoredAssessment failed", err);
+    console.warn("v6 renderCoachingCard failed", err);
     el.innerHTML = `<div class="sub" style="color:var(--muted)">Coaching insights unavailable — please reload.</div>`;
   }
+}
+
+/* Back-compat shim: existing callers (Vocab quickflow, renderProgressView)
+   call renderTailoredAssessment(). Map them to the v6 coaching card.        */
+function renderTailoredAssessment(){
+  return renderCoachingCard();
 }
 
 /* Memory view */
@@ -10312,10 +10373,12 @@ function renderSkillVocabProgress(){
     vocabCard.id = "progVocabCard";
     vocabCard.className = "card";
     vocabCard.style.marginBottom = "14px";
-    // Insert before tailoredAssessment card
-    const ta = document.getElementById("tailoredAssessment");
-    if (ta && ta.parentElement) ta.parentElement.insertBefore(vocabCard, ta.parentElement.querySelector(".card:has(#tailoredAssessment)") || ta.parentElement.children[0]);
-    else { const ps = document.getElementById("progressView"); if(ps) ps.appendChild(vocabCard); }
+    // Insert before the v6 coaching card (renamed from tailoredAssessment).
+    const ta = document.getElementById("v6Coaching") || document.getElementById("tailoredAssessment");
+    if (ta && ta.parentElement){
+      const coachingCard = ta.closest(".card") || ta.parentElement;
+      coachingCard.parentElement.insertBefore(vocabCard, coachingCard);
+    } else { const ps = document.getElementById("progressView"); if(ps) ps.appendChild(vocabCard); }
   }
   let totalV=0, mEn=0, mFr=0, mBoth=0;
   VOCAB_MASTER.forEach(cat => cat.words.forEach(w => {
