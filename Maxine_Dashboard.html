@@ -6952,6 +6952,186 @@ function renderEraSchedule(){
   el.innerHTML = `<div style="font-size:11px; color:var(--muted); margin-bottom:4px">Child: ${escapeHtml(child.name)} · age ${m}m</div>${rows}`;
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v5 — DREYFUS STAGES + TUTOR MODE SHIFTS
+   ═════════════════════════════════════════════════════════════════════════
+   Stage labels (Dreyfus 1980 / Ericsson 1993). Drive both UI display
+   (per-domain card line when SL ≥ 4) and tutor-mode selection in the
+   AI-tutor payload.
+   ───────────────────────────────────────────────────────────────────────── */
+function dreyfusStage(udi){
+  if (udi == null || isNaN(udi)) return { stage: "—", desc: "—", tutor_mode: "zpd_scaffolding" };
+  if (udi < 2)  return { stage: "Reflexive",                desc: "Innate / sensorimotor",                          tutor_mode: "sensory_scaffolding" };
+  if (udi < 4)  return { stage: "Foundation",               desc: "Skill emergence",                                tutor_mode: "zpd_scaffolding" };
+  if (udi < 6)  return { stage: "Novice / Advanced Beginner", desc: "Rule-following → context-aware",               tutor_mode: "mastery_learning" };
+  if (udi < 7)  return { stage: "Competent",                desc: "Conscious planning",                             tutor_mode: "deliberate_practice" };
+  if (udi < 8)  return { stage: "Proficient",               desc: "Intuitive recognition + analytical decisions",   tutor_mode: "self_directed_practice" };
+  if (udi <= 10) return { stage: "Expert / Master",          desc: "Intuitive mastery",                              tutor_mode: "coach_feedback" };
+  return { stage: "—", desc: "—", tutor_mode: "zpd_scaffolding" };
+}
+
+const TUTOR_MODE_LABELS = {
+  sensory_scaffolding:    "Playful sensory + caregiver co-doing",
+  zpd_scaffolding:        "ZPD scaffolding (Vygotsky)",
+  mastery_learning:       "Mastery learning (Bloom)",
+  deliberate_practice:    "Deliberate practice (Ericsson)",
+  self_directed_practice: "Self-directed practice + coach checkpoints",
+  coach_feedback:         "Coach diagnoses; learner drives"
+};
+
+/* Tutor system prompt — verbatim from v5 spec §5.4. Embedded as a JS
+   string for inclusion in exportTutorBrief output.                          */
+const TUTOR_SYSTEM_PROMPT_V5 = [
+  "You are an adaptive tutor for Maxine. Use the payload to propose 1–2 activities per session. Allocate per coaching.allocation_directive.",
+  "",
+  "Tutor mode varies by target skill's UDI and the Dreyfus stage:",
+  "— UDI < 4 (Reflexive / Foundation / Novice): ZPD scaffolding with caregiver co-doing. Activities are playful, repetition-rich. ≤10 min.",
+  "— UDI 4–6 (Novice / Advanced Beginner): mastery learning. Immediate feedback, repetition until consistent. ~15 min.",
+  "— UDI 6–7 (Competent): structured deliberate practice. Three rules per Ericsson: focused effort, immediate feedback, weakness-targeted. ~25 min.",
+  "— UDI 7–8 (Proficient): self-directed practice with coach checkpoints. Learner sets goals; coach reviews. ~30–45 min.",
+  "— UDI ≥ 8 (Expert): coach-feedback model. Learner-driven; coach diagnoses bottlenecks. Variable duration.",
+  "",
+  "Standing rules across all modes:",
+  "(1) Within each chosen domain, target frontier skills sorted by frontierScore (P(ready) × downstream × keystone × ZPD_proximity).",
+  "(2) Prefer cross-domain activities when payload.by_domain[d].cross_domain_skills is non-empty.",
+  "(3) Replace activities for skills in stale_due_for_recheck with quick reverification.",
+  "(4) Honour mastery_config and BKT confidence — do not advance until thresholds met.",
+  "(5) For 'invest' bucket, target rate-limiting sub-domain + keystones.missing.",
+  "(6) Cite developmental 'why' (with framework: CDC / Bayley / Vygotsky / Piaget / Ericsson / etc.).",
+  "(7) Bilingual labels EN+FR (extend to additional languages once multilingual domain unlocks).",
+  "(8) Materials: household for UDI<6, may include instruments / sport equipment for UDI≥6.",
+  "",
+  "Output JSON only: { activity_title, materials, steps[3–7 depending on mode], domain, primary_subdomain, secondary_subdomains[], targets_skills[], rationale, framework_citation, expected_duration_min, allocation_bucket, tutor_mode, language_labels{en, fr, ...} }. No prose, no markdown."
+].join("\n");
+
+/* exportTutorBrief() — v5 payload schema. Builds a comprehensive snapshot
+   of every signal the AI tutor needs. v4 features that don't exist in
+   this dataset (sub_domains, multi-observer, rotation, archive) are
+   defaulted to empty/null per the plan rather than fabricated.
+   ───────────────────────────────────────────────────────────────────── */
+function exportTutorBrief(){
+  const child = currentChild() || { name: state.currentChild || "—", dob: null };
+  const era = activeEra(child);
+  const ageMonths = chronoAgeMonths(child);
+  const stale30 = Date.now() - 30 * 86400000;
+
+  // BKT confidence summary
+  const bktSummary = { high_confidence: 0, medium_confidence: 0, low_confidence: 0 };
+  SKILLS_ALL.forEach(s => {
+    const p = bktReady(s.id);
+    if (p >= 0.85)      bktSummary.high_confidence++;
+    else if (p >= 0.50) bktSummary.medium_confidence++;
+    else                bktSummary.low_confidence++;
+  });
+
+  // Per-domain breakdown
+  const by_domain = {};
+  DOMAINS.forEach(d => {
+    const sl    = domainSL(d.key);
+    const tp    = domainTPeak(d.key);
+    const tf    = domainTFloor(d.key);
+    const brdth = domainBreadth(d.key);
+    const stage = dreyfusStage(sl || 0);
+    const domSkills = SKILLS_ALL.filter(s => s.dom === d.key);
+    const keystoneAll = domSkills.filter(s => s.keystone === true);
+    const keystoneMastered = keystoneAll.filter(s => {
+      const st = deriveStatus(s.id);
+      return st === "mastered" || st === "already_mastered";
+    });
+    const keystoneMissing = keystoneAll.filter(s => !keystoneMastered.includes(s)).map(s => s.id);
+
+    // Frontier with v5 metadata
+    const frontier = frontierSkills(d.key, 5).map(s => ({
+      skill_id:       s.id,
+      label:          s.t,
+      udi:            s.udi,
+      frontier_score: frontierScore(s),
+      p_ready:        bktReady(s.id),
+      downstream:     countDownstream(s.id),
+      keystone:       !!s.keystone,
+      why:            s.why || ""
+    }));
+
+    // Stretch and stale
+    const stretch = (typeof stretchSkills === "function" ? stretchSkills() : [])
+      .filter(s => s.dom === d.key)
+      .map(s => ({ skill_id: s.id, label: s.t, udi: s.udi }));
+    const recent_masteries = (state.observations || [])
+      .filter(o => o && o.status === "mastered" && (o.ts || 0) >= stale30)
+      .map(o => SKILLS_ALL.find(s => s.id === o.skillId))
+      .filter(s => s && s.dom === d.key)
+      .map(s => ({ skill_id: s.id, label: s.t, udi: s.udi }));
+    const stale_due_for_recheck = SKILLS_ALL
+      .filter(s => s.dom === d.key && (deriveStatus(s.id) === "mastered" || deriveStatus(s.id) === "already_mastered"))
+      .map(s => {
+        const obs = (state.observations || []).filter(o => o.skillId === s.id);
+        const last = obs.length ? Math.max(...obs.map(o => o.ts || 0)) : 0;
+        const due = last + nextReverifyDays(s.id) * 86400000;
+        return { skill_id: s.id, label: s.t, due_at: due, overdue: Date.now() > due };
+      })
+      .filter(x => x.overdue);
+
+    by_domain[d.key] = {
+      SL_dom: sl,
+      T_peak_dom: tp,
+      T_floor: tf,
+      breadth: brdth,
+      confidence_dom: bktSummary.high_confidence > 0 ? "calibrated" : "preliminary",
+      dreyfus_stage: stage,
+      keystones: {
+        mastered: keystoneMastered.length,
+        total:    keystoneAll.length,
+        missing:  keystoneMissing
+      },
+      sub_domains: [], // not present in current dataset (v4 prerequisite skipped per plan)
+      frontier,
+      stretch,
+      stale_due_for_recheck,
+      recent_masteries,
+      cross_domain_skills: SKILLS_ALL.filter(s =>
+        s.dom === d.key && Array.isArray(s.edges) && s.edges.some(e => e.type === "bridges")
+      ).map(s => s.id),
+      tutor_directive: "" // no v4 coaching logic to source from
+    };
+  });
+
+  // Coaching rotation defaults (no v4 rotation logic exists)
+  const allocation_directive = "60% natural pull · 30% rate-limiter sub-domain · 10% consolidation/play";
+
+  // Recent observations (last 20)
+  const recent_observations = (state.observations || []).slice(-20);
+  // Parent notes (last 3 from feedback if any)
+  const parent_notes = ((state.feedback || []).slice(-3)).map(f => f.text || "");
+
+  return {
+    child: {
+      name: child.name,
+      chrono_age_months: ageMonths,
+      current_era: era ? era.key : null,
+      locale: state.locale || "en-GB"
+    },
+    generated_at: new Date().toISOString(),
+    observers: [state.currentUser || "—"], // v4 multi-observer absent; default to single
+    mastery_config: state.masteryConfig || {},
+    active_era: era ? { key: era.key, label: era.label, foundation: era.foundation || era.foundation_chc || [], advanced: era.advanced || era.backbone || [] } : null,
+    era_transition_pending: (state.pendingGenerations || []).some(p => p && p.type === "era_retagging" && p.status === "pending"),
+    domains_unlocked: DOMAINS.map(d => d.key),
+    domains_locked:   [], // no domain-unlock gating in this dataset
+    by_domain,
+    unlock_progress: {},
+    coaching: {
+      natural_pulls:   [],
+      where_to_invest: [],
+      rotation: { last_rotated: null, next_rotation_in_days: null },
+      allocation_directive
+    },
+    bkt_summary: bktSummary,
+    recent_observations,
+    parent_notes,
+    tutor_system_prompt: TUTOR_SYSTEM_PROMPT_V5
+  };
+}
+
 /* v5 frontierSkills — accepts (domKey, maxN). When called with no args,
    preserves the v3.1 "max-per-domain cap" multi-domain view so existing
    callers (Game Creator, coaching) keep working. When called with a
