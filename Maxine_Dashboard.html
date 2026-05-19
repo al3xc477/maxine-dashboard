@@ -6464,6 +6464,16 @@ function renderSkillCatalogue(){
       drawSkillCatalogue();
     };
   }
+  // Focus-mode toggle (Improvement B)
+  const focBtn = document.getElementById("skillFocusToggle");
+  if (focBtn && !focBtn._wired){
+    focBtn._wired = true;
+    focBtn.onclick = () => {
+      _catFocusMode = !_catFocusMode;
+      try { localStorage.setItem("maxine-focus-mode", _catFocusMode ? "true" : "false"); } catch(e){}
+      drawSkillCatalogue();
+    };
+  }
   // Vocab stat card "View full vocabulary →" link
   const vGo = document.getElementById("catVocabGoBtn");
   if (vGo && !vGo._wired){
