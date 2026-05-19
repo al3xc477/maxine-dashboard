@@ -6456,6 +6456,13 @@ function addObservation({ skillId, status, by, source, notes }){
   // Keep legacy skillStatus mirror in sync so v3.0 code paths still work.
   state.skillStatus = state.skillStatus || {};
   state.skillStatus[skillId] = { status, by: by || state.currentUser || "—", ts: Date.now() };
+  // v5: update Bayesian Knowledge Tracing for real (non-synthetic) skill IDs.
+  // Synthetic IDs like "vocab-cat_en" aren't in SKILLS and would create stray
+  // BKT entries — filter them out by membership in the catalogue.
+  if (typeof bktUpdate === "function" && SKILLS.find(x => x.id === skillId)){
+    const r = bktResultFromStatus(status);
+    if (r) bktUpdate(skillId, r);
+  }
   _v31Bump();
   saveState(state);
 }
