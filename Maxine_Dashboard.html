@@ -5955,27 +5955,23 @@ function udiOf(skillOrId){
   return TIER_TO_UDI[tierOf(s)] != null ? TIER_TO_UDI[tierOf(s)] : 3.0;
 }
 
-/* One-shot v5 migration: for every skill in the catalogue, populate `udi` and
-   `udi_rationale`, then remove `tier`. Idempotent — gated by the v5 flag on
-   state. Note: SKILLS is a `const` array of plain objects; mutating its
-   entries is safe (the reference doesn't change).                            */
+/* v5 migration: stamp every skill in SKILLS with `udi` + `udi_rationale`,
+   remove `tier`. Always run on load — SKILLS is a `const` literal so
+   migrations don't survive a page reload; re-applying is idempotent and
+   cheap (~90 skills, simple field mutations).
+   No saveState() here: would trip _v31Bump TDZ (declared later in file)
+   AND there's nothing to persist (SKILLS isn't in state).                    */
 (function migrateUdiV5(){
   try {
-    if (state.v5UdiMigrationDone) return;
-    let touched = 0;
     SKILLS.forEach(s => {
-      if (typeof s.udi === "number") return; // already migrated
+      if (typeof s.udi === "number") return; // already migrated this load
       const hadExplicitTier = (typeof s.tier === "number");
       const t = hadExplicitTier ? s.tier : tierOf(s);
       const u = TIER_TO_UDI[t] != null ? TIER_TO_UDI[t] : 3.0;
       s.udi = u;
       s.udi_rationale = `Migrated from v4 ${hadExplicitTier ? "explicit tier "+s.tier : "derived tier "+t+" (age '"+(s.age||"?")+"')"}; refine via Calibration Wizard`;
       if (hadExplicitTier) delete s.tier;
-      touched++;
     });
-    state.v5UdiMigrationDone = true;
-    state.v5MigratedAt = Date.now();
-    if (touched && typeof saveState === "function") saveState(state);
   } catch(e){ console.warn("v5 UDI migration failed", e); }
 })();
 
