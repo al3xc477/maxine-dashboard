@@ -6591,20 +6591,21 @@ function drawSkillCatalogue(){
     hidCount.textContent = hiddenTotal > 0 ? `${hiddenTotal} hidden` : "";
   }
 
-  // Domain summary pills — clickable filter
+  // Domain summary pills — clickable filter (Improvement C)
+  // Now shows: Line 1: emoji + name. Line 2: Lv N · NNN XP.
+  // No "N/M mastered" count anywhere — replaced by the live XP/Level pair.
   const summary = document.getElementById("skillSummary");
   if (summary){
     summary.innerHTML = DOMAINS.map(d => {
-      const ds = SKILLS.filter(s => s.dom === d.key);
-      const m = ds.filter(s => skillStatus(s.id) === "mastered").length;
-      const ratio = ds.length ? m/ds.length : 0;
-      const lv = domainLevel(ratio);
+      const xp = (typeof domainXp === "function") ? domainXp(d.key) : 0;
+      const lvXp = (typeof xpToLevel === "function") ? xpToLevel(xp) : { label:"L1", color:"#374151", bg:"#F3F4F6", score:1 };
       const isActive = fd === d.key;
-      return `<div data-filterdomain="${d.key}" style="background:${isActive?lv.bg:"#F8FAFC"}; border:${isActive?"2px solid "+lv.color:"1px solid var(--line)"}; border-radius:8px; padding:8px; cursor:pointer; transition:border .12s">
-        <div style="font-size:12px; font-weight:700">${d.emoji} ${escapeHtml(d.label)}</div>
-        <div style="font-size:11px; font-weight:700; color:${lv.color}; margin-top:2px">${lv.label}</div>
-        <div style="font-size:10px; color:var(--muted)">${m}/${ds.length} skills mastered</div>
-        <div class="progress-bar" style="margin-top:4px; height:4px"><div style="width:${Math.round(ratio*100)}%; background:${lv.color}"></div></div>
+      const styleExtra = isActive
+        ? `border-color:${lvXp.color}; background:${lvXp.bg}66`
+        : "";
+      return `<div class="cat-dom-pill${isActive?" active":""}" data-filterdomain="${d.key}" style="${styleExtra}">
+        <div class="cdp-line1">${d.emoji} ${escapeHtml(d.label)}</div>
+        <div class="cdp-line2" style="color:${lvXp.color}">Lv ${lvXp.score} · ${xp} XP</div>
       </div>`;
     }).join("");
     // Click to filter domain
