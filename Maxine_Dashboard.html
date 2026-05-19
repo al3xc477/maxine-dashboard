@@ -1499,6 +1499,13 @@
       <div id="bktDiagBody" style="max-height:280px; overflow:auto; font-size:11px"></div>
     </details>
 
+    <!-- v5 — Skill graph (list view; force-directed SVG deferred per spec §3.5) -->
+    <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
+      <summary style="font-size:13px; font-weight:700; cursor:pointer">🕸️ Skill graph</summary>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Typed connections per skill: prereq (gate) · corequisite (pair) · enables (unlock) · reinforces (deepen) · bridges (cross-domain). List view; SVG visualisation deferred.</div>
+      <div id="skillGraphBody" style="max-height:340px; overflow:auto; font-size:11px"></div>
+    </details>
+
     <div class="row" style="margin-top:14px; justify-content:space-between; flex-wrap:wrap; gap:8px">
       <button class="small danger" id="resetBtn" style="font-size:12px">↺ Reset all data</button>
       <button class="small ghost" id="closeSet">Close</button>
