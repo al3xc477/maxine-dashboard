@@ -4221,6 +4221,30 @@ function openSettings(){
   if (typeof renderBktDiagnostics === "function") renderBktDiagnostics();
   if (typeof renderSkillGraph    === "function") renderSkillGraph();
   if (typeof renderEraSchedule   === "function") renderEraSchedule();
+  // Wire the v5 tutor brief copy button once on first open.
+  const ctb = document.getElementById("copyTutorBriefV5");
+  if (ctb && !ctb._wired){
+    ctb._wired = true;
+    ctb.addEventListener("click", () => {
+      const status = document.getElementById("copyTutorBriefV5Status");
+      try {
+        const brief = exportTutorBrief();
+        const json = JSON.stringify(brief, null, 2);
+        if (navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(json).then(
+            () => { if (status) status.textContent = "✓ Copied — paste into Cowork."; },
+            () => { if (status) status.textContent = "Clipboard blocked — see console."; console.log(json); }
+          );
+        } else {
+          console.log(json);
+          if (status) status.textContent = "Logged to console (no clipboard API).";
+        }
+      } catch(err){
+        console.warn("tutor brief copy failed", err);
+        if (status) status.textContent = "Error — see console.";
+      }
+    });
+  }
   setModal.classList.add("open");
 }
 
