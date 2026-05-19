@@ -5442,6 +5442,10 @@ function renderMasteryXpView(){
 }
 
 function renderProgressView(){
+  // v5 — era check + banner refresh. checkEraTransition fires the modal
+  // when state.lastKnownEra ≠ activeEra.key (silently seeds on first run).
+  try { if (typeof checkEraTransition === "function") checkEraTransition(); } catch(e){ console.warn("checkEraTransition failed", e); }
+  try { if (typeof renderEraBanner === "function") renderEraBanner(); } catch(e){ console.warn("renderEraBanner failed", e); }
   try { renderBasics(); } catch(e){ console.warn("renderBasics failed", e); }
   try { renderMasteryXpView(); } catch(e){ console.warn("renderMasteryXpView failed", e); }
   const stats = document.getElementById("progStats");
