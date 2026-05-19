@@ -3530,6 +3530,10 @@ document.addEventListener("click", (e) => {
           observer: "parent",
           notes: `Game Creator — ${_gcCurrentCtx}${_gcCustomLabel ? " (" + _gcCustomLabel + ")" : ""}`,
         });
+        // v5: BKT update for real skill IDs (vocab-* synthetic IDs handled separately)
+        if (typeof bktUpdate === "function" && SKILLS.find(x => x.id === sug.skillId)){
+          bktUpdate(sug.skillId, "partial"); // practising → partial evidence
+        }
         if (typeof saveState === "function") saveState(state);
       }
       if (sug.vocabWord){
