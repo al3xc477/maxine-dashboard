@@ -6728,6 +6728,142 @@ function frontierScore(skill){
   } catch(e){ console.warn("v5 edges migration failed", e); }
 })();
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v5 — ERA-EVOLUTIVE DOMAIN SCHEMA
+   ═════════════════════════════════════════════════════════════════════════
+   7 lifespan eras (the spec text says "6" but lists 7 entries — I use all 7
+   verbatim; flagged in plan). Eras transition at chronological-age
+   boundaries; on transition the domain structure conceptually reshapes
+   (foundation/advanced/CHC backbone), surfaced via the banner + modal.
+   Domain restructure itself is queued as a `pendingGenerations` entry for
+   Cowork to act on.
+   ───────────────────────────────────────────────────────────────────────── */
+const ERAS = [
+  {
+    key: "infant", label: "Infant", age_band_months: [0, 36],
+    foundation: ["gross", "fine", "sensory", "cognitive", "vocab", "social", "adaptive"],
+    advanced: [],
+    source: "Bayley 4 / Brazelton NBAS / CDC 0-3y"
+  },
+  {
+    key: "early_childhood", label: "Early Childhood", age_band_months: [36, 72],
+    foundation: ["gross", "fine", "sensory", "cognitive", "vocab", "social"],
+    advanced: ["practical_life", "pre_writing", "pre_reading", "numeracy", "visual_arts", "music", "science", "ei_advanced", "multilingual"],
+    source: "Teaching Strategies GOLD / HighScope / AEPS / Montessori"
+  },
+  {
+    key: "school_age", label: "School-age", age_band_months: [72, 144],
+    foundation_chc: ["fluid_reasoning", "crystallized", "working_memory", "processing_speed", "reading_writing", "math", "visual_spatial", "auditory", "long_term_retrieval"],
+    advanced: ["sport", "music_perf", "second_language", "creative_expression", "civic_ethics", "executive_function_adv"],
+    source: "Cattell-Horn-Carroll (CHC) / Common Core / NCTM"
+  },
+  {
+    key: "adolescence", label: "Adolescence", age_band_months: [144, 216],
+    backbone: ["specialisation_track", "metacognition", "self_directed_learning", "critical_thinking", "communication", "collaboration", "creativity", "civic_engagement", "identity_values", "digital_media_literacy", "health_sexuality"],
+    source: "OECD Learning Compass 2030 / P21 / Erikson identity / Marcia"
+  },
+  {
+    key: "early_adult", label: "Early Adult", age_band_months: [216, 360],
+    backbone: ["expertise_dreyfus", "financial_literacy", "relationship_skills", "physical_mental_health", "civic_responsibility", "cultural_competence", "entrepreneurship", "leadership"],
+    source: "Dreyfus 5-stage / Ericsson deliberate practice / OECD"
+  },
+  {
+    key: "mid_life", label: "Mid-life", age_band_months: [360, 780],
+    backbone: ["mastery_synthesis", "mentoring", "generativity", "work_life_integration", "wisdom", "legacy_planning"],
+    source: "Erikson generativity / Baltes lifespan"
+  },
+  {
+    key: "older_adult", label: "Older Adult", age_band_months: [780, 1200],
+    backbone: ["selection_optimization_compensation", "wisdom", "transmission", "cognitive_reserve", "meaning_making", "physical_maintenance"],
+    source: "Baltes SOC / Erikson integrity"
+  }
+];
+
+function currentChild(){
+  return (state.children && state.children[state.currentChild]) || null;
+}
+
+function chronoAgeMonths(child){
+  if (!child || !child.dob) return 0;
+  const birth = new Date(child.dob);
+  if (isNaN(birth.getTime())) return 0;
+  const now = new Date();
+  return (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+}
+
+function activeEra(child){
+  const m = chronoAgeMonths(child);
+  return ERAS.find(e => m >= e.age_band_months[0] && m < e.age_band_months[1]) || ERAS[ERAS.length - 1];
+}
+
+/* eraForUdi — UDI-band default eras for skills. Used by the migration to
+   populate the optional `eras` field. A skill at UDI 4.5 sits in the
+   early-childhood band; cross-era skills (UDI 9+) span early_adult →
+   mid_life.                                                               */
+function eraForUdi(u){
+  if (u < 2.5) return ["infant"];
+  if (u <= 5)  return ["early_childhood"];
+  if (u <= 7)  return ["school_age"];
+  if (u <= 8)  return ["adolescence"];
+  if (u <  9)  return ["early_adult"];
+  return ["early_adult", "mid_life"];
+}
+
+(function migrateErasV5(){
+  try {
+    SKILLS.forEach(s => {
+      if (Array.isArray(s.eras)) return;
+      s.eras = eraForUdi(typeof s.udi === "number" ? s.udi : 3.0);
+    });
+  } catch(e){ console.warn("v5 eras migration failed", e); }
+})();
+
+/* Transition detection. Called from renderProgressView on every render.
+   On first-ever v5 load, seeds state.lastKnownEra silently (no modal). */
+function checkEraTransition(){
+  const child = currentChild();
+  if (!child || !child.dob) return;
+  const cur = activeEra(child).key;
+  const last = state.lastKnownEra;
+  if (!last){
+    state.lastKnownEra = cur;
+    if (typeof saveState === "function") saveState(state);
+    return;
+  }
+  if (last === cur) return;
+  // Transition fires
+  try {
+    state.pendingGenerations = state.pendingGenerations || [];
+    state.pendingGenerations.push({
+      id: "era_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+      ts: Date.now(),
+      type: "era_retagging",
+      from: last,
+      to: cur,
+      status: "pending"
+    });
+    state.lastKnownEra = cur;
+    if (typeof saveState === "function") saveState(state);
+    if (typeof showEraTransitionModal === "function") showEraTransitionModal(last, cur);
+  } catch(e){ console.warn("era transition failed", e); }
+}
+
+function showEraTransitionModal(fromKey, toKey){
+  const to = ERAS.find(e => e.key === toKey) || {};
+  const newDomains = (to.advanced || to.backbone || to.foundation_chc || []).slice(0, 6);
+  const modal = document.getElementById("eraTransitionModal");
+  if (!modal) return;
+  const body = modal.querySelector(".panel");
+  if (body){
+    body.querySelector(".et-title").textContent = `🌱 New era: ${to.label}`;
+    body.querySelector(".et-body").innerHTML =
+      `<div style="margin-bottom:10px">Maxine has crossed from <strong>${escapeHtml(fromKey)}</strong> into <strong>${escapeHtml(toKey)}</strong>. The dashboard will refresh its domain structure.</div>
+       ${newDomains.length ? `<div style="font-size:12px"><strong>Newly relevant domains:</strong> ${newDomains.map(escapeHtml).join(", ")}</div>` : ""}
+       <div style="font-size:11px; color:var(--muted); margin-top:8px; font-style:italic">${escapeHtml(to.source || "")}</div>`;
+  }
+  modal.classList.add("open");
+}
+
 /* v5 frontierSkills — accepts (domKey, maxN). When called with no args,
    preserves the v3.1 "max-per-domain cap" multi-domain view so existing
    callers (Game Creator, coaching) keep working. When called with a
