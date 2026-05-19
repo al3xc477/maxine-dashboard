@@ -5666,6 +5666,7 @@ function renderProgressView(){
           <div style="font-size:11px; color:var(--muted); margin-top:2px; opacity:.8">
             ${atMax ? '✨ Max XP level' : `${xp} XP · ${toNext} to next XP level`}
           </div>
+          ${dreyfusLine}
         </div>
         <span style="font-size:13px; font-weight:800; color:${lvXp.color}; background:${lvXp.bg}; padding:5px 12px; border-radius:8px; white-space:nowrap; flex:0 0 auto">Level ${lvXp.score}</span>
         <span id="${detailId}_arrow" style="color:var(--muted); font-size:12px; flex:0 0 auto">▾</span>
