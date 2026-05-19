@@ -4182,7 +4182,52 @@ function openSettings(){
   const ea = document.getElementById("cloudSyncEnterArea"); if(ea) ea.style.display="none";
   // (auto-sync panel renders itself via syncAutoInit)
   renderSyncStatus();
+  // v5 — render BKT diagnostics body on each open (cheap, ~90 rows).
+  if (typeof renderBktDiagnostics === "function") renderBktDiagnostics();
   setModal.classList.add("open");
+}
+
+/* v5 — BKT diagnostics table (Settings → advanced). Sortable by p_known desc.
+   Each row: skill label, p_known, p_slip, p_guess, last_observation_ts.    */
+function renderBktDiagnostics(){
+  const body = document.getElementById("bktDiagBody");
+  if (!body) return;
+  try {
+    const rows = SKILLS_ALL.map(s => {
+      const b = state.bkt[s.id] || { p_known: BKT_DEFAULTS.p_init, ...BKT_DEFAULTS };
+      const obs = (state.observations || []).filter(o => o.skillId === s.id);
+      const lastTs = obs.length ? Math.max(...obs.map(o => o.ts || 0)) : 0;
+      return { id: s.id, label: s.t, p_known: b.p_known, p_slip: b.p_slip, p_guess: b.p_guess, lastTs };
+    }).sort((a, b) => b.p_known - a.p_known);
+
+    body.innerHTML = `
+      <table style="width:100%; border-collapse:collapse; font-size:11px">
+        <thead>
+          <tr style="background:#F1F4FA; text-align:left">
+            <th style="padding:4px 6px">Skill</th>
+            <th style="padding:4px 6px; text-align:right">p_known</th>
+            <th style="padding:4px 6px; text-align:right">p_slip</th>
+            <th style="padding:4px 6px; text-align:right">p_guess</th>
+            <th style="padding:4px 6px">Last obs</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr style="border-bottom:1px solid var(--line)">
+              <td style="padding:3px 6px; font-weight:600">${escapeHtml(r.label || r.id)}</td>
+              <td style="padding:3px 6px; text-align:right; ${r.p_known >= 0.85 ? "color:#14532D; font-weight:700" : (r.p_known < 0.5 ? "color:#9D174D" : "")}">${r.p_known.toFixed(3)}</td>
+              <td style="padding:3px 6px; text-align:right; color:var(--muted)">${r.p_slip.toFixed(2)}</td>
+              <td style="padding:3px 6px; text-align:right; color:var(--muted)">${r.p_guess.toFixed(2)}</td>
+              <td style="padding:3px 6px; color:var(--muted)">${r.lastTs ? new Date(r.lastTs).toLocaleDateString("en-GB") : "—"}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  } catch(err){
+    console.warn("renderBktDiagnostics failed", err);
+    body.innerHTML = `<div class="sub" style="color:var(--muted)">Unavailable.</div>`;
+  }
 }
 $("closeSet").addEventListener("click", ()=> setModal.classList.remove("open"));
 setModal.addEventListener("click", (e)=>{
