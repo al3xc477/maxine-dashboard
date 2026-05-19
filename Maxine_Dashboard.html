@@ -451,9 +451,15 @@
   .cat-filter{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap }
   .cat-filter select, .cat-filter input{ padding:8px 10px; border:1px solid var(--line); border-radius:10px; font-size:13px; font-family:inherit }
   .status-pill{ padding:3px 8px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer }
+  /* v6 ladder */
+  .status-pill.s-unknown{ background:#F3F4F6; color:#374151 }
+  .status-pill.s-working_on_it{ background:#FEF3C7; color:#854D0E }
+  .status-pill.s-mastered{ background:#DCFCE7; color:#14532D }
+  .status-pill.s-regressed{ background:#FEE2E2; color:#991B1B }
+  .status-pill.s-automatic{ background:#E5E7EB; color:#374151 }
+  /* legacy passthrough so unmigrated rows still render */
   .status-pill.s-new{ background:#F3F4F6; color:#374151 }
   .status-pill.s-practising{ background:#FEF3C7; color:#854D0E }
-  .status-pill.s-mastered{ background:#DCFCE7; color:#14532D }
   .status-pill.s-already_mastered{ background:#E5E7EB; color:#374151 }
   .status-pill.s-too_hard{ background:#FEE2E2; color:#991B1B }
 
@@ -1505,12 +1511,7 @@
     <div style="font-weight:700; font-size:13px; margin-bottom:6px">Jump to week:</div>
     <div id="weekList" style="max-height:30vh; overflow:auto; display:flex; flex-direction:column; gap:6px;"></div>
 
-    <!-- v5 — BKT diagnostics (advanced) -->
-    <details style="margin-top:14px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
-      <summary style="font-size:13px; font-weight:700; cursor:pointer">🧠 BKT diagnostics (advanced)</summary>
-      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Per-skill P(known) from Bayesian Knowledge Tracing (Corbett-Anderson 1995). Sorted by p_known desc.</div>
-      <div id="bktDiagBody" style="max-height:280px; overflow:auto; font-size:11px"></div>
-    </details>
+    <!-- v6 — BKT diagnostics removed (BKT engine stripped) -->
 
     <!-- v5 — Skill graph (list view; force-directed SVG deferred per spec §3.5) -->
     <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
@@ -2786,14 +2787,95 @@ state.vocabCustom = Array.isArray(state.vocabCustom) ? state.vocabCustom : [];
    coachingPicks   — top picks shown on dashboard (auto-populated)                */
 state.observations       = Array.isArray(state.observations) ? state.observations : [];
 state.masteryConfig      = Object.assign({
-  reverifyAfterDays: 60,
-  tierMultipliers:   { 0:1, 1:2, 2:4, 3:8, 4:16 },
-  statusXpFactor:    { mastered:1, practising:0.5, emerging:0.25, new:0, too_hard:0, already_mastered:0.9 },
+  // v3.1 / v5 legacy keys (retained for back-compat with skillXp)
+  reverifyAfterDays:    60,
+  tierMultipliers:      { 0:1, 1:2, 2:4, 3:8, 4:16, 5:32, 6:64, 7:128, 8:256, 9:512, 10:1024 },
+  statusXpFactor:       {
+    // v6 ladder
+    unknown:0, working_on_it:0.25, mastered:1, regressed:0, automatic:0.9,
+    // legacy ladder retained so any unmigrated observation still scores correctly
+    new:0, emerging:0.25, practising:0.5, too_hard:0, already_mastered:0.9
+  },
   frontierMaxPerDomain: 2,
+  // v6 — user-declared mastery, fixed reverification, ZPD-targeted backfill
+  reverifySchedule:     [30, 60, 120, 240],
+  automaticAfterDays:   60,
+  regressionWindowDays: 30,
+  targetDepth:          10,
+  zpdRange:             [-0.3, 1.5],
+  beginnerUdiCeiling:   2.0,
+  autoBackfill:         true,
+  maxCatalogueSize:     500
 }, state.masteryConfig || {});
 state.pendingGenerations = Array.isArray(state.pendingGenerations) ? state.pendingGenerations : [];
 state.reverifyQueue      = Array.isArray(state.reverifyQueue)      ? state.reverifyQueue      : [];
-state.coachingPicks      = Array.isArray(state.coachingPicks)      ? state.coachingPicks      : [];
+// v6 reshape — coachingPicks was previously a stub array; the v6 engine wants
+// an object. Coerce empty arrays/legacy values to {}.
+state.coachingPicks      = (state.coachingPicks && !Array.isArray(state.coachingPicks) && typeof state.coachingPicks === "object")
+                            ? state.coachingPicks : {};
+state.backfillQueue      = Array.isArray(state.backfillQueue)      ? state.backfillQueue      : [];
+
+/* v6 one-shot observation-schema migration. Maps the v5 status vocabulary
+   (new / emerging / practising / mastered / too_hard / already_mastered) onto
+   the v6 ladder (unknown / working_on_it / mastered / regressed). The
+   original status is preserved on `o.legacy_status` so we can reverse the
+   migration if needed. Gated by state._migratedObsSchemaV6.                  */
+(function migrateObservationsV6(){
+  if (state._migratedObsSchemaV6) return;
+  try {
+    const MAP = {
+      mastered:         "mastered",
+      already_mastered: "mastered",
+      practising:       "working_on_it",
+      emerging:         "working_on_it",
+      too_hard:         "working_on_it",
+      new:              "unknown"
+    };
+    let changed = 0;
+    (state.observations || []).forEach(o => {
+      if (!o || !o.status) return;
+      const next = MAP[o.status];
+      if (next && next !== o.status){
+        o.legacy_status = o.status;
+        o.status        = next;
+        changed++;
+      }
+    });
+    state._migratedObsSchemaV6 = true;
+    if (changed && typeof saveState === "function") saveState(state);
+  } catch(e){ console.warn("v6 observation schema migration failed", e); }
+})();
+
+/* v6 one-shot reverify-queue migration. The v5 queue carried entries shaped
+   like {id, lastTs}. The v6 engine expects per-due-date entries shaped like
+   {skillId, dueAt, completed, completed_at, completed_reason, offsetDays}.
+   Each legacy entry is fanned out into the 4-step v6 schedule offset from
+   lastTs. Gated by state._migratedReverifyQueueV6.                           */
+(function migrateReverifyQueueV6(){
+  if (state._migratedReverifyQueueV6) return;
+  try {
+    const schedule = (state.masteryConfig && state.masteryConfig.reverifySchedule) || [30,60,120,240];
+    const next = [];
+    (state.reverifyQueue || []).forEach(r => {
+      if (!r) return;
+      // Already-v6 entry — pass through unchanged.
+      if (r.skillId && typeof r.dueAt === "number"){ next.push(r); return; }
+      const skillId = r.skillId || r.id;
+      const lastTs  = typeof r.lastTs === "number" ? r.lastTs : Date.now();
+      if (!skillId) return;
+      schedule.forEach(days => {
+        next.push({
+          skillId, dueAt: lastTs + days * 86400000,
+          completed: false, completed_at: null, completed_reason: null,
+          offsetDays: days
+        });
+      });
+    });
+    state.reverifyQueue = next;
+    state._migratedReverifyQueueV6 = true;
+    if (typeof saveState === "function") saveState(state);
+  } catch(e){ console.warn("v6 reverify queue migration failed", e); }
+})();
 
 /* Orphan-observation scrub (Improvement 2 PART A).
    Targeted removal — only the 3 specific retired skill IDs.
@@ -3564,8 +3646,9 @@ document.addEventListener("click", (e) => {
         });
       } else if (sug.skillId){
         state.observations = state.observations || [];
+        // v6: status normalised — "practising" maps to "working_on_it" at read time.
         state.observations.push({
-          skillId: sug.skillId, status: "practising",
+          skillId: sug.skillId, status: "working_on_it",
           ts: Date.now(),
           by: state.currentUser || "—",
           source: "activity",
@@ -3573,10 +3656,6 @@ document.addEventListener("click", (e) => {
           observer: "parent",
           notes: `Game Creator — ${_gcCurrentCtx}${_gcCustomLabel ? " (" + _gcCustomLabel + ")" : ""}`,
         });
-        // v5: BKT update for real skill IDs (vocab-* synthetic IDs handled separately)
-        if (typeof bktUpdate === "function" && SKILLS.find(x => x.id === sug.skillId)){
-          bktUpdate(sug.skillId, "partial"); // practising → partial evidence
-        }
         if (typeof saveState === "function") saveState(state);
       }
       if (sug.vocabWord){
@@ -4217,8 +4296,7 @@ function openSettings(){
   const ea = document.getElementById("cloudSyncEnterArea"); if(ea) ea.style.display="none";
   // (auto-sync panel renders itself via syncAutoInit)
   renderSyncStatus();
-  // v5 — render BKT diagnostics body on each open (cheap, ~90 rows).
-  if (typeof renderBktDiagnostics === "function") renderBktDiagnostics();
+  // v6 — BKT diagnostics removed (engine stripped). Skill graph + era schedule remain.
   if (typeof renderSkillGraph    === "function") renderSkillGraph();
   if (typeof renderEraSchedule   === "function") renderEraSchedule();
   // Wire the v5 tutor brief copy button once on first open.
@@ -4294,48 +4372,9 @@ function renderSkillGraph(){
   }
 }
 
-/* v5 — BKT diagnostics table (Settings → advanced). Sortable by p_known desc.
-   Each row: skill label, p_known, p_slip, p_guess, last_observation_ts.    */
-function renderBktDiagnostics(){
-  const body = document.getElementById("bktDiagBody");
-  if (!body) return;
-  try {
-    const rows = SKILLS_ALL.map(s => {
-      const b = state.bkt[s.id] || { p_known: BKT_DEFAULTS.p_init, ...BKT_DEFAULTS };
-      const obs = (state.observations || []).filter(o => o.skillId === s.id);
-      const lastTs = obs.length ? Math.max(...obs.map(o => o.ts || 0)) : 0;
-      return { id: s.id, label: s.t, p_known: b.p_known, p_slip: b.p_slip, p_guess: b.p_guess, lastTs };
-    }).sort((a, b) => b.p_known - a.p_known);
-
-    body.innerHTML = `
-      <table style="width:100%; border-collapse:collapse; font-size:11px">
-        <thead>
-          <tr style="background:#F1F4FA; text-align:left">
-            <th style="padding:4px 6px">Skill</th>
-            <th style="padding:4px 6px; text-align:right">p_known</th>
-            <th style="padding:4px 6px; text-align:right">p_slip</th>
-            <th style="padding:4px 6px; text-align:right">p_guess</th>
-            <th style="padding:4px 6px">Last obs</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r => `
-            <tr style="border-bottom:1px solid var(--line)">
-              <td style="padding:3px 6px; font-weight:600">${escapeHtml(r.label || r.id)}</td>
-              <td style="padding:3px 6px; text-align:right; ${r.p_known >= 0.85 ? "color:#14532D; font-weight:700" : (r.p_known < 0.5 ? "color:#9D174D" : "")}">${r.p_known.toFixed(3)}</td>
-              <td style="padding:3px 6px; text-align:right; color:var(--muted)">${r.p_slip.toFixed(2)}</td>
-              <td style="padding:3px 6px; text-align:right; color:var(--muted)">${r.p_guess.toFixed(2)}</td>
-              <td style="padding:3px 6px; color:var(--muted)">${r.lastTs ? new Date(r.lastTs).toLocaleDateString("en-GB") : "—"}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `;
-  } catch(err){
-    console.warn("renderBktDiagnostics failed", err);
-    body.innerHTML = `<div class="sub" style="color:var(--muted)">Unavailable.</div>`;
-  }
-}
+/* v6 — BKT diagnostics function removed. The BKT engine has been stripped in
+   favor of user-declared mastery; per-skill probabilistic confidence is no
+   longer maintained.                                                          */
 $("closeSet").addEventListener("click", ()=> setModal.classList.remove("open"));
 setModal.addEventListener("click", (e)=>{
   if (e.target === setModal) setModal.classList.remove("open");
@@ -4442,7 +4481,7 @@ function _packUrl(){
   try {
     if(window.location.protocol === "file:") return null;
     const lz  = (typeof LZString !== "undefined") ? LZString : null;
-    const raw = JSON.stringify(state);
+    const raw = JSON.stringify(typeof _sanitiseSyncPayload === "function" ? _sanitiseSyncPayload(state) : state);
     const enc = lz ? lz.compressToEncodedURIComponent(raw) : btoa(encodeURIComponent(raw));
     return window.location.origin + window.location.pathname + "?d=" + enc;
   } catch(e){ return null; }
@@ -4495,6 +4534,15 @@ function _checkFbaseUrlParam(){
   return false;
 }
 
+/* v6 — strip legacy BKT keys from any outbound sync payload. The BKT engine
+   has been removed; remote clones that still carry `bkt` will be scrubbed on
+   their next load by scrubBktV6.                                            */
+function _sanitiseSyncPayload(s){
+  if (!s || typeof s !== "object") return s;
+  const { bkt, v5BktMigrationDone, v5BktMigratedAt, ...rest } = s;
+  return rest;
+}
+
 /* ── Push state to Firebase ── */
 async function syncPush(){
   const ep = _fbEndpoint();
@@ -4504,7 +4552,7 @@ async function syncPush(){
     const r = await _ft(ep, {
       method:"PUT", mode:"cors",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(state)
+      body:JSON.stringify(_sanitiseSyncPayload(state))
     });
     if(!r.ok) throw new Error("Firebase PUT " + r.status);
     const t = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
@@ -4622,7 +4670,7 @@ window._fbSaveUrl = async function(){
   const ns = _genNs();
   const ep = `${url}/maxine-sync/${ns}/state.json`;
   try {
-    const r = await _ft(ep,{method:"PUT",mode:"cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(state)});
+    const r = await _ft(ep,{method:"PUT",mode:"cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(typeof _sanitiseSyncPayload === "function" ? _sanitiseSyncPayload(state) : state)});
     if(!r.ok) throw new Error("HTTP "+r.status);
     _fbUrl=url; _fbNs=ns;
     localStorage.setItem(STORAGE_FBASE_URL,_fbUrl);
@@ -4823,7 +4871,7 @@ async function syncSaveToFolder(immediate){
     }
     const fh = await _syncDirHandle.getFileHandle("maxine-state.json",{ create:true });
     const wr = await fh.createWritable();
-    await wr.write(JSON.stringify(state));
+    await wr.write(JSON.stringify(typeof _sanitiseSyncPayload === "function" ? _sanitiseSyncPayload(state) : state));
     await wr.close();
     const ts = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
     setSyncTimestamp();
@@ -4951,7 +4999,7 @@ document.getElementById("syncFsaDisconnectBtn")?.addEventListener("click", syncF
 
 /* ── Clipboard copy/paste (fallback for all browsers) ── */
 async function syncCopyState(){
-  const json = JSON.stringify(state);
+  const json = JSON.stringify(typeof _sanitiseSyncPayload === "function" ? _sanitiseSyncPayload(state) : state);
   const btn = document.getElementById("syncCopyBtn") || document.getElementById("footerSyncBtn");
   try {
     if (navigator.clipboard && navigator.clipboard.writeText){
@@ -6140,16 +6188,43 @@ function udiOf(skillOrId){
 (function migrateUdiV5(){
   try {
     SKILLS.forEach(s => {
-      if (typeof s.udi === "number") return; // already migrated this load
-      const hadExplicitTier = (typeof s.tier === "number");
-      const t = hadExplicitTier ? s.tier : tierOf(s);
-      const u = TIER_TO_UDI[t] != null ? TIER_TO_UDI[t] : 3.0;
-      s.udi = u;
-      s.udi_rationale = `Migrated from v4 ${hadExplicitTier ? "explicit tier "+s.tier : "derived tier "+t+" (age '"+(s.age||"?")+"')"}; refine via Calibration Wizard`;
-      if (hadExplicitTier) delete s.tier;
+      if (typeof s.udi !== "number"){
+        const hadExplicitTier = (typeof s.tier === "number");
+        const t = hadExplicitTier ? s.tier : tierOf(s);
+        const u = TIER_TO_UDI[t] != null ? TIER_TO_UDI[t] : 3.0;
+        s.udi = u;
+        s.udi_rationale = `Migrated from v4 ${hadExplicitTier ? "explicit tier "+s.tier : "derived tier "+t+" (age '"+(s.age||"?")+"')"}; refine via Calibration Wizard`;
+        if (hadExplicitTier) delete s.tier;
+      }
+      // v6 — populate optional schema fields if absent. parseAgeBand reads the
+      // s.age string (e.g. "24m", "24–30m", "~12m", "30m+") and returns months.
+      if (typeof s.age_min !== "number" || typeof s.age_max !== "number"){
+        const band = _parseAgeBand(s.age);
+        s.age_min = band.min;
+        s.age_max = band.max;
+      }
+      if (!Array.isArray(s.next_ids))          s.next_ids = [];
+      if (!Array.isArray(s.secondary_domains)) s.secondary_domains = [];
     });
-  } catch(e){ console.warn("v5 UDI migration failed", e); }
+  } catch(e){ console.warn("v5/v6 UDI+age migration failed", e); }
 })();
+
+/* _parseAgeBand("24–30m") → {min:24, max:30}; "~12m" → {min:12, max:12};
+   "30m+" → {min:30, max:60}; "15–24m" → {min:15, max:24}.                    */
+function _parseAgeBand(age){
+  if (typeof age !== "string" || !age) return { min: 24, max: 24 };
+  const cleaned = age.replace(/[~\s]/g, "");
+  // Range like "24-30m" or "24–30m" or "24–30 months"
+  const range = cleaned.match(/(\d+)[–—\-](\d+)/);
+  if (range) return { min: +range[1], max: +range[2] };
+  // Open-ended like "30m+" or "24+"
+  const open  = cleaned.match(/(\d+)\+/);
+  if (open) return { min: +open[1], max: Math.min(216, +open[1] + 36) };
+  // Single value like "24m" or "~12m"
+  const one   = cleaned.match(/(\d+)/);
+  if (one) return { min: +one[1], max: +one[1] };
+  return { min: 24, max: 24 };
+}
 
 /* ─────────────────────────────────────────────────────────────────────────
    IMPROVEMENT A — DOMAIN_SEED_BANK + autoSeedDomain
@@ -6298,9 +6373,11 @@ const DOMAIN_SEED_BANK = {
 };
 
 /* Normalise a seed (spec shape) into the legacy SKILLS shape used by the
-   existing renderer/modal. Both shapes coexist on the returned object. */
+   existing renderer/modal. Both shapes coexist on the returned object.
+   v6: also stamps subdomain via _inferSubdomain so the radar + Active 10
+   see auto-seeded skills correctly.                                          */
 function _normalizeSeed(seed){
-  return {
+  const out = {
     id:       seed.id,
     dom:      seed.domain,
     t:        seed.label,
@@ -6316,6 +6393,26 @@ function _normalizeSeed(seed){
     desc:     seed.desc,
     _seeded:  true,
   };
+  // v6 — stamp UDI + subdomain + edges + eras so v6 helpers (radar, frontier,
+  // backfill) see the seed correctly.
+  if (typeof TIER_TO_UDI !== "undefined" && TIER_TO_UDI[seed.tier] != null){
+    out.udi = TIER_TO_UDI[seed.tier];
+  } else {
+    out.udi = 3.0;
+  }
+  out.udi_rationale = "Auto-seeded (tier " + seed.tier + ")";
+  if (typeof _inferSubdomain === "function"){
+    const explicit = (typeof SKILL_SUBDOMAIN_MAP !== "undefined") ? SKILL_SUBDOMAIN_MAP[seed.id] : null;
+    out.subdomain = explicit || _inferSubdomain(out) || null;
+    if (!explicit && out.subdomain) out._subdomain_inferred = true;
+  }
+  out.edges = out.prereqs.map(p => ({ to: p, type: "prereq" }));
+  out.next_ids = [];
+  out.secondary_domains = [];
+  if (typeof eraForUdi === "function") out.eras = eraForUdi(out.udi);
+  const band = (typeof _parseAgeBand === "function") ? _parseAgeBand(out.age) : { min:24, max:24 };
+  out.age_min = band.min; out.age_max = band.max;
+  return out;
 }
 
 /* autoSeedDomain(domKey) — returns up to 5 normalised seed objects.
@@ -6514,102 +6611,28 @@ function domainBreadth(domKey){
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
-   v5 — BAYESIAN KNOWLEDGE TRACING (BKT)
+   v6 — BKT ENGINE REMOVED
    ═════════════════════════════════════════════════════════════════════════
-   Per-skill P(known) updated on every observation using the Corbett &
-   Anderson 1995 HMM. Drives confidence chip, adaptive reverification,
-   and downstream frontier scoring.
+   The Bayesian Knowledge Tracing engine (Corbett-Anderson 1995) has been
+   stripped. Mastery is now a single-tap user declaration: the parent
+   observes Maxine and decides. The dashboard records the decision and
+   surfaces the next thing to work on. Reverification runs on a fixed
+   schedule (30/60/120/240d) with smart implicit-verification via the typed
+   skill graph (see Phase 2 helpers).
 
-   State shape: state.bkt[skillId] = { p_known, p_init, p_learn, p_guess, p_slip }
+   Stub: `bktReady` retained as a no-op shim so any straggler caller returns
+   a neutral value instead of throwing. Will be removed once Phase 4 finishes.
    ───────────────────────────────────────────────────────────────────────── */
-const BKT_DEFAULTS = { p_init: 0.05, p_learn: 0.15, p_guess: 0.10, p_slip: 0.10 };
+function bktReady(/* skillId */){ return 0; }
 
-state.bkt = state.bkt || {};
-
-/* Status → BKT result mapping.
-   Existing observations carry `status`, not `result`. v5 hooks (and the
-   first-load replay) translate via this function. Returns null for
-   non-evidential statuses (e.g. "new") so the engine skips them.            */
-function bktResultFromStatus(status){
-  if (status === "mastered" || status === "already_mastered") return "success";
-  if (status === "practising")                                return "partial";
-  if (status === "emerging")                                  return "partial";
-  if (status === "too_hard")                                  return "fail";
-  return null;
-}
-
-/**
- * BKT update — Corbett & Anderson 1995 HMM equations.
- * Mutates state.bkt[skillId].p_known. Called whenever an observation is
- * appended to state.observations[id].
- *
- * @param {string} skillId
- * @param {"success"|"fail"|"partial"} result  (partial = half-strength success)
- */
-function bktUpdate(skillId, result){
-  if (!skillId || !result) return;
-  const params = state.bkt[skillId] || { p_known: BKT_DEFAULTS.p_init, ...BKT_DEFAULTS };
-  let p = params.p_known;
-  let p_evidence;
-
-  if (result === "success"){
-    p_evidence = p * (1 - params.p_slip) + (1 - p) * params.p_guess;
-    p = p_evidence > 0 ? (p * (1 - params.p_slip)) / p_evidence : p;
-  } else if (result === "fail"){
-    p_evidence = p * params.p_slip + (1 - p) * (1 - params.p_guess);
-    p = p_evidence > 0 ? (p * params.p_slip) / p_evidence : p;
-  } else if (result === "partial"){
-    p_evidence = p * (1 - params.p_slip * 0.5) + (1 - p) * params.p_guess * 0.5;
-    p = p_evidence > 0 ? (p * (1 - params.p_slip * 0.5)) / p_evidence : p;
-  } else {
-    return; // unknown result code → no-op
-  }
-
-  // Learning-transition step
-  p = p + (1 - p) * params.p_learn;
-  // Clamp [0, 1] (numerical safety)
-  if (p < 0) p = 0; if (p > 1) p = 1;
-
-  params.p_known = p;
-  state.bkt[skillId] = params;
-  // Note: saveState is called by the observation-append paths after this
-  // returns; we don't double-write here.
-}
-
-function bktReady(skillId){
-  return (state.bkt[skillId] && state.bkt[skillId].p_known) || BKT_DEFAULTS.p_init;
-}
-
-/* Adaptive reverification: 30d at p_known≈0.80; ~180d at 0.95.
-   Clamped [14, 365] so confidence never lets a skill go un-rechecked > 1y. */
-function nextReverifyDays(skillId){
-  const p = bktReady(skillId);
-  return Math.round(Math.max(14, Math.min(365, 30 + (p - 0.8) * 1000)));
-}
-
-/* Migration: initialise BKT params for every catalogue skill, then replay
-   each skill's observation history chronologically through bktUpdate so
-   p_known reflects accumulated evidence. State-gated by v5BktMigrationDone. */
-(function migrateBktV5(){
-  try {
-    if (state.v5BktMigrationDone) return;
-    SKILLS_ALL.forEach(s => {
-      state.bkt[s.id] = { p_known: BKT_DEFAULTS.p_init, ...BKT_DEFAULTS };
-      // state.observations is a flat array. Filter + sort per-skill.
-      const obs = (state.observations || [])
-        .filter(o => o && o.skillId === s.id)
-        .slice()
-        .sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      obs.forEach(o => {
-        const r = bktResultFromStatus(o.status);
-        if (r) bktUpdate(s.id, r);
-      });
-    });
-    state.v5BktMigrationDone = true;
-    state.v5BktMigratedAt = Date.now();
-    // No saveState here — _v31Bump is still in TDZ at this point in the
-    // file. The next user action that mutates state will persist.
-  } catch(e){ console.warn("v5 BKT migration failed", e); }
+/* One-time scrubber: delete legacy state.bkt blob + the v5 migration flags
+   so they no longer round-trip through localStorage / sync. */
+(function scrubBktV6(){
+  let dirty = false;
+  if (state.bkt)                { delete state.bkt;                dirty = true; }
+  if (state.v5BktMigrationDone) { delete state.v5BktMigrationDone; dirty = true; }
+  if (state.v5BktMigratedAt)    { delete state.v5BktMigratedAt;    dirty = true; }
+  if (dirty && typeof saveState === "function") saveState(state);
 })();
 
 /* Latest observation wins. Falls back to legacy skillStatus.
@@ -6633,25 +6656,35 @@ function deriveStatus(skillId){
 function addObservation({ skillId, status, by, source, notes }){
   if (!skillId || !status) return;
   state.observations = state.observations || [];
+  const ts = Date.now();
   state.observations.push({
     skillId, status,
     by: by || state.currentUser || "—",
     source: source || "manual",
-    ts: Date.now(),
+    ts,
     notes: notes || ""
   });
   // Keep legacy skillStatus mirror in sync so v3.0 code paths still work.
   state.skillStatus = state.skillStatus || {};
-  state.skillStatus[skillId] = { status, by: by || state.currentUser || "—", ts: Date.now() };
-  // v5: update Bayesian Knowledge Tracing for real (non-synthetic) skill IDs.
-  // Synthetic IDs like "vocab-cat_en" aren't in SKILLS and would create stray
-  // BKT entries — filter them out by membership in the catalogue.
-  if (typeof bktUpdate === "function" && SKILLS.find(x => x.id === skillId)){
-    const r = bktResultFromStatus(status);
-    if (r) bktUpdate(skillId, r);
+  state.skillStatus[skillId] = { status, by: by || state.currentUser || "—", ts };
+  // v6: mastery declarations schedule reverification; regressions clear it.
+  // Smart implicit-verification runs after every observation so newly-mastered
+  // descendants can auto-complete ancestor reverify entries.
+  if (status === "mastered" && SKILLS.find(x => x.id === skillId)){
+    if (typeof scheduleReverification === "function") scheduleReverification(skillId, ts);
+  }
+  if (status === "regressed" && SKILLS.find(x => x.id === skillId)){
+    if (typeof clearReverification === "function") clearReverification(skillId);
   }
   _v31Bump();
   saveState(state);
+  if (typeof processDueReverifications === "function") processDueReverifications();
+  if (typeof backfillEngine === "function") backfillEngine();
+}
+
+/* v6 helper: flat-array accessor used everywhere from Phase 2 onward. */
+function obsForSkill(skillId){
+  return (state.observations || []).filter(o => o && o.skillId === skillId);
 }
 
 function skillXp(skillId){
@@ -6777,19 +6810,20 @@ function countDownstream(skillId){
   return explicit + implicit;
 }
 
-/* Frontier ranking score (Vygotsky ZPD weighted).
-   R = P(ready) × (1 + downstream × 0.15) × keystone_w × zpd_proximity
+/* v6 frontier ranking score (Vygotsky ZPD weighted, no BKT term).
+   R = (1 + downstream × 0.15) × keystone_w × zpd_proximity
    zpd_proximity = exp(-0.7 × |child_SL − skill.udi|)
    Peaks when skill UDI is slightly above current SL.                       */
 function frontierScore(skill){
-  const p_ready = (typeof bktReady === "function") ? bktReady(skill.id) : 0.05;
   const downstream = countDownstream(skill.id);
   const keystone_w = skill.keystone ? 1.5 : 1.0;
   const childSL = (typeof domainSL === "function" ? domainSL(skill.dom) : null) || 0;
   const u = (typeof udiOf === "function") ? udiOf(skill) : 3.0;
   const zpd_proximity = Math.exp(-0.7 * Math.abs(childSL - u));
-  return p_ready * (1 + downstream * 0.15) * keystone_w * zpd_proximity;
+  return (1 + downstream * 0.15) * keystone_w * zpd_proximity;
 }
+/* Phase-2 alias — `frontierScoreV6` is the canonical name in new code. */
+function frontierScoreV6(skill){ return frontierScore(skill); }
 
 /* v5 edge migration: populate `edges` from existing `prereqs`. Keeps
    `s.prereqs` for back-compat; canonical reads go through getPrereqs.    */
@@ -6802,6 +6836,206 @@ function frontierScore(skill){
         : [];
     });
   } catch(e){ console.warn("v5 edges migration failed", e); }
+})();
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — SUB-DOMAIN DECOMPOSITION
+   ═════════════════════════════════════════════════════════════════════════
+   Each foundation domain breaks into 5–6 sub-domains. Skills carry exactly
+   one primary `subdomain` field (set during Phase 1 migration). Used by
+   `subdomainSL`, the radar chart, and the backfill prompt builder.
+   ───────────────────────────────────────────────────────────────────────── */
+const SUBDOMAINS = {
+  gross: [
+    { key:"locomotion",         label:"Locomotion",            desc:"Walking, running, jumping, hopping, stairs" },
+    { key:"balance_vestibular", label:"Balance & vestibular",  desc:"Standing on one foot, spinning, balance" },
+    { key:"strength_climbing",  label:"Strength & climbing",   desc:"Carrying heavy, climbing, pulling" },
+    { key:"bilateral_gross",    label:"Bilateral coord",       desc:"Kicking, throwing, catching" },
+    { key:"rhythm_motor",       label:"Rhythm / music-motor",  desc:"Dance, clapping to beat" }
+  ],
+  fine: [
+    { key:"pincer_strength",    label:"Pincer & hand strength",desc:"Pincer grasp, squeezing" },
+    { key:"wrist_rotation",     label:"Wrist rotation",        desc:"Twisting lids, doorknobs" },
+    { key:"bilateral_fine",     label:"Bilateral hand use",    desc:"Threading, scissors, stabilising" },
+    { key:"visual_motor",       label:"Visual-motor / pre-writing", desc:"Lines, circles, copying" },
+    { key:"tool_use",           label:"Tool use",              desc:"Crayons, utensils, hammers" },
+    { key:"self_care",          label:"Self-care",             desc:"Buttons, zippers, dressing" }
+  ],
+  sensory: [
+    { key:"visual_discr",       label:"Visual discrimination", desc:"Colors, shapes, matching" },
+    { key:"auditory_discr",     label:"Auditory",              desc:"Sound matching, music" },
+    { key:"tactile_stereo",     label:"Tactile & stereognosis",desc:"Textures, mystery bag" },
+    { key:"olfact_gust",        label:"Olfactory & gustatory", desc:"Smell, taste" },
+    { key:"vestibular",         label:"Vestibular",            desc:"Spinning, swinging" },
+    { key:"proprioceptive",     label:"Proprioceptive",        desc:"Body awareness, heavy work" }
+  ],
+  cognitive: [
+    { key:"number_quant",       label:"Number & quantification", desc:"Counting, more/less" },
+    { key:"classification",     label:"Classification",        desc:"Sorting" },
+    { key:"sequencing",         label:"Sequencing & order",    desc:"Patterns, story order" },
+    { key:"executive_function", label:"Executive function",    desc:"Working memory, attention" },
+    { key:"cause_effect",       label:"Cause-effect",          desc:"What if?, predict" },
+    { key:"symbolic_pretend",   label:"Symbolic / pretend",    desc:"Pretend play" }
+  ],
+  vocab: [
+    { key:"receptive",          label:"Receptive vocab",       desc:"Comprehension" },
+    { key:"expressive",         label:"Expressive vocab",      desc:"Spoken words" },
+    { key:"grammar",            label:"Grammar / syntax",      desc:"Sentence length" },
+    { key:"phonology",          label:"Phonology",             desc:"Sounds, rhyming" },
+    { key:"pragmatics",         label:"Pragmatics",            desc:"Conversation, turn-taking" },
+    { key:"bilingual",          label:"Bilingual production",  desc:"Active 2+ languages" }
+  ],
+  social: [
+    { key:"emotion_recognition",label:"Emotion recognition",   desc:"Names emotions" },
+    { key:"self_regulation",    label:"Self-regulation",       desc:"Calming alone" },
+    { key:"coregulation",       label:"Co-regulation",         desc:"Recovers with caregiver" },
+    { key:"empathy_tom",        label:"Empathy / ToM",         desc:"Notices others' feelings" },
+    { key:"prosocial",          label:"Pro-social",            desc:"Sharing, manners" },
+    { key:"independence",       label:"Independence",          desc:"Self-directed activity" }
+  ]
+};
+
+/* v6 subdomain assignment table. Skill-id → subdomain key (within the skill's
+   domain). Skills not listed here fall through to a domain-default chosen by
+   `_inferSubdomain` (see below). Applied by `migrateSubdomainsV6` on load.   */
+const SKILL_SUBDOMAIN_MAP = {
+  // ── GROSS MOTOR ─────────────────────────────────────────
+  "gm-walk":"locomotion", "gm-run":"locomotion", "gm-jump":"locomotion",
+  "gm-stairs-up":"locomotion",
+  "gm-one-foot":"balance_vestibular", "gm-balance-bike":"balance_vestibular",
+  "gm-carry-heavy":"strength_climbing", "gm-climb":"strength_climbing",
+  "gm-kick":"bilateral_gross", "gm-throw":"bilateral_gross", "gm-catch":"bilateral_gross",
+  "gm-dance-rhythm":"rhythm_motor",
+  // T0 infant
+  "gm-head-control":"locomotion", "gm-rolls":"locomotion", "gm-sits":"locomotion",
+  "gm-crawls":"locomotion", "gm-stand-unsup":"locomotion", "gm-squat-play":"locomotion",
+  "gm-push-pull":"locomotion", "gm-walk-stairs-hand":"locomotion",
+  "gm-pulls-to-stand":"locomotion",
+  // ── FINE MOTOR ───────────────────────────────────────────
+  "fm-pincer":"pincer_strength", "fm-stack-3":"pincer_strength", "fm-stack-6":"pincer_strength",
+  "fm-lids":"wrist_rotation",
+  "fm-thread":"bilateral_fine", "fm-scissors":"bilateral_fine",
+  "fm-circle":"visual_motor", "fm-lines-h":"visual_motor", "fm-lines-v":"visual_motor",
+  "fm-scribble":"visual_motor",
+  "fm-crayon":"tool_use", "fm-pages":"tool_use", "fm-point":"tool_use",
+  "fm-spoon-basic":"self_care", "fm-spoon-fork":"self_care", "fm-velcro":"self_care",
+  "fm-buttons-large":"self_care", "fm-zip":"self_care",
+  // ── SENSORY ──────────────────────────────────────────────
+  "se-colors-3":"visual_discr", "se-basic-colors":"visual_discr",
+  "se-shapes-3":"visual_discr", "se-pink-tower":"visual_discr",
+  "se-sound":"auditory_discr", "se-sound-react":"auditory_discr",
+  "se-mystery":"tactile_stereo", "se-texture-2":"tactile_stereo",
+  "se-smell":"olfact_gust",
+  // ── COGNITIVE ────────────────────────────────────────────
+  "co-count-3":"number_quant", "co-count-5":"number_quant",
+  "co-sort-color":"classification", "co-sort-size":"classification",
+  "co-same-diff":"classification", "co-sort-shape":"classification",
+  "co-puzzle-6":"sequencing",
+  "co-missing":"executive_function", "co-instr-1":"executive_function", "co-instr-2":"executive_function",
+  "co-cause-effect":"cause_effect", "co-obj-perm":"cause_effect",
+  "co-imitate-simple":"cause_effect", "co-1word-instr":"cause_effect",
+  "co-pretend":"symbolic_pretend",
+  // ── VOCAB ────────────────────────────────────────────────
+  "la-points-pic":"receptive", "la-bilingual-aware":"receptive",
+  "la-words-50":"expressive", "la-words-200":"expressive", "la-body-5":"expressive",
+  "la-2word":"grammar", "la-3word":"grammar", "la-pronouns":"grammar",
+  "lang_plural_s":"grammar", "lang_past_tense":"grammar",
+  "la-why":"pragmatics", "la-story-5min":"pragmatics",
+  "lang_question_what":"pragmatics", "lang_question_where":"pragmatics",
+  "lang_narrative":"pragmatics",
+  "lang_bilingual_switch":"bilingual",
+  // ── SOCIAL ───────────────────────────────────────────────
+  "so-emotion-4":"emotion_recognition", "so-name-feeling":"emotion_recognition",
+  "so-coreg":"coregulation", "so-attach-secure":"coregulation",
+  "so-empathy":"empathy_tom", "so-back-forth":"empathy_tom",
+  "so-please-thanks":"prosocial", "so-parallel":"prosocial",
+  "so-point-share":"prosocial", "so-wave-bye":"prosocial",
+  "so-separation":"independence"
+};
+
+/* Domain-level fallback subdomain for any skill not explicitly mapped. Picked
+   to match the most common pattern in each domain. Auto-seeded skills from
+   DOMAIN_SEED_BANK + Cowork-generated skills can also assign their own
+   subdomain — if absent, we infer here. Inferred assignments are flagged at
+   runtime with `s._subdomain_inferred = true` for downstream review.         */
+function _inferSubdomain(skill){
+  const dom = skill.dom;
+  const text = ((skill.t || "") + " " + (skill.what || "") + " " + (skill.why || "")).toLowerCase();
+  // gross
+  if (dom === "gross"){
+    if (/hop|jump|run|walk|stair|gallop|skip|broad/.test(text)) return "locomotion";
+    if (/balance|beam|tiptoe|one foot|bike/.test(text))         return "balance_vestibular";
+    if (/climb|carry|push|pull|broad|strength/.test(text))      return "strength_climbing";
+    if (/kick|throw|catch|aim|target/.test(text))               return "bilateral_gross";
+    if (/dance|rhythm|clap|music/.test(text))                   return "rhythm_motor";
+    return "locomotion";
+  }
+  // fine
+  if (dom === "fine"){
+    if (/scissor|thread|button|zip/.test(text))                 return "bilateral_fine";
+    if (/line|circle|copy|trace|draw|write/.test(text))         return "visual_motor";
+    if (/dress|spoon|fork|utensil|shoe|sock|self/.test(text))   return "self_care";
+    if (/lid|twist|knob|wrist|jar/.test(text))                  return "wrist_rotation";
+    if (/crayon|pencil|brush|tool|hammer|page/.test(text))      return "tool_use";
+    if (/pinch|pincer|squeeze|stack|grasp/.test(text))          return "pincer_strength";
+    return "pincer_strength";
+  }
+  // sensory
+  if (dom === "sensory"){
+    if (/color|shape|match|sort|visual/.test(text))             return "visual_discr";
+    if (/sound|listen|auditory|music|tone/.test(text))          return "auditory_discr";
+    if (/texture|tactile|touch|fabric|rough|smooth/.test(text)) return "tactile_stereo";
+    if (/smell|taste|olfact|gust/.test(text))                   return "olfact_gust";
+    if (/spin|swing|vestibul|balance/.test(text))               return "vestibular";
+    if (/heavy|proprio|body awareness|squeeze/.test(text))      return "proprioceptive";
+    return "visual_discr";
+  }
+  // cognitive
+  if (dom === "cognitive"){
+    if (/count|number|how many|quantit/.test(text))             return "number_quant";
+    if (/sort|classify|group|category/.test(text))              return "classification";
+    if (/sequence|order|pattern|story.*order/.test(text))       return "sequencing";
+    if (/memory|attention|inhibit|working|executive/.test(text))return "executive_function";
+    if (/cause|effect|why|predict|what if/.test(text))          return "cause_effect";
+    if (/pretend|symbolic|imagin/.test(text))                   return "symbolic_pretend";
+    if (/instruct|step|follow/.test(text))                      return "executive_function";
+    return "cause_effect";
+  }
+  // vocab
+  if (dom === "vocab"){
+    if (/bilingual|code-switch|french|english/.test(text))      return "bilingual";
+    if (/question|conversation|story|narrat/.test(text))        return "pragmatics";
+    if (/grammar|plural|past tense|pronoun|sentence/.test(text))return "grammar";
+    if (/sound|rhyme|phon/.test(text))                          return "phonology";
+    if (/points to|understand|receptive|comprehend/.test(text)) return "receptive";
+    return "expressive";
+  }
+  // social
+  if (dom === "social"){
+    if (/emotion|feeling|happy|sad|angry/.test(text))           return "emotion_recognition";
+    if (/co-?reg|caregiver|attach|secure/.test(text))           return "coregulation";
+    if (/self.?reg|calm|alone|tantrum/.test(text))              return "self_regulation";
+    if (/empathy|other|theory of mind|tom/.test(text))          return "empathy_tom";
+    if (/share|please|thank|manners|pro-?social|peer/.test(text))return "prosocial";
+    if (/independ|separat|solo/.test(text))                     return "independence";
+    return "prosocial";
+  }
+  return null;
+}
+
+/* One-shot per-load assignment of `s.subdomain`. Idempotent — skips skills
+   that already carry a subdomain. Runs after SKILLS_CUSTOM_SEED is merged
+   into SKILLS so T0 entries also get tagged.                                 */
+(function migrateSubdomainsV6(){
+  try {
+    SKILLS.forEach(s => {
+      if (s.subdomain) return;
+      const explicit = SKILL_SUBDOMAIN_MAP[s.id];
+      if (explicit){ s.subdomain = explicit; return; }
+      const inferred = _inferSubdomain(s);
+      if (inferred){ s.subdomain = inferred; s._subdomain_inferred = true; }
+    });
+  } catch(e){ console.warn("v6 subdomain migration failed", e); }
 })();
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -7066,17 +7300,11 @@ function exportTutorBrief(){
   const ageMonths = chronoAgeMonths(child);
   const stale30 = Date.now() - 30 * 86400000;
 
-  // BKT confidence summary
-  const bktSummary = { high_confidence: 0, medium_confidence: 0, low_confidence: 0 };
-  SKILLS_ALL.forEach(s => {
-    const p = bktReady(s.id);
-    if (p >= 0.85)      bktSummary.high_confidence++;
-    else if (p >= 0.50) bktSummary.medium_confidence++;
-    else                bktSummary.low_confidence++;
-  });
+  // v6: BKT removed — confidence now derives from sub-domain assessment coverage.
 
   // Per-domain breakdown
   const by_domain = {};
+  const reverifyDays = (state.masteryConfig && state.masteryConfig.reverifyAfterDays) || 60;
   DOMAINS.forEach(d => {
     const sl    = domainSL(d.key);
     const tp    = domainTPeak(d.key);
@@ -7091,13 +7319,12 @@ function exportTutorBrief(){
     });
     const keystoneMissing = keystoneAll.filter(s => !keystoneMastered.includes(s)).map(s => s.id);
 
-    // Frontier with v5 metadata
+    // Frontier with v6 metadata (no BKT P(ready))
     const frontier = frontierSkills(d.key, 5).map(s => ({
       skill_id:       s.id,
       label:          s.t,
       udi:            s.udi,
       frontier_score: frontierScore(s),
-      p_ready:        bktReady(s.id),
       downstream:     countDownstream(s.id),
       keystone:       !!s.keystone,
       why:            s.why || ""
@@ -7117,7 +7344,7 @@ function exportTutorBrief(){
       .map(s => {
         const obs = (state.observations || []).filter(o => o.skillId === s.id);
         const last = obs.length ? Math.max(...obs.map(o => o.ts || 0)) : 0;
-        const due = last + nextReverifyDays(s.id) * 86400000;
+        const due = last + reverifyDays * 86400000;
         return { skill_id: s.id, label: s.t, due_at: due, overdue: Date.now() > due };
       })
       .filter(x => x.overdue);
@@ -7127,7 +7354,7 @@ function exportTutorBrief(){
       T_peak_dom: tp,
       T_floor: tf,
       breadth: brdth,
-      confidence_dom: bktSummary.high_confidence > 0 ? "calibrated" : "preliminary",
+      confidence_dom: "preliminary",  // refined in Phase 4 with sub-domain confidence
       dreyfus_stage: stage,
       keystones: {
         mastered: keystoneMastered.length,
@@ -7176,7 +7403,6 @@ function exportTutorBrief(){
       rotation: { last_rotated: null, next_rotation_in_days: null },
       allocation_directive
     },
-    bkt_summary: bktSummary,
     recent_observations,
     parent_notes,
     tutor_system_prompt: TUTOR_SYSTEM_PROMPT_V5
@@ -7330,13 +7556,29 @@ function setSkillStatus(id, status){
   addObservation({ skillId:id, status, source:"manual" });
 }
 
-const STATUS_COLORS = { new:"#F3F4F6", emerging:"#FEF3C7", practising:"#FDE68A", mastered:"#DCFCE7", too_hard:"#FEE2E2", already_mastered:"#E5E7EB" };
-const STATUS_LABEL  = { new:"New", emerging:"Emerging", practising:"Practising", mastered:"Mastered ✓", too_hard:"Too hard", already_mastered:"Already mastered" };
-const STATUS_ORDER  = ["new", "emerging", "practising", "mastered"];
+/* v6 status ladder. The legacy keys (new / emerging / practising / too_hard /
+   already_mastered) remain in the maps so unmigrated observations and the
+   deriveStatus back-compat path still render with reasonable colours.        */
+const STATUS_COLORS = {
+  // v6
+  unknown:"#F3F4F6", working_on_it:"#FEF3C7", mastered:"#DCFCE7", regressed:"#FEE2E2", automatic:"#E5E7EB",
+  // legacy passthrough
+  new:"#F3F4F6", emerging:"#FEF3C7", practising:"#FDE68A", too_hard:"#FEE2E2", already_mastered:"#E5E7EB"
+};
+const STATUS_LABEL  = {
+  // v6
+  unknown:"Unknown", working_on_it:"Working on it", mastered:"Mastered ✓", regressed:"Lost it", automatic:"Automatic 🌟",
+  // legacy passthrough
+  new:"New", emerging:"Emerging", practising:"Practising", too_hard:"Too hard", already_mastered:"Already mastered"
+};
+const STATUS_ORDER  = ["unknown", "working_on_it", "mastered"];
 
 function cycleSkillStatus(cur){
-  const i = STATUS_ORDER.indexOf(cur || "new");
-  return STATUS_ORDER[(i + 1) % STATUS_ORDER.length];
+  // Map any legacy status to its v6 equivalent before cycling.
+  const LEGACY_MAP = { new:"unknown", emerging:"working_on_it", practising:"working_on_it", too_hard:"working_on_it", already_mastered:"mastered" };
+  const v6cur = LEGACY_MAP[cur] || cur || "unknown";
+  const i = STATUS_ORDER.indexOf(v6cur);
+  return STATUS_ORDER[((i < 0 ? 0 : i) + 1) % STATUS_ORDER.length];
 }
 
 /* Hidden-toggle state (Improvement 3). Defaulted false; persisted in
