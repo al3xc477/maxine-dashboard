@@ -6576,9 +6576,9 @@ function _v5MeanTopUdi(skills, n){
   return top.reduce((a,b) => a + b, 0) / top.length;
 }
 
-function advancedSubdomains(/* domKey */){
-  // Sub-domain decomposition is a v4 feature not present in this dataset.
-  return [];
+function advancedSubdomains(domKey){
+  // Returns the sub-domain catalogue for a domain (v6).
+  return (typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[domKey]) ? SUBDOMAINS[domKey] : [];
 }
 function subdomainSL(domKey, subKey){
   const mastered = _v5MasteredInScope(s => s.dom === domKey && s.subdomain === subKey);
@@ -6589,25 +6589,63 @@ function subdomainPeak(domKey, subKey){
   if (!mastered.length) return null;
   return Math.max(...mastered.map(s => udiOf(s)));
 }
+/* Confidence in a sub-domain estimate: how much of its catalogue has been
+   assessed (any non-baseline declaration). Three buckets per v6 spec.        */
+function subdomainConfidence(domKey, subKey){
+  const subs = SKILLS_ALL.filter(s => s.dom === domKey && s.subdomain === subKey);
+  if (!subs.length) return "low";
+  const assessed = subs.filter(s => obsForSkill(s.id).some(o => o && o.source !== "baseline" && o.status !== "unknown")).length;
+  const cov = assessed / subs.length;
+  if (cov >= 0.6) return "high";
+  if (cov >= 0.3) return "medium";
+  return "low";
+}
 function domainSL(domKey){
-  // No sub-domains in current data → aggregate from domain skills directly.
+  // Mean of sub-domain SLs (each itself a top-3 mean), with a domain-level
+  // fallback for sub-domain-thin datasets.
+  const subs = advancedSubdomains(domKey);
+  const sls = subs.map(s => subdomainSL(domKey, s.key)).filter(v => v != null);
+  if (sls.length) return sls.reduce((a, b) => a + b, 0) / sls.length;
   const mastered = _v5MasteredInScope(s => s.dom === domKey);
   return _v5MeanTopUdi(mastered, 3);
 }
 function domainTPeak(domKey){
+  const subs = advancedSubdomains(domKey);
+  const peaks = subs.map(s => subdomainPeak(domKey, s.key)).filter(v => v != null);
+  if (peaks.length) return Math.max(...peaks);
   const mastered = _v5MasteredInScope(s => s.dom === domKey);
   if (!mastered.length) return null;
   return Math.max(...mastered.map(s => udiOf(s)));
 }
 function domainTFloor(domKey){
-  // Without sub-domains, the rate-limiter is the domain itself; floor === SL.
-  const sl = domainSL(domKey);
-  return { value: sl, subdomain: null };
+  // Rate-limiting sub-domain = the one with the lowest SL.
+  const subs = advancedSubdomains(domKey);
+  const pairs = subs.map(s => ({ key: s.key, label: s.label, sl: subdomainSL(domKey, s.key) })).filter(p => p.sl != null);
+  if (!pairs.length){
+    const sl = domainSL(domKey);
+    return { value: sl, subdomain: null, subdomain_label: null };
+  }
+  const min = pairs.reduce((a, b) => a.sl <= b.sl ? a : b);
+  return { value: min.sl, subdomain: min.key, subdomain_label: min.label };
 }
 function domainBreadth(domKey){
-  const total = SKILLS_ALL.filter(s => s.dom === domKey).length;
-  const mastered = _v5MasteredInScope(s => s.dom === domKey).length;
-  return { covered: mastered, total };
+  // Breadth = number of sub-domains with at least one mastered skill.
+  const subs = advancedSubdomains(domKey);
+  if (!subs.length){
+    const total = SKILLS_ALL.filter(s => s.dom === domKey).length;
+    const mastered = _v5MasteredInScope(s => s.dom === domKey).length;
+    return { covered: mastered, total };
+  }
+  const covered = subs.filter(s => subdomainSL(domKey, s.key) != null).length;
+  return { covered, total: subs.length };
+}
+function domainConfidence(domKey){
+  const subs = advancedSubdomains(domKey);
+  if (!subs.length) return "low";
+  const confs = subs.map(s => subdomainConfidence(domKey, s.key));
+  if (confs.filter(c => c === "high").length   >= 3) return "high";
+  if (confs.filter(c => c !== "low").length    >= 3) return "medium";
+  return "low";
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -6635,22 +6673,233 @@ function bktReady(/* skillId */){ return 0; }
   if (dirty && typeof saveState === "function") saveState(state);
 })();
 
-/* Latest observation wins. Falls back to legacy skillStatus.
-   Memoized within a render tick. */
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — STATUS DERIVATION (user-declared mastery)
+   ═════════════════════════════════════════════════════════════════════════
+   The user observes Maxine and taps a status; the engine simply reads the
+   most recent declaration. No BKT, no trial-counting. Two derived behaviours:
+   - `regressed` honoured for `regressionWindowDays` after the declaration,
+     then decays back to `working_on_it`.
+   - `mastered` auto-promotes to `automatic` after `automaticAfterDays` so
+     long-mastered skills stop appearing in reverify prompts.
+   ───────────────────────────────────────────────────────────────────────── */
+function deriveStatusV6(skillId){
+  if (_v31Cache.statusV6 && _v31Cache.statusV6[skillId] !== undefined) return _v31Cache.statusV6[skillId];
+  _v31Cache.statusV6 = _v31Cache.statusV6 || {};
+  const cfg = state.masteryConfig || {};
+  const obs = obsForSkill(skillId).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  let result;
+  if (obs.length === 0){
+    // Fall back to legacy skillStatus mirror (v5 vocab) if present.
+    const legacy = state.skillStatus && state.skillStatus[skillId];
+    if (legacy && legacy.status){
+      const MAP = { mastered:"mastered", already_mastered:"mastered", practising:"working_on_it", emerging:"working_on_it", too_hard:"working_on_it", new:"unknown" };
+      result = MAP[legacy.status] || "unknown";
+    } else {
+      result = "unknown";
+    }
+  } else {
+    const latest = obs[obs.length - 1];
+    const ageDays = (Date.now() - (latest.ts || 0)) / 86400000;
+    if (latest.status === "regressed"){
+      result = ageDays < (cfg.regressionWindowDays || 30) ? "regressed" : "working_on_it";
+    } else if (latest.status === "mastered"){
+      result = ageDays >= (cfg.automaticAfterDays || 60) ? "automatic" : "mastered";
+    } else if (latest.status === "working_on_it" || latest.status === "unknown"){
+      result = latest.status;
+    } else {
+      // Legacy v5 value that survived migration (e.g. malformed import)
+      const MAP = { mastered:"mastered", already_mastered:"mastered", practising:"working_on_it", emerging:"working_on_it", too_hard:"working_on_it", new:"unknown" };
+      result = MAP[latest.status] || "unknown";
+    }
+  }
+  return _v31Cache.statusV6[skillId] = result;
+}
+
+/* Back-compat shim. Existing renderers compare statuses against the v5
+   vocabulary (new / emerging / practising / mastered / too_hard /
+   already_mastered). We translate v6 → v5 here. New code should call
+   deriveStatusV6 directly.                                                    */
 function deriveStatus(skillId){
   if (_v31Cache.status[skillId] !== undefined) return _v31Cache.status[skillId];
-  let latest = null;
-  try {
-    const obs = state.observations || [];
-    for (let i=0; i<obs.length; i++){
-      const o = obs[i];
-      if (!o || o.skillId !== skillId) continue;
-      if (!latest || (o.ts||0) > (latest.ts||0)) latest = o;
+  const v6 = deriveStatusV6(skillId);
+  const MAP = {
+    unknown:       "new",
+    working_on_it: "practising",
+    mastered:      "mastered",
+    automatic:     "already_mastered",
+    regressed:     "practising"
+  };
+  return _v31Cache.status[skillId] = (MAP[v6] || "new");
+}
+
+/* v6 helpers: mastery-state predicates used by the radar / Active 10 / backfill. */
+function isMasteredV6(s){
+  const st = deriveStatusV6(s.id);
+  return st === "mastered" || st === "automatic";
+}
+function isWorkingOnIt(s){ return deriveStatusV6(s.id) === "working_on_it"; }
+function isUnknownV6(s)  { return deriveStatusV6(s.id) === "unknown"; }
+function isRegressedV6(s){ return deriveStatusV6(s.id) === "regressed"; }
+
+/* ZPD check — skill UDI is within [SL+lower, SL+upper] of its sub-domain SL.
+   For un-assessed sub-domains we fall back to the beginnerUdiCeiling so
+   absolute-beginner skills appear in Active 10.                              */
+function isInZpd(s){
+  const cfg = state.masteryConfig || {};
+  const [lower, upper] = cfg.zpdRange || [-0.3, 1.5];
+  const sl = (typeof subdomainSL === "function") ? subdomainSL(s.dom, s.subdomain) : null;
+  const u  = (typeof udiOf === "function") ? udiOf(s) : 3.0;
+  if (sl == null) return u <= (cfg.beginnerUdiCeiling || 2.0);
+  return u >= sl + lower && u <= sl + upper;
+}
+
+/* Returns the prereq edges of a skill (v6 typed-graph reader). */
+function getEdges(skill, type){
+  return (skill && Array.isArray(skill.edges)) ? skill.edges.filter(e => !type || e.type === type) : [];
+}
+
+/* A skill is "frontier" in v6 iff unmastered AND every prereq is mastered. */
+function isFrontierV6(skill){
+  if (isMasteredV6(skill)) return false;
+  return getEdges(skill, "prereq").every(e => {
+    const ps = SKILLS_ALL.find(s => s.id === e.to);
+    return ps && isMasteredV6(ps);
+  });
+}
+
+/* "Available" = frontier + in-ZPD. This is the eligible pool for Active 10. */
+function isAvailable(skill){
+  return isFrontierV6(skill) && isInZpd(skill);
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — REVERIFICATION ENGINE
+   ═════════════════════════════════════════════════════════════════════════
+   Mastery declarations schedule reverification prompts at fixed offsets
+   ([30, 60, 120, 240] days by default). Implicit verification: if a
+   descendant skill in the same domain has been mastered more recently than
+   the last direct mastery declaration for an ancestor, the ancestor's due
+   reverify entry auto-completes (with completed_reason "implicit:<id>").
+   ───────────────────────────────────────────────────────────────────────── */
+function scheduleReverification(skillId, masteredAtTs){
+  state.reverifyQueue = state.reverifyQueue || [];
+  const schedule = (state.masteryConfig && state.masteryConfig.reverifySchedule) || [30, 60, 120, 240];
+  // Clear any existing not-yet-completed entries for this skill, then re-schedule.
+  state.reverifyQueue = state.reverifyQueue.filter(r => !(r && r.skillId === skillId && !r.completed));
+  schedule.forEach(days => {
+    state.reverifyQueue.push({
+      skillId,
+      dueAt: masteredAtTs + days * 86400000,
+      completed: false,
+      completed_at: null,
+      completed_reason: null,
+      offsetDays: days
+    });
+  });
+}
+
+function clearReverification(skillId){
+  state.reverifyQueue = (state.reverifyQueue || []).filter(r => !(r && r.skillId === skillId && !r.completed));
+}
+
+function dueReverifications(){
+  const now = Date.now();
+  return (state.reverifyQueue || []).filter(r => r && !r.completed && r.dueAt <= now);
+}
+
+/* BFS upstream through the typed-graph. Returns same-domain descendant skill
+   ids whose `edges[]` reach the target via prereq or reinforces edges, up to
+   maxDepth hops.                                                              */
+function descendantsOf(skillId, maxDepth){
+  if (!maxDepth) maxDepth = 3;
+  const start = SKILLS_ALL.find(s => s.id === skillId);
+  if (!start) return [];
+  const sameDom = SKILLS_ALL.filter(s => s.dom === start.dom);
+  const visited = new Set();
+  const queue = [{ id: skillId, depth: 0 }];
+  while (queue.length){
+    const { id, depth } = queue.shift();
+    if (depth >= maxDepth) continue;
+    sameDom.forEach(s => {
+      if (s.id === id || visited.has(s.id)) return;
+      const hits = (s.edges || []).some(e => e && e.to === id && (e.type === "prereq" || e.type === "reinforces"));
+      if (hits){
+        visited.add(s.id);
+        queue.push({ id: s.id, depth: depth + 1 });
+      }
+    });
+  }
+  return [...visited];
+}
+
+/* Does any descendant of `skillId` have a mastered observation more recent
+   than `sinceTs`? Returns the verifying descendant or {verified:false}.       */
+function smartReverifyCheck(skillId, sinceTs){
+  const descendants = descendantsOf(skillId, 3);
+  for (const dId of descendants){
+    const st = deriveStatusV6(dId);
+    if (st !== "mastered" && st !== "automatic") continue;
+    const masteredObs = obsForSkill(dId).filter(o => o && o.status === "mastered").sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    if (!masteredObs.length) continue;
+    const dTs = masteredObs[0].ts || 0;
+    if (dTs > sinceTs){
+      const dSkill = SKILLS_ALL.find(s => s.id === dId);
+      return { verified: true, by: dId, by_title: (dSkill && dSkill.t) || dId, ts: dTs };
     }
-  } catch(e){ /* fall through */ }
-  if (latest) return _v31Cache.status[skillId] = latest.status;
-  const legacy = state.skillStatus && state.skillStatus[skillId];
-  return _v31Cache.status[skillId] = (legacy && legacy.status) || "new";
+  }
+  return { verified: false };
+}
+
+/* Walks the reverify queue, auto-completing entries whose ancestor has been
+   verified implicitly by a more-recent descendant mastery. Logs a synthetic
+   "implicit_reverify" observation so the Mastered Library + SL math stay
+   accurate. Returns the count of auto-completed entries.                      */
+function processDueReverifications(){
+  const due = dueReverifications();
+  let autoCompleted = 0;
+  due.forEach(r => {
+    const directObs = obsForSkill(r.skillId)
+      .filter(o => o && o.status === "mastered" && (o.source === "manual" || o.source === "calibration"));
+    const lastDirectTs = directObs.length ? Math.max(...directObs.map(o => o.ts || 0)) : 0;
+    const check = smartReverifyCheck(r.skillId, lastDirectTs);
+    if (check.verified){
+      r.completed = true;
+      r.completed_at = Date.now();
+      r.completed_reason = "implicit:" + check.by;
+      state.observations = state.observations || [];
+      state.observations.push({
+        skillId: r.skillId,
+        status: "mastered",
+        by: state.currentUser || "—",
+        source: "implicit_reverify",
+        ts: Date.now(),
+        notes: 'Auto-verified via mastery of "' + ((SKILLS_ALL.find(s => s.id === check.by) || {}).t || check.by) + '"'
+      });
+      autoCompleted++;
+    }
+  });
+  if (autoCompleted > 0){
+    _v31Bump();
+    if (typeof saveState === "function") saveState(state);
+  }
+  return autoCompleted;
+}
+
+/* Active-era resolver. The era schema determines which domains the dashboard
+   surfaces. Falls back to all 6 foundation domains when no child is selected. */
+function getActiveDomainKeys(){
+  try {
+    const child = (typeof currentChild === "function") ? currentChild() : null;
+    if (!child) return DOMAINS.map(d => d.key);
+    const era = (typeof activeEra === "function") ? activeEra(child) : null;
+    if (!era) return DOMAINS.map(d => d.key);
+    const fromEra = era.foundation || era.foundation_chc || era.backbone || [];
+    // Only keep keys that match a real DOMAINS entry (drop "adaptive",
+    // "practical_life", etc. that don't have catalogue skills yet).
+    const real = fromEra.filter(k => DOMAINS.find(d => d.key === k));
+    return real.length ? real : DOMAINS.map(d => d.key);
+  } catch(e){ return DOMAINS.map(d => d.key); }
 }
 
 function addObservation({ skillId, status, by, source, notes }){
@@ -7529,23 +7778,28 @@ function _persistReadinessSnapshot(masteredIds, dismissed){
   } catch(e){}
 }
 
-/* Re-verify queue: mastered skills not re-observed in >reverifyAfterDays.
-   Auto-refreshed; result stored on state.reverifyQueue for sync visibility.   */
+/* v6 — Re-verify queue READER. The queue itself is maintained by
+   scheduleReverification (on mastery) and processDueReverifications (which
+   auto-completes any entry implicitly verified by a more-recent descendant).
+   This helper returns the due-but-not-implicitly-verified entries that
+   actually need parental attention, in the legacy {id, lastTs} shape so the
+   existing banner renderer keeps working.                                    */
 function refreshReverifyQueue(){
-  const days = state.masteryConfig.reverifyAfterDays || 60;
-  const cutoff = Date.now() - days*86400000;
-  const queue = [];
-  for (const s of SKILLS){
-    const st = deriveStatus(s.id);
-    if (st !== "mastered") continue;
-    const obs = (state.observations||[]).filter(o => o.skillId === s.id);
-    const last = obs.length
-      ? Math.max(...obs.map(o=>o.ts||0))
-      : ((state.skillStatus[s.id]||{}).ts || 0);
-    if (last && last < cutoff) queue.push({ id:s.id, lastTs:last });
+  if (typeof processDueReverifications === "function"){
+    try { processDueReverifications(); } catch(e){ /* surface to console only */ }
   }
-  state.reverifyQueue = queue;
-  return queue;
+  const now = Date.now();
+  const seen = new Set();
+  const out = [];
+  (state.reverifyQueue || []).forEach(r => {
+    if (!r || r.completed || (r.dueAt || 0) > now) return;
+    if (seen.has(r.skillId)) return;
+    seen.add(r.skillId);
+    const obs = (state.observations || []).filter(o => o && o.skillId === r.skillId && o.status === "mastered");
+    const last = obs.length ? Math.max(...obs.map(o => o.ts || 0)) : (r.dueAt - (r.offsetDays || 60) * 86400000);
+    out.push({ id: r.skillId, lastTs: last });
+  });
+  return out;
 }
 
 /* Legacy accessor — now reads via observation log (with fallback). */
@@ -9873,6 +10127,17 @@ window._sobTransfer = async function(){
     if(out && url){ out.style.display="block"; out.style.color="#FCA5A5"; out.textContent="Copy this: " + url.substring(0,60)+"…"; }
   }
 };
+
+/* v6 — load-time hooks. Each runs once on every page load, after all the
+   migration IIFEs and after the catalogue + state are fully populated. The
+   typeof-guards let phases be developed independently — a Phase-3 build
+   without backfillEngine still boots cleanly.                                */
+(function v6LoadHooks(){
+  try { if (typeof processDueReverifications  === "function") processDueReverifications();  } catch(e){ console.warn("v6: processDueReverifications failed", e); }
+  try { if (typeof maybeRotateCoaching        === "function") maybeRotateCoaching();        } catch(e){ console.warn("v6: maybeRotateCoaching failed", e); }
+  try { if (typeof detectBackfillCompletions  === "function") detectBackfillCompletions();  } catch(e){ console.warn("v6: detectBackfillCompletions failed", e); }
+  try { if (typeof backfillEngine             === "function") backfillEngine();             } catch(e){ console.warn("v6: backfillEngine failed", e); }
+})();
 
 </script>
 </body>
