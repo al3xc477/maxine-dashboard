@@ -6489,6 +6489,21 @@ function drawSkillCatalogue(){
   const fs = (document.getElementById("skillStatus") || {}).value || "";
   const ft = ((document.getElementById("skillSearch") || {}).value || "").toLowerCase();
 
+  // ── Improvement A: refresh in-memory seeded skills (no persistence) ──
+  if (typeof _refreshSeededSkills === "function"){
+    try { _refreshSeededSkills(); } catch(err){ console.warn("seed refresh failed", err); }
+  }
+
+  // ── Improvement B: compute priority sets (one per domain + a global one) ──
+  const priorityByDomain = {};
+  let globalPrioritySet = new Set();
+  try {
+    DOMAINS.forEach(d => {
+      priorityByDomain[d.key] = new Set(prioritySkills(d.key).map(s => s.id));
+    });
+    globalPrioritySet = new Set(prioritySkills().map(s => s.id));
+  } catch(err){ console.warn("prioritySkills failed", err); }
+
   // ── Improvement 1: readiness snapshot (banner + Ready-to-try chips) ──
   let snap = null;
   try { snap = computeReadinessSnapshot(); } catch(err){ console.warn("computeReadinessSnapshot failed", err); }
