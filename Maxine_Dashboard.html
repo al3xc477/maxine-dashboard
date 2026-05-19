@@ -1491,6 +1491,14 @@
     </div>
     <div style="font-weight:700; font-size:13px; margin-bottom:6px">Jump to week:</div>
     <div id="weekList" style="max-height:30vh; overflow:auto; display:flex; flex-direction:column; gap:6px;"></div>
+
+    <!-- v5 — BKT diagnostics (advanced) -->
+    <details style="margin-top:14px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
+      <summary style="font-size:13px; font-weight:700; cursor:pointer">🧠 BKT diagnostics (advanced)</summary>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Per-skill P(known) from Bayesian Knowledge Tracing (Corbett-Anderson 1995). Sorted by p_known desc.</div>
+      <div id="bktDiagBody" style="max-height:280px; overflow:auto; font-size:11px"></div>
+    </details>
+
     <div class="row" style="margin-top:14px; justify-content:space-between; flex-wrap:wrap; gap:8px">
       <button class="small danger" id="resetBtn" style="font-size:12px">↺ Reset all data</button>
       <button class="small ghost" id="closeSet">Close</button>
@@ -3530,6 +3538,10 @@ document.addEventListener("click", (e) => {
           observer: "parent",
           notes: `Game Creator — ${_gcCurrentCtx}${_gcCustomLabel ? " (" + _gcCustomLabel + ")" : ""}`,
         });
+        // v5: BKT update for real skill IDs (vocab-* synthetic IDs handled separately)
+        if (typeof bktUpdate === "function" && SKILLS.find(x => x.id === sug.skillId)){
+          bktUpdate(sug.skillId, "partial"); // practising → partial evidence
+        }
         if (typeof saveState === "function") saveState(state);
       }
       if (sug.vocabWord){
@@ -4170,7 +4182,52 @@ function openSettings(){
   const ea = document.getElementById("cloudSyncEnterArea"); if(ea) ea.style.display="none";
   // (auto-sync panel renders itself via syncAutoInit)
   renderSyncStatus();
+  // v5 — render BKT diagnostics body on each open (cheap, ~90 rows).
+  if (typeof renderBktDiagnostics === "function") renderBktDiagnostics();
   setModal.classList.add("open");
+}
+
+/* v5 — BKT diagnostics table (Settings → advanced). Sortable by p_known desc.
+   Each row: skill label, p_known, p_slip, p_guess, last_observation_ts.    */
+function renderBktDiagnostics(){
+  const body = document.getElementById("bktDiagBody");
+  if (!body) return;
+  try {
+    const rows = SKILLS_ALL.map(s => {
+      const b = state.bkt[s.id] || { p_known: BKT_DEFAULTS.p_init, ...BKT_DEFAULTS };
+      const obs = (state.observations || []).filter(o => o.skillId === s.id);
+      const lastTs = obs.length ? Math.max(...obs.map(o => o.ts || 0)) : 0;
+      return { id: s.id, label: s.t, p_known: b.p_known, p_slip: b.p_slip, p_guess: b.p_guess, lastTs };
+    }).sort((a, b) => b.p_known - a.p_known);
+
+    body.innerHTML = `
+      <table style="width:100%; border-collapse:collapse; font-size:11px">
+        <thead>
+          <tr style="background:#F1F4FA; text-align:left">
+            <th style="padding:4px 6px">Skill</th>
+            <th style="padding:4px 6px; text-align:right">p_known</th>
+            <th style="padding:4px 6px; text-align:right">p_slip</th>
+            <th style="padding:4px 6px; text-align:right">p_guess</th>
+            <th style="padding:4px 6px">Last obs</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr style="border-bottom:1px solid var(--line)">
+              <td style="padding:3px 6px; font-weight:600">${escapeHtml(r.label || r.id)}</td>
+              <td style="padding:3px 6px; text-align:right; ${r.p_known >= 0.85 ? "color:#14532D; font-weight:700" : (r.p_known < 0.5 ? "color:#9D174D" : "")}">${r.p_known.toFixed(3)}</td>
+              <td style="padding:3px 6px; text-align:right; color:var(--muted)">${r.p_slip.toFixed(2)}</td>
+              <td style="padding:3px 6px; text-align:right; color:var(--muted)">${r.p_guess.toFixed(2)}</td>
+              <td style="padding:3px 6px; color:var(--muted)">${r.lastTs ? new Date(r.lastTs).toLocaleDateString("en-GB") : "—"}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  } catch(err){
+    console.warn("renderBktDiagnostics failed", err);
+    body.innerHTML = `<div class="sub" style="color:var(--muted)">Unavailable.</div>`;
+  }
 }
 $("closeSet").addEventListener("click", ()=> setModal.classList.remove("open"));
 setModal.addEventListener("click", (e)=>{
@@ -6326,6 +6383,105 @@ function domainBreadth(domKey){
   return { covered: mastered, total };
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v5 — BAYESIAN KNOWLEDGE TRACING (BKT)
+   ═════════════════════════════════════════════════════════════════════════
+   Per-skill P(known) updated on every observation using the Corbett &
+   Anderson 1995 HMM. Drives confidence chip, adaptive reverification,
+   and downstream frontier scoring.
+
+   State shape: state.bkt[skillId] = { p_known, p_init, p_learn, p_guess, p_slip }
+   ───────────────────────────────────────────────────────────────────────── */
+const BKT_DEFAULTS = { p_init: 0.05, p_learn: 0.15, p_guess: 0.10, p_slip: 0.10 };
+
+state.bkt = state.bkt || {};
+
+/* Status → BKT result mapping.
+   Existing observations carry `status`, not `result`. v5 hooks (and the
+   first-load replay) translate via this function. Returns null for
+   non-evidential statuses (e.g. "new") so the engine skips them.            */
+function bktResultFromStatus(status){
+  if (status === "mastered" || status === "already_mastered") return "success";
+  if (status === "practising")                                return "partial";
+  if (status === "emerging")                                  return "partial";
+  if (status === "too_hard")                                  return "fail";
+  return null;
+}
+
+/**
+ * BKT update — Corbett & Anderson 1995 HMM equations.
+ * Mutates state.bkt[skillId].p_known. Called whenever an observation is
+ * appended to state.observations[id].
+ *
+ * @param {string} skillId
+ * @param {"success"|"fail"|"partial"} result  (partial = half-strength success)
+ */
+function bktUpdate(skillId, result){
+  if (!skillId || !result) return;
+  const params = state.bkt[skillId] || { p_known: BKT_DEFAULTS.p_init, ...BKT_DEFAULTS };
+  let p = params.p_known;
+  let p_evidence;
+
+  if (result === "success"){
+    p_evidence = p * (1 - params.p_slip) + (1 - p) * params.p_guess;
+    p = p_evidence > 0 ? (p * (1 - params.p_slip)) / p_evidence : p;
+  } else if (result === "fail"){
+    p_evidence = p * params.p_slip + (1 - p) * (1 - params.p_guess);
+    p = p_evidence > 0 ? (p * params.p_slip) / p_evidence : p;
+  } else if (result === "partial"){
+    p_evidence = p * (1 - params.p_slip * 0.5) + (1 - p) * params.p_guess * 0.5;
+    p = p_evidence > 0 ? (p * (1 - params.p_slip * 0.5)) / p_evidence : p;
+  } else {
+    return; // unknown result code → no-op
+  }
+
+  // Learning-transition step
+  p = p + (1 - p) * params.p_learn;
+  // Clamp [0, 1] (numerical safety)
+  if (p < 0) p = 0; if (p > 1) p = 1;
+
+  params.p_known = p;
+  state.bkt[skillId] = params;
+  // Note: saveState is called by the observation-append paths after this
+  // returns; we don't double-write here.
+}
+
+function bktReady(skillId){
+  return (state.bkt[skillId] && state.bkt[skillId].p_known) || BKT_DEFAULTS.p_init;
+}
+
+/* Adaptive reverification: 30d at p_known≈0.80; ~180d at 0.95.
+   Clamped [14, 365] so confidence never lets a skill go un-rechecked > 1y. */
+function nextReverifyDays(skillId){
+  const p = bktReady(skillId);
+  return Math.round(Math.max(14, Math.min(365, 30 + (p - 0.8) * 1000)));
+}
+
+/* Migration: initialise BKT params for every catalogue skill, then replay
+   each skill's observation history chronologically through bktUpdate so
+   p_known reflects accumulated evidence. State-gated by v5BktMigrationDone. */
+(function migrateBktV5(){
+  try {
+    if (state.v5BktMigrationDone) return;
+    SKILLS_ALL.forEach(s => {
+      state.bkt[s.id] = { p_known: BKT_DEFAULTS.p_init, ...BKT_DEFAULTS };
+      // state.observations is a flat array. Filter + sort per-skill.
+      const obs = (state.observations || [])
+        .filter(o => o && o.skillId === s.id)
+        .slice()
+        .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      obs.forEach(o => {
+        const r = bktResultFromStatus(o.status);
+        if (r) bktUpdate(s.id, r);
+      });
+    });
+    state.v5BktMigrationDone = true;
+    state.v5BktMigratedAt = Date.now();
+    // No saveState here — _v31Bump is still in TDZ at this point in the
+    // file. The next user action that mutates state will persist.
+  } catch(e){ console.warn("v5 BKT migration failed", e); }
+})();
+
 /* Latest observation wins. Falls back to legacy skillStatus.
    Memoized within a render tick. */
 function deriveStatus(skillId){
@@ -6357,6 +6513,13 @@ function addObservation({ skillId, status, by, source, notes }){
   // Keep legacy skillStatus mirror in sync so v3.0 code paths still work.
   state.skillStatus = state.skillStatus || {};
   state.skillStatus[skillId] = { status, by: by || state.currentUser || "—", ts: Date.now() };
+  // v5: update Bayesian Knowledge Tracing for real (non-synthetic) skill IDs.
+  // Synthetic IDs like "vocab-cat_en" aren't in SKILLS and would create stray
+  // BKT entries — filter them out by membership in the catalogue.
+  if (typeof bktUpdate === "function" && SKILLS.find(x => x.id === skillId)){
+    const r = bktResultFromStatus(status);
+    if (r) bktUpdate(skillId, r);
+  }
   _v31Bump();
   saveState(state);
 }
