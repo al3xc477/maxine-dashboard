@@ -3018,6 +3018,9 @@ state.reverifyQueue      = Array.isArray(state.reverifyQueue)      ? state.rever
 state.coachingPicks      = (state.coachingPicks && !Array.isArray(state.coachingPicks) && typeof state.coachingPicks === "object")
                             ? state.coachingPicks : {};
 state.backfillQueue      = Array.isArray(state.backfillQueue)      ? state.backfillQueue      : [];
+// Game Creator scene rotation timestamps: { sceneId: ts }
+state._gcSceneShownAt    = (state._gcSceneShownAt && typeof state._gcSceneShownAt === "object" && !Array.isArray(state._gcSceneShownAt))
+                            ? state._gcSceneShownAt : {};
 
 /* v6 one-shot observation-schema migration. Maps the v5 status vocabulary
    (new / emerging / practising / mastered / too_hard / already_mastered) onto
@@ -3326,6 +3329,24 @@ function addVocabMastery(wordEn, lang, opts){
   saveState(state);
 }
 
+/* Log a vocab EXPOSURE (not mastery). Used by the Game Creator when a scene
+   weaves a word in: we log that Maxine heard/used the word in context, but
+   mastery stays parent-declared (via Bingo or the catalogue). No mutation of
+   state.vocabMaster — just an event in the observation log.                  */
+function addVocabExposure(wordEn, lang, opts){
+  if (!wordEn || !lang) return;
+  state.observations = state.observations || [];
+  state.observations.push({
+    skillId: `vocab-${wordEn}_${lang}`,
+    status:  "working_on_it",
+    by:      (opts && opts.by) || state.currentUser || "—",
+    source:  (opts && opts.source) || "gc_scene",
+    ts:      Date.now(),
+    notes:   (opts && opts.notes) || `${wordEn} (${lang}) exposed via scene`,
+  });
+  // Caller is responsible for saveState — Game Creator batches them.
+}
+
 /* Choose how many cells to draw based on viewport (3×2 / 3×3 / 4×3). */
 function _bingoCellCount(){
   const w = window.innerWidth || 360;
@@ -3628,6 +3649,339 @@ const GC_CTX_DOMAINS = {
   drawing:    ["fine"],
   baby_dolls: ["social", "vocab", "fine"],
   custom:     ["gross", "fine", "sensory", "cognitive", "vocab", "social"],
+};
+
+/**
+ * Scene-based play library for the Game Creator.
+ * Each scene is a coherent mini-scenario with setup, beats, tips, and target slots.
+ *
+ * Slot placeholders (filled at render time):
+ *   {VOCAB_1}, {VOCAB_2}, {VOCAB_3} — replaced with current theme's unmastered words
+ *
+ * If a scene specifies vocab_slot_count > available gaps, fall back to scene.default_vocab.
+ */
+const SCENES_LIBRARY = {
+  dollhouse: [
+    {
+      id: "dh-mealtime",
+      title: "Mealtime in the dollhouse",
+      emoji: "🍽️",
+      props: ["Dollhouse + 3–4 dolls", "Pretend food (toy or paper cut-outs)", "Tiny plates"],
+      duration_min: 10,
+      target_skill_ids: ["la-pronouns", "la-2word", "la-3word"],
+      target_subdomains: ["pragmatics", "expressive", "grammar"],
+      vocab_slot_count: 3,
+      default_vocab: ["cheese", "bread", "apple"],
+      beats: [
+        { actor: "Mama doll", line: "I want the {VOCAB_1}! Yummy!", action: "Hand the food to mama doll." },
+        { actor: "Papa doll", line: "Hmm, I want the {VOCAB_2}. Mine!", action: "Switch dolls — Maxine plays papa now." },
+        { actor: "Baby doll", line: "Mine! Mine!", action: "Baby reaches for the {VOCAB_3}. Use a high voice." },
+        { actor: "You", line: "What do YOU want, Maxine? Tell baby!", action: "Wait 5 seconds. Prompt 'I want…' if she pauses." },
+        { actor: "All dolls", line: "Thank you! Mmmm!", action: "Dolls rub their tummies. End the scene." }
+      ],
+      tips: [
+        "Pause and wait 5 seconds before giving her the next line — let her produce the word.",
+        "When she says 'mine', expand: 'Yes! It's MY {VOCAB_1}.' Mirror + extend.",
+        "Switch languages mid-scene: say the food in EN, then FR. She'll start to do the same.",
+        "If she stays quiet, hand her the doll and model both sides — she may copy days later."
+      ],
+      learning_focus: "Pronouns (I/me/mine/you) sit naturally in a doll's mouth. Food vocab is concrete and re-usable. (Tomasello — joint-attention frames.)"
+    },
+    {
+      id: "dh-bedtime",
+      title: "Bedtime routine in the dollhouse",
+      emoji: "🌙",
+      props: ["Dolls", "Tiny blanket / cloth", "Toothbrush (real or pretend)"],
+      duration_min: 12,
+      target_skill_ids: ["la-3word", "co-instr-2", "so-name-feeling"],
+      target_subdomains: ["pragmatics", "sequencing", "self_regulation"],
+      vocab_slot_count: 3,
+      default_vocab: ["pyjamas", "teeth", "blanket"],
+      beats: [
+        { actor: "You", line: "It's bedtime for the dolls! First, {VOCAB_1}. Where are the pyjamas?", action: "Help her find or pretend to find pyjamas." },
+        { actor: "You", line: "Now brush {VOCAB_2}. Brush, brush, brush!", action: "Mime brushing the doll's teeth." },
+        { actor: "Mama doll", line: "Time for a story. Snuggle in!", action: "Tuck the doll under the {VOCAB_3}." },
+        { actor: "Baby doll", line: "I'm sleepy. Goodnight, mama.", action: "Whisper. Lights low. Maxine says goodnight." },
+        { actor: "You", line: "How does baby feel? Happy? Tired?", action: "Wait for her to name the feeling." }
+      ],
+      tips: [
+        "Use 'first, next, last' to scaffold sequencing.",
+        "Lower your voice as the scene progresses — Maxine will mirror.",
+        "This scene works wonderfully right before her own bedtime — calming + skill-building."
+      ],
+      learning_focus: "Multi-step sequence + emotion-naming. Builds her own bedtime narrative. (Nelson — narrative scaffolding.)"
+    },
+    {
+      id: "dh-sick-day",
+      title: "Baby doll is sick",
+      emoji: "🤒",
+      props: ["1–2 baby dolls", "Tissue or cloth", "Toy thermometer or spoon"],
+      duration_min: 10,
+      target_skill_ids: ["so-empathy", "so-emotion-4", "la-body-5"],
+      target_subdomains: ["empathy_tom", "emotion_recognition", "expressive"],
+      vocab_slot_count: 3,
+      default_vocab: ["head", "tummy", "hot"],
+      beats: [
+        { actor: "Baby doll", line: "(soft cry) My {VOCAB_1} hurts!", action: "Touch the doll's head." },
+        { actor: "You", line: "Oh no! Baby is sick. How does baby feel?", action: "Wait for her to say 'sad' or 'sick'." },
+        { actor: "Mama doll", line: "Let me check your {VOCAB_2}. Hmm, you are {VOCAB_3}.", action: "Use the toy thermometer." },
+        { actor: "You", line: "What should we do? Hug? Drink water? Sleep?", action: "Let Maxine choose. Act it out." },
+        { actor: "Baby doll", line: "(small smile) Thank you. I feel better.", action: "End with a hug." }
+      ],
+      tips: [
+        "Caring play is huge for empathy at this age.",
+        "If she gets quiet — that's good. She's modelling the feeling.",
+        "Don't rush to 'fix' the doll. Let her sit with the 'sick' for a beat."
+      ],
+      learning_focus: "Empathy + body part vocab + emotion words in a meaningful context. (Hoffman — empathy stages.)"
+    },
+    {
+      id: "dh-family-visit",
+      title: "Grandma comes to visit",
+      emoji: "👵",
+      props: ["Dolls", "One small wrapped 'present' (any small object)"],
+      duration_min: 10,
+      target_skill_ids: ["so-please-thanks", "la-3word", "so-back-forth"],
+      target_subdomains: ["prosocial", "pragmatics", "empathy_tom"],
+      vocab_slot_count: 2,
+      default_vocab: ["hello", "present"],
+      beats: [
+        { actor: "Doorbell sound", line: "Ding dong!", action: "Make the sound. Excitement." },
+        { actor: "Grandma doll", line: "{VOCAB_1}, sweetie! I brought you a {VOCAB_2}!", action: "Hand over the wrapped object." },
+        { actor: "You", line: "What do we say, Maxine?", action: "Wait for 'thank you' / 'merci'." },
+        { actor: "Maxine's doll", line: "Thank you, grandma!", action: "Open the {VOCAB_2} together." },
+        { actor: "All dolls", line: "Big hug!", action: "Dolls all hug. End on warmth." }
+      ],
+      tips: [
+        "If she says 'merci' — beam. Don't correct. Bilingual choices are hers to make.",
+        "After the scene, mention: 'we say thank you when we get a present' — abstract → concrete.",
+        "Re-use the same scene next week with a different gift."
+      ],
+      learning_focus: "Politeness routines in a memorable context + 3-word phrases. (Montessori — grace & courtesy.)"
+    }
+  ],
+  baby_dolls: [
+    {
+      id: "bd-feeding",
+      title: "Feeding baby",
+      emoji: "🍼",
+      props: ["Baby doll", "Spoon or pretend bottle", "Bib (cloth)"],
+      duration_min: 10,
+      target_skill_ids: ["la-body-5", "so-empathy", "fm-spoon-fork"],
+      target_subdomains: ["expressive", "coregulation", "self_care"],
+      vocab_slot_count: 3,
+      default_vocab: ["hungry", "spoon", "full"],
+      beats: [
+        { actor: "Baby doll", line: "(cry) I'm {VOCAB_1}!", action: "Maxine identifies what baby wants." },
+        { actor: "You", line: "Time to eat! Where's the {VOCAB_2}?", action: "Find / hold the spoon together." },
+        { actor: "Maxine", line: "Open big!", action: "She feeds the doll. Each spoonful gets a happy 'mmm!' from baby." },
+        { actor: "Baby doll", line: "I'm {VOCAB_3}! Burp!", action: "Burp the baby on the shoulder." },
+        { actor: "You", line: "Good job feeding baby. Baby is happy.", action: "Process praise — 'you took care of baby'." }
+      ],
+      tips: [
+        "Mirror the spoon grip she uses on the doll back to her own meal at real lunchtime.",
+        "If she shakes her head, accept it — baby is full. Resistance is choice-making, valuable.",
+        "Bilingual: hungry → faim, full → rassasié."
+      ],
+      learning_focus: "Caretaking sequence + spoon-grip practice + body/feelings vocab. (Vygotsky ZPD on utensil use.)"
+    },
+    {
+      id: "bd-dressing",
+      title: "Dressing baby",
+      emoji: "👕",
+      props: ["Baby doll", "1–2 doll clothes (or scarves to improvise)"],
+      duration_min: 10,
+      target_skill_ids: ["fm-velcro", "fm-buttons-large", "la-body-5"],
+      target_subdomains: ["self_care", "expressive", "tool_use"],
+      vocab_slot_count: 3,
+      default_vocab: ["arm", "shirt", "feet"],
+      beats: [
+        { actor: "You", line: "Brrr, baby is cold! Let's find a shirt.", action: "Pick out clothing together." },
+        { actor: "You", line: "First one {VOCAB_1}, then the other.", action: "Maxine puts the doll's arm through the sleeve." },
+        { actor: "Baby doll", line: "Tickle, tickle!", action: "Pretend the baby giggles as Maxine pulls the {VOCAB_2} on." },
+        { actor: "You", line: "Now socks on the {VOCAB_3}.", action: "Help her with each foot." },
+        { actor: "Baby doll", line: "I look so nice! Thank you!", action: "Show off the dressed baby." }
+      ],
+      tips: [
+        "This builds the exact motor pattern she needs for dressing herself.",
+        "Praise effort, not outcome: 'you worked hard at that arm!'",
+        "If she gets frustrated, take over — model patience, don't add pressure."
+      ],
+      learning_focus: "Body part vocab + practical self-care skills practised on doll first. (Montessori practical life.)"
+    },
+    {
+      id: "bd-why-crying",
+      title: "Why is baby crying?",
+      emoji: "🕵️",
+      props: ["Baby doll", "Bottle / blanket / nappy / pacifier nearby"],
+      duration_min: 8,
+      target_skill_ids: ["so-empathy", "co-cause-effect", "la-3word"],
+      target_subdomains: ["empathy_tom", "cause_effect", "pragmatics"],
+      vocab_slot_count: 3,
+      default_vocab: ["hungry", "tired", "wet"],
+      beats: [
+        { actor: "Baby doll", line: "(loud cry) Waaaah!", action: "Baby is upset. Maxine looks worried." },
+        { actor: "You", line: "Why is baby crying? Is baby {VOCAB_1}?", action: "Offer the bottle. Did it work?" },
+        { actor: "You", line: "Hmm, still crying. Is baby {VOCAB_2}?", action: "Try the blanket. Still crying?" },
+        { actor: "You", line: "Is baby {VOCAB_3}? Let's check.", action: "Change the nappy. Baby stops crying!" },
+        { actor: "Baby doll", line: "(soft sigh) Aaaah. Better.", action: "Baby smiles. Maxine smiles." }
+      ],
+      tips: [
+        "This is a tiny lesson in hypothesis testing — perfect cognitive scaffold.",
+        "Let her pick the order. Even if 'wrong' she learns cause → effect.",
+        "When she does the same scene with you (during her own fuss), name what she might need."
+      ],
+      learning_focus: "Causal reasoning + empathy + 3-word problem-solving language. (Piaget — pre-operational stage.)"
+    }
+  ],
+  drawing: [
+    {
+      id: "dr-family-portrait",
+      title: "Draw the family",
+      emoji: "👨‍👩‍👧",
+      props: ["Big paper", "Chunky crayons (4 colours)"],
+      duration_min: 12,
+      target_skill_ids: ["fm-circle", "fm-lines-h", "la-body-5"],
+      target_subdomains: ["visual_motor", "tool_use", "expressive"],
+      vocab_slot_count: 3,
+      default_vocab: ["eyes", "nose", "mouth"],
+      beats: [
+        { actor: "You", line: "Let's draw mama. First, a big circle for the head.", action: "Maxine draws (or you guide her hand) a circle." },
+        { actor: "You", line: "Now two {VOCAB_1}!", action: "Two dots. She tries. Praise effort." },
+        { actor: "You", line: "A {VOCAB_2}.", action: "A line or curve in the middle." },
+        { actor: "You", line: "A {VOCAB_3}. Smile!", action: "Curve at the bottom." },
+        { actor: "Maxine", line: "Mama!", action: "She names what she made. Hang it on the fridge." }
+      ],
+      tips: [
+        "Don't fix her circles. Imperfect = perfect at 24m.",
+        "Let her name who she's drawing — papa, baby, herself.",
+        "Save the drawing — pin it up where she can see it for a week. Reinforces achievement."
+      ],
+      learning_focus: "Pre-writing strokes + body-part naming in a meaningful product. (Lowenfeld — scribble → schema stages.)"
+    },
+    {
+      id: "dr-shape-house",
+      title: "My house has shapes",
+      emoji: "🏠",
+      props: ["Paper", "Crayons"],
+      duration_min: 10,
+      target_skill_ids: ["fm-lines-v", "fm-circle", "se-shapes-3"],
+      target_subdomains: ["visual_motor", "visual_discr", "tool_use"],
+      vocab_slot_count: 3,
+      default_vocab: ["square", "triangle", "circle"],
+      beats: [
+        { actor: "You", line: "Let's draw a house. The walls are a big {VOCAB_1}.", action: "Draw a square together." },
+        { actor: "You", line: "The roof is a {VOCAB_2}!", action: "Triangle on top." },
+        { actor: "You", line: "The window is a {VOCAB_3}.", action: "Maxine adds a circle window." },
+        { actor: "You", line: "Who lives in your house?", action: "Let her draw or name family members." },
+        { actor: "Maxine", line: "My house!", action: "Show off the drawing." }
+      ],
+      tips: [
+        "Hand-over-hand at first if needed; gradually let her take over.",
+        "Talk through each shape as you draw — naming reinforces.",
+        "Later: 'find a square in the room!' Connect drawing to real world."
+      ],
+      learning_focus: "Shape recognition + drawing planning + spatial vocabulary. (Montessori geometry cabinet.)"
+    },
+    {
+      id: "dr-story-three-pictures",
+      title: "Tell a story in 3 pictures",
+      emoji: "📖",
+      props: ["Paper folded into 3 squares", "Crayons"],
+      duration_min: 15,
+      target_skill_ids: ["co-pretend", "co-instr-2", "la-3word"],
+      target_subdomains: ["sequencing", "symbolic_pretend", "pragmatics"],
+      vocab_slot_count: 3,
+      default_vocab: ["first", "next", "last"],
+      beats: [
+        { actor: "You", line: "A story has three parts. {VOCAB_1}…", action: "Pick a topic together: a walk, a meal, a bath." },
+        { actor: "Maxine", line: "…walk…", action: "Draws in box 1." },
+        { actor: "You", line: "{VOCAB_2}…", action: "Box 2." },
+        { actor: "You", line: "And {VOCAB_3}!", action: "Box 3." },
+        { actor: "Maxine", line: "My story!", action: "Tell it back. Mama tells her version." }
+      ],
+      tips: [
+        "Sequencing is huge for narrative. This is reading-readiness in seed form.",
+        "Even if the drawings are scribbles — the SEQUENCE is the skill.",
+        "Re-tell the story at bedtime — strengthens memory + language."
+      ],
+      learning_focus: "Sequential narrative + planning + symbolic representation. (Nelson — narrative practice predicts literacy.)"
+    }
+  ],
+  outside: [
+    {
+      id: "ot-treasure-hunt",
+      title: "Treasure hunt — 3 leaves, 2 sticks, 1 stone",
+      emoji: "🍃",
+      props: ["A small basket or bag"],
+      duration_min: 15,
+      target_skill_ids: ["co-count-3", "co-sort-color", "la-body-5"],
+      target_subdomains: ["number_quant", "classification", "expressive"],
+      vocab_slot_count: 3,
+      default_vocab: ["leaf", "stick", "stone"],
+      beats: [
+        { actor: "You", line: "Treasure hunt! Find me three {VOCAB_1}s.", action: "Maxine searches. Count together as she finds." },
+        { actor: "You", line: "Now two {VOCAB_2}s.", action: "Search and count." },
+        { actor: "You", line: "And one big {VOCAB_3}.", action: "Find the special stone." },
+        { actor: "You", line: "Let's sort them.", action: "Group by type back on a flat surface." },
+        { actor: "Maxine", line: "My treasure!", action: "Lay them out at home. Photograph it." }
+      ],
+      tips: [
+        "Counting + sorting in one. Big leverage.",
+        "If she finds extras — perfect. 'You found four!' Count that too.",
+        "End by bringing the treasure home — extends the memory + pride."
+      ],
+      learning_focus: "One-to-one counting + categorisation + nature vocab. (Dehaene — number sense.)"
+    },
+    {
+      id: "ot-animal-walk",
+      title: "Walk like an animal",
+      emoji: "🐻",
+      props: ["Open space (terrace, park, garden)"],
+      duration_min: 10,
+      target_skill_ids: ["gm-jump", "gm-balance-bike", "co-imitate-simple"],
+      target_subdomains: ["locomotion", "balance_vestibular", "cause_effect"],
+      vocab_slot_count: 3,
+      default_vocab: ["bear", "frog", "bird"],
+      beats: [
+        { actor: "You", line: "Walk like a {VOCAB_1}! (hands and feet, big steps)", action: "Demonstrate. Maxine copies." },
+        { actor: "You", line: "Now hop like a {VOCAB_2}!", action: "Both squat-hop." },
+        { actor: "You", line: "Now fly like a {VOCAB_3}!", action: "Run with arms wide." },
+        { actor: "Maxine", line: "Maxine's turn! She picks.", action: "Let her name an animal — copy her movement." },
+        { actor: "You", line: "Phew! Let's rest.", action: "Sit on the ground, breathe big." }
+      ],
+      tips: [
+        "Animal sounds count too — name + sound reinforces vocab.",
+        "End calm. Animal walks are physically intense — wind-down protects nap timing.",
+        "Repeat the same animals across days — repetition is how vocab sticks."
+      ],
+      learning_focus: "Gross motor variety + imitation + animal vocab. (Meltzoff — mirror neuron imitation.)"
+    },
+    {
+      id: "ot-colour-walk",
+      title: "Colour walk",
+      emoji: "🌈",
+      props: ["Just you two and the outdoors"],
+      duration_min: 10,
+      target_skill_ids: ["se-colors-3", "co-sort-color", "la-2word"],
+      target_subdomains: ["visual_discr", "classification", "grammar"],
+      vocab_slot_count: 3,
+      default_vocab: ["red", "yellow", "blue"],
+      beats: [
+        { actor: "You", line: "Today is a {VOCAB_1} day. Find something {VOCAB_1}!", action: "Walk together. Maxine points at red things." },
+        { actor: "You", line: "I see a {VOCAB_1} flower!", action: "Model: point + name." },
+        { actor: "You", line: "Now {VOCAB_2}. Find something {VOCAB_2}.", action: "Switch colour." },
+        { actor: "Maxine", line: "Yellow car!", action: "She names. Praise the 2-word combo." },
+        { actor: "You", line: "Last colour — {VOCAB_3}.", action: "Same pattern." }
+      ],
+      tips: [
+        "If she gets stuck, model: 'Look — a red leaf!' Then wait.",
+        "Even one find per colour is enough. Quality over quantity.",
+        "Photograph her finds — make a 'red book' she can flip through later."
+      ],
+      learning_focus: "Colour vocab + visual hunting + 2-word phrases. (Montessori — sensorial colour discrimination.)"
+    }
+  ]
 };
 
 // Domain → emoji + chip class. Reuses the existing DOMAINS array if it
