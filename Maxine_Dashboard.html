@@ -5643,6 +5643,13 @@ function renderProgressView(){
     const slStr    = (sl    != null) ? sl.toFixed(1)    : "—";
     const tPeakStr = (tPeak != null) ? tPeak.toFixed(1) : "—";
     const v5Line   = `Sustained Level ${slStr} <span style="font-size:10px; color:var(--muted)">(UDI 0–10)</span> · T_peak ${tPeakStr} · Breadth ${brdth.covered}/${brdth.total}`;
+    // v5 — Dreyfus stage shown only when SL ≥ 4 (Maxine at 26m won't see this
+    // for most domains; appears as her catalogue matures).
+    const dreyfus = (sl != null && sl >= 4 && typeof dreyfusStage === "function")
+      ? dreyfusStage(sl) : null;
+    const dreyfusLine = dreyfus
+      ? `<div style="font-size:11px; color:#3730A3; margin-top:3px"><strong>Dreyfus:</strong> ${escapeHtml(dreyfus.stage)} — ${escapeHtml(TUTOR_MODE_LABELS[dreyfus.tutor_mode] || dreyfus.tutor_mode)}</div>`
+      : "";
 
     const row = document.createElement("div");
     row.style.marginBottom = "8px";
