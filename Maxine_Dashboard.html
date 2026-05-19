@@ -655,6 +655,112 @@
 .cat-dom-pill .cdp-line1{ font-size:13px; font-weight:700; color:var(--ink) }
 .cat-dom-pill .cdp-line2{ font-size:11px; color:var(--muted); margin-top:3px; font-weight:600 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — Per-domain MaxScore card (radar + Active 10 + Mastered Library)
+   ═════════════════════════════════════════════════════════════════════════ */
+.v6-domcard{
+  margin-top:8px; padding:14px; border:1px solid var(--line); border-radius:12px;
+  background:#FCFCFA;
+}
+.v6-domcard h4{ margin:0 0 8px; font-size:13px; font-weight:700; color:var(--ink) }
+.v6-radar-wrap{ display:flex; flex-direction:column; align-items:center; gap:4px; margin-bottom:10px }
+.v6-radar-wrap svg{ width:100%; max-width:240px; height:auto }
+.v6-radar-legend{ display:flex; gap:14px; font-size:10px; color:var(--muted) }
+.v6-radar-legend .dot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; vertical-align:middle }
+.v6-radar-legend .dot.sl{ background:#2E5BFF }
+.v6-radar-legend .dot.peak{ background:transparent; border:1.5px dashed #16A34A }
+
+.active10-header{
+  display:flex; justify-content:space-between; align-items:center;
+  flex-wrap:wrap; gap:6px; margin-bottom:6px;
+}
+.active10-header h4{ margin:0 }
+.backfill-chip{
+  font-size:10px; font-weight:700; color:#5C6680; background:#F1F4FA;
+  padding:2px 8px; border-radius:999px;
+}
+
+.active10-list{ display:flex; flex-direction:column; gap:4px }
+.active10-row{
+  display:flex; align-items:center; gap:8px; padding:8px 10px;
+  border:1px solid var(--line); border-radius:8px; background:var(--card);
+  font-size:13px; flex-wrap:wrap;
+}
+.active10-row .rank{ flex:0 0 22px; font-weight:700; color:var(--muted); font-size:12px }
+.active10-row .title{ flex:1 1 200px; font-weight:600; color:var(--ink); min-width:0 }
+.active10-row .meta{ display:flex; gap:6px; align-items:center; font-size:11px; color:var(--muted); flex-wrap:wrap }
+.active10-row .meta .udi{ font-weight:700; color:#3730A3 }
+.active10-row .meta .sub{ background:#F1F4FA; padding:1px 6px; border-radius:5px }
+.active10-row .meta .ks{ font-size:14px }
+.active10-row .log-toggle{ flex:0 0 auto; font-size:11px; padding:4px 8px; min-height:0 }
+.active10-row.placeholder{ background:#FAFAFA; color:var(--muted); font-style:italic }
+.active10-row.placeholder .title{ font-weight:400 }
+
+.log-form{
+  flex:1 1 100%; display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;
+  padding:8px; background:#F8FAFC; border-radius:6px;
+}
+.log-form .status-btn{ flex:1 1 auto; font-size:12px; padding:6px 10px; min-height:34px }
+.log-form .log-notes{
+  flex:1 1 100%; padding:6px 10px; border:1px solid var(--line); border-radius:6px;
+  font-size:12px; font-family:inherit;
+}
+
+.mastered-library{ margin-top:10px }
+.mastered-library summary{
+  font-size:12px; font-weight:700; color:#14532D; cursor:pointer;
+  padding:6px 10px; background:#F0FDF4; border-radius:8px; border:1px solid #BBF7D0;
+}
+.mastered-library-body{ margin-top:6px; display:flex; flex-direction:column; gap:4px }
+.mastered-row{
+  padding:6px 10px; background:var(--card); border:1px solid var(--line);
+  border-radius:6px; font-size:12px;
+}
+.mastered-row .meta{ color:var(--muted); margin-left:4px; font-size:11px }
+.mastered-row .mastered-meta{ color:var(--muted); font-size:10px; margin-top:2px }
+.mastered-row .implicit-tag{
+  display:inline-block; font-size:10px; color:#1D4ED8; background:#DBEAFE;
+  padding:1px 5px; border-radius:4px; margin-left:4px;
+}
+
+@media (max-width: 640px){
+  .active10-row .meta{ flex-basis:100%; margin-top:2px }
+  .active10-row .log-toggle{ margin-left:auto }
+  .v6-domcard{ padding:10px }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — Coaching card (Phase 4 styles, defined here so progress view layout
+   is stable even if Phase 4 lands later in the same branch).
+   ═════════════════════════════════════════════════════════════════════════ */
+.v6-coaching{
+  background:linear-gradient(135deg,#FFFBEB,#F0F9FF);
+  border:1px solid #FCD34D;
+  border-radius:12px; padding:14px; margin-bottom:14px;
+}
+.v6-coaching-header{
+  display:flex; justify-content:space-between; align-items:center;
+  flex-wrap:wrap; gap:6px; margin-bottom:10px;
+}
+.v6-coaching-header h3{ margin:0; font-size:14px; font-weight:700 }
+.v6-coaching-header .rotate-btn{ font-size:11px; padding:4px 10px }
+.v6-coaching-grid{ display:grid; grid-template-columns:1fr; gap:10px }
+.v6-coaching-col{
+  background:rgba(255,255,255,.65); border:1px solid var(--line);
+  border-radius:8px; padding:10px;
+}
+.v6-coaching-col h4{ margin:0 0 6px; font-size:12px; font-weight:700 }
+.v6-coaching-col .pull-h{ color:#166534 }
+.v6-coaching-col .invest-h{ color:#92400E }
+.v6-coaching-col .dom-row{ font-size:12px; margin:4px 0; color:var(--ink) }
+.v6-coaching-col .signals{ font-size:10px; color:var(--muted); margin-top:2px }
+.v6-coaching .low-conf-caveat{
+  margin-top:8px; font-size:11px; color:#92400E; font-style:italic;
+}
+@media (min-width: 720px){
+  .v6-coaching-grid{ grid-template-columns: 1fr 1fr }
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
@@ -5731,16 +5837,28 @@ function renderProgressView(){
       ? `<div style="font-size:11px; color:#3730A3; margin-top:3px"><strong>Dreyfus:</strong> ${escapeHtml(dreyfus.stage)} — ${escapeHtml(TUTOR_MODE_LABELS[dreyfus.tutor_mode] || dreyfus.tutor_mode)}</div>`
       : "";
 
+    // v6 — sub-domain confidence chip + rate-limiter readout (used below).
+    const dConf = (typeof domainConfidence === "function") ? domainConfidence(d.key) : "low";
+    const tFloor = (typeof domainTFloor === "function") ? domainTFloor(d.key) : { value:null, subdomain_label:null };
+    const confColors = { high:["#14532D","#DCFCE7","🟢 high"], medium:["#854D0E","#FEF3C7","🟡 medium"], low:["#374151","#F3F4F6","⚪ low"] };
+    const [confColor, confBg, confEmoji] = confColors[dConf] || confColors.low;
+    const tFloorLine = (tFloor && tFloor.subdomain_label != null)
+      ? `T_floor ${(tFloor.value || 0).toFixed(1)} <span style="color:var(--muted)">(${escapeHtml(tFloor.subdomain_label)})</span>`
+      : "";
+
     const row = document.createElement("div");
     row.style.marginBottom = "8px";
     row.innerHTML = `
       <div onclick="toggleDomDetail('${d.key}')" style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--card); user-select:none">
         <span style="font-size:22px; line-height:1; flex:0 0 auto">${d.emoji}</span>
         <div style="flex:1; min-width:0">
-          <div style="font-weight:700; font-size:14px">${d.label}</div>
+          <div style="font-weight:700; font-size:14px">${d.label}
+            <span style="font-size:10px; font-weight:700; color:${confColor}; background:${confBg}; padding:1px 6px; border-radius:4px; margin-left:6px">${confEmoji}</span>
+          </div>
           <div class="progress-bar" style="margin:6px 0 4px; height:8px"><div style="width:${pctNext}%; background:${lvXp.color}; border-radius:999px"></div></div>
           <div style="font-size:12px; color:var(--muted)">
             ${v5Line}
+            ${tFloorLine ? ' · ' + tFloorLine : ''}
             ${masteredKeystones > 0 ? ` · <span style="background:#FEF3C7; color:#7C2D12; padding:1px 6px; border-radius:4px; font-weight:700; font-size:11px">🔑 ${masteredKeystones} keystone${masteredKeystones>1?'s':''}</span>` : ''}
           </div>
           <div style="font-size:11px; color:var(--muted); margin-top:2px; opacity:.8">
@@ -5775,8 +5893,18 @@ function renderProgressView(){
           <div style="font-size:11px; color:var(--muted); margin-top:8px; font-style:italic">Sources: ${[...new Set(nextSkills.map(s=>s.src).filter(Boolean))].join(", ") || "CDC/AAP milestones"}</div>
         ` : `<div style="font-size:13px; color:#166534">🌟 All tracked milestone skills mastered!</div>`}
       </div>
+      <!-- v6 mastery card: radar + Active 10 + Mastered Library -->
+      <div class="v6-domcard">
+        <div class="v6-radar-holder" id="v6Radar_${d.key}"></div>
+        <div class="v6-active10-holder" id="v6Active10_${d.key}"></div>
+        <div class="v6-mastered-holder" id="v6Mastered_${d.key}"></div>
+      </div>
     `;
     doms.appendChild(row);
+    // Populate v6 holders (typeof guards so a missing render fn doesn't crash).
+    try { if (typeof renderDomainRadar    === "function") renderDomainRadar(d.key, row.querySelector("#v6Radar_"+d.key)); } catch(e){ console.warn("v6 radar render failed", e); }
+    try { if (typeof renderActive10       === "function") renderActive10(d.key, row.querySelector("#v6Active10_"+d.key)); } catch(e){ console.warn("v6 Active10 render failed", e); }
+    try { if (typeof renderMasteredLibrary === "function") renderMasteredLibrary(d.key, row.querySelector("#v6Mastered_"+d.key)); } catch(e){ console.warn("v6 mastered library render failed", e); }
   });
 
   // Recent
@@ -7537,6 +7665,179 @@ const TUTOR_SYSTEM_PROMPT_V5 = [
   "",
   "Output JSON only: { activity_title, materials, steps[3–7 depending on mode], domain, primary_subdomain, secondary_subdomains[], targets_skills[], rationale, framework_citation, expected_duration_min, allocation_bucket, tutor_mode, language_labels{en, fr, ...} }. No prose, no markdown."
 ].join("\n");
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — UI: radar charts + Active 10 + Mastered Library + one-tap Log form
+   ═════════════════════════════════════════════════════════════════════════
+   Each function takes a `container` HTMLElement and writes into its
+   innerHTML. The triple lives inside the v6 per-domain card, appended by
+   renderProgressView after the existing v5 panel.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* renderDomainRadar — pure SVG. Axes = sub-domains; blue polygon = sub-domain
+   SLs; dashed green polygon = sub-domain peaks. Hidden when the domain has no
+   sub-domains in SUBDOMAINS (shouldn't happen in v6 but degrade gracefully). */
+function renderDomainRadar(domKey, container){
+  if (!container) return;
+  const subs = (typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[domKey]) ? SUBDOMAINS[domKey] : [];
+  if (!subs.length){ container.innerHTML = ""; return; }
+  const N = subs.length;
+  const cx = 100, cy = 100, R = 70;
+  const angleStep = (2 * Math.PI) / N;
+  const slPts = [];
+  const peakPts = [];
+  subs.forEach((s, i) => {
+    const angle = -Math.PI/2 + i * angleStep;
+    const sl   = subdomainSL(domKey, s.key);
+    const peak = subdomainPeak(domKey, s.key);
+    const rSl  = ((sl   || 0) / 10) * R;
+    const rPk  = ((peak || 0) / 10) * R;
+    slPts.push({ x: cx + rSl * Math.cos(angle), y: cy + rSl * Math.sin(angle) });
+    peakPts.push({ x: cx + rPk * Math.cos(angle), y: cy + rPk * Math.sin(angle) });
+  });
+  const slPath   = "M " + slPts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ") + " Z";
+  const peakPath = "M " + peakPts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ") + " Z";
+  const axes = subs.map((s, i) => {
+    const angle = -Math.PI/2 + i * angleStep;
+    const x2 = cx + R * Math.cos(angle), y2 = cy + R * Math.sin(angle);
+    const lx = cx + (R + 18) * Math.cos(angle), ly = cy + (R + 18) * Math.sin(angle);
+    const anchor = Math.abs(Math.cos(angle)) < 0.3 ? "middle" : (Math.cos(angle) > 0 ? "start" : "end");
+    return `<line x1="${cx}" y1="${cy}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#E6E2DA" stroke-width="1"/>`
+         + `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="middle" font-size="8" fill="#5C6680">${escapeHtml(s.label)}</text>`;
+  }).join("");
+  const rings = [2, 4, 6, 8, 10].map(v =>
+    `<circle cx="${cx}" cy="${cy}" r="${(v/10)*R}" fill="none" stroke="#F1F4FA" stroke-width="1"/>`
+  ).join("");
+  container.innerHTML = `
+    <div class="v6-radar-wrap">
+      <svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(domKey)} sub-domain radar">
+        ${rings}
+        ${axes}
+        <path d="${peakPath}" fill="none" stroke="#16A34A" stroke-width="1" stroke-dasharray="3,2"/>
+        <path d="${slPath}" fill="#2E5BFF22" stroke="#2E5BFF" stroke-width="1.5"/>
+      </svg>
+      <div class="v6-radar-legend">
+        <span><span class="dot sl"></span> Sustained Level</span>
+        <span><span class="dot peak"></span> Peak (max UDI)</span>
+      </div>
+    </div>`;
+}
+
+/* Backfill-chip text: "N/10 active" or "Backfill pending — Cowork generating". */
+function _backfillChipText(domKey){
+  const target = (state.masteryConfig && state.masteryConfig.targetDepth) || 10;
+  const avail = SKILLS_ALL.filter(s => s.dom === domKey && isAvailable(s)).length;
+  const pending = (state.backfillQueue || []).some(q => q && q.domain === domKey && q.status !== "completed");
+  if (avail >= target) return `${target}/${target} active`;
+  if (pending) return `${avail}/${target} · 🔄 backfill pending`;
+  return `${avail}/${target} active`;
+}
+
+/* renderActive10 — top-N unmastered+prereq-met+in-ZPD skills by frontierScoreV6.
+   Placeholders fill any gap so the user can see backfill progress.            */
+function renderActive10(domKey, container){
+  if (!container) return;
+  const target = (state.masteryConfig && state.masteryConfig.targetDepth) || 10;
+  const available = SKILLS_ALL
+    .filter(s => s.dom === domKey && isAvailable(s))
+    .sort((a, b) => frontierScoreV6(b) - frontierScoreV6(a))
+    .slice(0, target);
+  const subOf = (key) => (SUBDOMAINS[domKey] || []).find(x => x.key === key);
+  const rows = available.map((s, i) => {
+    const subLabel = (subOf(s.subdomain) || {}).label || (s.subdomain || "—");
+    return `<div class="active10-row" data-skill="${escapeHtml(s.id)}">
+      <span class="rank">${i+1}.</span>
+      <span class="title">${escapeHtml(s.t || s.id)}</span>
+      <span class="meta">
+        <span class="udi">UDI ${(typeof s.udi === "number" ? s.udi : 3).toFixed(1)}</span>
+        <span class="sub">${escapeHtml(subLabel)}</span>
+        ${s.keystone ? '<span class="ks" title="keystone">⭐</span>' : ''}
+      </span>
+      <button type="button" class="small log-toggle" data-skill="${escapeHtml(s.id)}" aria-label="Log status for ${escapeHtml(s.t)}">Log ▾</button>
+    </div>`;
+  }).join("");
+  let placeholders = "";
+  for (let i = available.length; i < target; i++){
+    placeholders += `<div class="active10-row placeholder">${i+1}. <span class="title">📍 Backfill pending — Cowork generating new skills</span></div>`;
+  }
+  container.innerHTML = `
+    <div class="active10-header">
+      <h4>🎯 Active ${target} — what she's ready to work on</h4>
+      <span class="backfill-chip">${escapeHtml(_backfillChipText(domKey))}</span>
+    </div>
+    <div class="active10-list">${rows}${placeholders}</div>`;
+  _bindActive10Handlers(container);
+}
+
+/* Inline one-tap log form: ⏳ Working on it / ✅ Mastered / ↩️ Lost it. */
+function _bindActive10Handlers(container){
+  container.querySelectorAll(".log-toggle").forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const skillId = btn.dataset.skill;
+      const row = btn.closest(".active10-row");
+      if (!row) return;
+      const existing = row.querySelector(".log-form");
+      if (existing){ existing.remove(); return; }
+      const form = document.createElement("div");
+      form.className = "log-form";
+      form.innerHTML = `
+        <button type="button" class="small status-btn" data-status="working_on_it">⏳ Working on it</button>
+        <button type="button" class="small status-btn primary" data-status="mastered">✅ Mastered</button>
+        <button type="button" class="small status-btn" data-status="regressed">↩️ Lost it</button>
+        <input type="text" class="log-notes" placeholder="Notes (optional)" />
+      `;
+      row.appendChild(form);
+      form.querySelectorAll(".status-btn").forEach(b => {
+        b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const status = b.dataset.status;
+          const notes  = (form.querySelector(".log-notes") || {}).value || "";
+          try { addObservation({ skillId, status, source: "manual", notes }); } catch(err){ console.warn("v6 log failed", err); }
+          showToast(status === "mastered" ? "✅ Mastered!" : (status === "regressed" ? "↩️ Logged — back to working on it" : "⏳ Logged"));
+          // Re-render the whole progress view so radar + Active 10 + Mastered
+          // library refresh in sync.
+          try { renderProgressView(); } catch(err){ console.warn("post-log re-render failed", err); }
+        });
+      });
+    });
+  });
+}
+
+/* renderMasteredLibrary — collapsed by default. Lists every mastered/automatic
+   skill in the domain with declaration date, automatic-promotion indicator,
+   and next reverify date.                                                     */
+function renderMasteredLibrary(domKey, container){
+  if (!container) return;
+  const mastered = SKILLS_ALL.filter(s => s.dom === domKey && isMasteredV6(s))
+                             .sort((a, b) => (b.udi || 0) - (a.udi || 0));
+  if (!mastered.length){
+    container.innerHTML = `<details class="mastered-library"><summary>📚 No mastered skills in this domain yet</summary></details>`;
+    return;
+  }
+  const subOf = (key) => (SUBDOMAINS[domKey] || []).find(x => x.key === key);
+  const rows = mastered.map(s => {
+    const sub = (subOf(s.subdomain) || {}).label || (s.subdomain || "—");
+    const masteredObs = obsForSkill(s.id).filter(o => o && o.status === "mastered");
+    const lastTs = masteredObs.length ? Math.max(...masteredObs.map(o => o.ts || 0)) : 0;
+    const lastDate = lastTs ? new Date(lastTs).toLocaleDateString("en-GB", { year:"numeric", month:"short", day:"numeric" }) : "—";
+    const nextRev = (state.reverifyQueue || []).filter(r => r && r.skillId === s.id && !r.completed).sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0))[0];
+    const nextDate = nextRev ? new Date(nextRev.dueAt).toLocaleDateString("en-GB", { year:"numeric", month:"short", day:"numeric" }) : "—";
+    const isAuto = deriveStatusV6(s.id) === "automatic";
+    // Detect last implicit-reverify event so we can surface the 🔗 marker.
+    const implicit = obsForSkill(s.id).filter(o => o && o.source === "implicit_reverify").sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+    const implicitTag = implicit ? `<span class="implicit-tag" title="${escapeHtml(implicit.notes || "Auto-verified via descendant mastery")}">🔗 implicit</span>` : "";
+    return `<div class="mastered-row">
+      ${isAuto ? "🌟" : "✅"} <strong>${escapeHtml(s.t || s.id)}</strong>
+      <span class="meta">UDI ${(typeof s.udi === "number" ? s.udi : 3).toFixed(1)} · ${escapeHtml(sub)}</span>
+      <div class="mastered-meta">Declared ${lastDate}${isAuto ? " · automatic" : ""} · Next check ${nextDate} ${implicitTag}</div>
+    </div>`;
+  }).join("");
+  container.innerHTML = `<details class="mastered-library">
+    <summary>📚 Mastered library — ${mastered.length} skill${mastered.length === 1 ? "" : "s"}</summary>
+    <div class="mastered-library-body">${rows}</div>
+  </details>`;
+}
 
 /* exportTutorBrief() — v5 payload schema. Builds a comprehensive snapshot
    of every signal the AI tutor needs. v4 features that don't exist in
