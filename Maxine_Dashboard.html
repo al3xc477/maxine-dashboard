@@ -6593,23 +6593,102 @@ function isFrontier(skillId){
   const s = SKILLS.find(x=>x.id===skillId); if (!s) return false;
   const st = deriveStatus(skillId);
   if (st === "mastered" || st === "already_mastered" || st === "too_hard") return false;
+  // v5: prereqs must be satisfied. Uses getPrereqs() which reads from edges
+  // (typed graph). Skills with no prereqs trivially pass.
+  if (typeof getPrereqs === "function"){
+    const masteredOK = (prId) => {
+      const ps = deriveStatus(prId);
+      return ps === "mastered" || ps === "already_mastered";
+    };
+    const pr = getPrereqs(s);
+    if (pr.length && !pr.every(masteredOK)) return false;
+  }
   const t = tierOf(s); const cur = currentTier();
   return t === cur || t === cur + 1;
 }
 
-function frontierSkills(){
-  const max = state.masteryConfig.frontierMaxPerDomain || 2;
-  const byDom = {};
-  // Sort priority: practising → emerging → new; lower tier first within group.
-  const order = { practising:0, emerging:1, new:2 };
-  const candidates = SKILLS
-    .filter(s => isFrontier(s.id))
-    .sort((a,b) => {
-      const sa = order[deriveStatus(a.id)] ?? 3;
-      const sb = order[deriveStatus(b.id)] ?? 3;
-      if (sa !== sb) return sa - sb;
-      return tierOf(a) - tierOf(b);
+/* ═════════════════════════════════════════════════════════════════════════
+   v5 — TYPED SKILL GRAPH
+   ═════════════════════════════════════════════════════════════════════════
+   Each skill carries an `edges: []` array of typed connections. 5 edge
+   types per spec — currently only `prereq` is populated by migration;
+   `corequisite/enables/reinforces/bridges` are added by future Cowork
+   passes.
+   ───────────────────────────────────────────────────────────────────────── */
+const EDGE_TYPES = {
+  prereq:      "Must master before attempting",         // strict gate
+  corequisite: "Faster when learned alongside",         // soft pairing
+  enables:     "Mastery unlocks this downstream skill", // forward unlock
+  reinforces:  "Mastery deepens earlier skill",         // backward strengthening
+  bridges:     "Cross-domain unlock connector"          // cross-domain link
+};
+
+/* getPrereqs(s) — canonical read for prerequisite IDs. Reads from edges
+   (v5 typed graph). Falls back to s.prereqs for unmigrated callers.       */
+function getPrereqs(skillOrId){
+  const s = typeof skillOrId === "string" ? SKILLS.find(x => x.id === skillOrId) : skillOrId;
+  if (!s) return [];
+  if (Array.isArray(s.edges)){
+    return s.edges.filter(e => e && e.type === "prereq").map(e => e.to);
+  }
+  return Array.isArray(s.prereqs) ? s.prereqs.slice() : [];
+}
+
+/* Count downstream skills enabled by this one — explicit "enables" edges
+   plus all skills that list this id as a prereq.                          */
+function countDownstream(skillId){
+  const self = SKILLS.find(x => x.id === skillId);
+  const explicit = self && Array.isArray(self.edges)
+    ? self.edges.filter(e => e.type === "enables").length
+    : 0;
+  const implicit = SKILLS.filter(s =>
+    Array.isArray(s.edges) && s.edges.some(e => e.to === skillId && e.type === "prereq")
+  ).length;
+  return explicit + implicit;
+}
+
+/* Frontier ranking score (Vygotsky ZPD weighted).
+   R = P(ready) × (1 + downstream × 0.15) × keystone_w × zpd_proximity
+   zpd_proximity = exp(-0.7 × |child_SL − skill.udi|)
+   Peaks when skill UDI is slightly above current SL.                       */
+function frontierScore(skill){
+  const p_ready = (typeof bktReady === "function") ? bktReady(skill.id) : 0.05;
+  const downstream = countDownstream(skill.id);
+  const keystone_w = skill.keystone ? 1.5 : 1.0;
+  const childSL = (typeof domainSL === "function" ? domainSL(skill.dom) : null) || 0;
+  const u = (typeof udiOf === "function") ? udiOf(skill) : 3.0;
+  const zpd_proximity = Math.exp(-0.7 * Math.abs(childSL - u));
+  return p_ready * (1 + downstream * 0.15) * keystone_w * zpd_proximity;
+}
+
+/* v5 edge migration: populate `edges` from existing `prereqs`. Keeps
+   `s.prereqs` for back-compat; canonical reads go through getPrereqs.    */
+(function migrateEdgesV5(){
+  try {
+    SKILLS.forEach(s => {
+      if (Array.isArray(s.edges)) return;
+      s.edges = Array.isArray(s.prereqs)
+        ? s.prereqs.map(p => ({ to: p, type: "prereq" }))
+        : [];
     });
+  } catch(e){ console.warn("v5 edges migration failed", e); }
+})();
+
+/* v5 frontierSkills — accepts (domKey, maxN). When called with no args,
+   preserves the v3.1 "max-per-domain cap" multi-domain view so existing
+   callers (Game Creator, coaching) keep working. When called with a
+   domKey, returns top-N sorted by frontierScore desc.                     */
+function frontierSkills(domKey, maxN){
+  let candidates = SKILLS.filter(s => isFrontier(s.id));
+  if (domKey){
+    candidates = candidates.filter(s => s.dom === domKey);
+    candidates.sort((a, b) => frontierScore(b) - frontierScore(a));
+    return candidates.slice(0, typeof maxN === "number" ? maxN : 5);
+  }
+  // No-arg: cap per domain at masteryConfig limit, sorted by score globally.
+  candidates.sort((a, b) => frontierScore(b) - frontierScore(a));
+  const max = (state.masteryConfig && state.masteryConfig.frontierMaxPerDomain) || 2;
+  const byDom = {};
   const out = [];
   for (const s of candidates){
     byDom[s.dom] = (byDom[s.dom] || 0) + 1;
