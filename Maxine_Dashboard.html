@@ -721,6 +721,8 @@
 
   <!-- PROGRESS VIEW -->
   <section id="progressView" style="display:none">
+    <!-- v5 — Era banner. Populated by renderProgressView via checkEraTransition + activeEra. -->
+    <div id="eraBanner" class="card" style="display:none; margin-bottom:14px; background:linear-gradient(135deg,#DCFCE7,#EEF2FF); border-color:#86EFAC"></div>
     <!-- Section jump strip -->
     <nav class="section-jump no-print" id="progressJump">
       <button class="sj-btn sj-active" onclick="sjScrollTo('sec-prog-summary',this)">📊 Summary</button>
@@ -1405,6 +1407,17 @@
 </div>
 
 <!-- SETTINGS / THEME EDITOR MODAL -->
+<!-- v5 — Era transition modal -->
+<div class="modal" id="eraTransitionModal" role="dialog" aria-modal="true">
+  <div class="panel" style="max-width:480px">
+    <h3 class="et-title" style="margin:0 0 10px">🌱 New era</h3>
+    <div class="et-body" style="font-size:14px; line-height:1.5"></div>
+    <div class="row" style="margin-top:14px; justify-content:flex-end">
+      <button class="small primary" onclick="document.getElementById('eraTransitionModal').classList.remove('open')">Got it</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="setModal">
   <div class="panel" style="max-width:540px">
     <h3>Theme & settings</h3>
@@ -1504,6 +1517,13 @@
       <summary style="font-size:13px; font-weight:700; cursor:pointer">🕸️ Skill graph</summary>
       <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Typed connections per skill: prereq (gate) · corequisite (pair) · enables (unlock) · reinforces (deepen) · bridges (cross-domain). List view; SVG visualisation deferred.</div>
       <div id="skillGraphBody" style="max-height:340px; overflow:auto; font-size:11px"></div>
+    </details>
+
+    <!-- v5 — Era schedule -->
+    <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
+      <summary style="font-size:13px; font-weight:700; cursor:pointer">🌱 Era schedule</summary>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">7 lifespan eras (Infant → Older Adult). Transitions trigger a domain-structure refresh and queue a Cowork retagging entry.</div>
+      <div id="eraScheduleBody"></div>
     </details>
 
     <div class="row" style="margin-top:14px; justify-content:space-between; flex-wrap:wrap; gap:8px">
@@ -4192,6 +4212,7 @@ function openSettings(){
   // v5 — render BKT diagnostics body on each open (cheap, ~90 rows).
   if (typeof renderBktDiagnostics === "function") renderBktDiagnostics();
   if (typeof renderSkillGraph    === "function") renderSkillGraph();
+  if (typeof renderEraSchedule   === "function") renderEraSchedule();
   setModal.classList.add("open");
 }
 
@@ -5440,6 +5461,10 @@ function renderMasteryXpView(){
 }
 
 function renderProgressView(){
+  // v5 — era check + banner refresh. checkEraTransition fires the modal
+  // when state.lastKnownEra ≠ activeEra.key (silently seeds on first run).
+  try { if (typeof checkEraTransition === "function") checkEraTransition(); } catch(e){ console.warn("checkEraTransition failed", e); }
+  try { if (typeof renderEraBanner === "function") renderEraBanner(); } catch(e){ console.warn("renderEraBanner failed", e); }
   try { renderBasics(); } catch(e){ console.warn("renderBasics failed", e); }
   try { renderMasteryXpView(); } catch(e){ console.warn("renderMasteryXpView failed", e); }
   const stats = document.getElementById("progStats");
@@ -6727,6 +6752,205 @@ function frontierScore(skill){
     });
   } catch(e){ console.warn("v5 edges migration failed", e); }
 })();
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v5 — ERA-EVOLUTIVE DOMAIN SCHEMA
+   ═════════════════════════════════════════════════════════════════════════
+   7 lifespan eras (the spec text says "6" but lists 7 entries — I use all 7
+   verbatim; flagged in plan). Eras transition at chronological-age
+   boundaries; on transition the domain structure conceptually reshapes
+   (foundation/advanced/CHC backbone), surfaced via the banner + modal.
+   Domain restructure itself is queued as a `pendingGenerations` entry for
+   Cowork to act on.
+   ───────────────────────────────────────────────────────────────────────── */
+const ERAS = [
+  {
+    key: "infant", label: "Infant", age_band_months: [0, 36],
+    foundation: ["gross", "fine", "sensory", "cognitive", "vocab", "social", "adaptive"],
+    advanced: [],
+    source: "Bayley 4 / Brazelton NBAS / CDC 0-3y"
+  },
+  {
+    key: "early_childhood", label: "Early Childhood", age_band_months: [36, 72],
+    foundation: ["gross", "fine", "sensory", "cognitive", "vocab", "social"],
+    advanced: ["practical_life", "pre_writing", "pre_reading", "numeracy", "visual_arts", "music", "science", "ei_advanced", "multilingual"],
+    source: "Teaching Strategies GOLD / HighScope / AEPS / Montessori"
+  },
+  {
+    key: "school_age", label: "School-age", age_band_months: [72, 144],
+    foundation_chc: ["fluid_reasoning", "crystallized", "working_memory", "processing_speed", "reading_writing", "math", "visual_spatial", "auditory", "long_term_retrieval"],
+    advanced: ["sport", "music_perf", "second_language", "creative_expression", "civic_ethics", "executive_function_adv"],
+    source: "Cattell-Horn-Carroll (CHC) / Common Core / NCTM"
+  },
+  {
+    key: "adolescence", label: "Adolescence", age_band_months: [144, 216],
+    backbone: ["specialisation_track", "metacognition", "self_directed_learning", "critical_thinking", "communication", "collaboration", "creativity", "civic_engagement", "identity_values", "digital_media_literacy", "health_sexuality"],
+    source: "OECD Learning Compass 2030 / P21 / Erikson identity / Marcia"
+  },
+  {
+    key: "early_adult", label: "Early Adult", age_band_months: [216, 360],
+    backbone: ["expertise_dreyfus", "financial_literacy", "relationship_skills", "physical_mental_health", "civic_responsibility", "cultural_competence", "entrepreneurship", "leadership"],
+    source: "Dreyfus 5-stage / Ericsson deliberate practice / OECD"
+  },
+  {
+    key: "mid_life", label: "Mid-life", age_band_months: [360, 780],
+    backbone: ["mastery_synthesis", "mentoring", "generativity", "work_life_integration", "wisdom", "legacy_planning"],
+    source: "Erikson generativity / Baltes lifespan"
+  },
+  {
+    key: "older_adult", label: "Older Adult", age_band_months: [780, 1200],
+    backbone: ["selection_optimization_compensation", "wisdom", "transmission", "cognitive_reserve", "meaning_making", "physical_maintenance"],
+    source: "Baltes SOC / Erikson integrity"
+  }
+];
+
+function currentChild(){
+  return (state.children && state.children[state.currentChild]) || null;
+}
+
+function chronoAgeMonths(child){
+  if (!child || !child.dob) return 0;
+  const birth = new Date(child.dob);
+  if (isNaN(birth.getTime())) return 0;
+  const now = new Date();
+  return (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+}
+
+function activeEra(child){
+  const m = chronoAgeMonths(child);
+  return ERAS.find(e => m >= e.age_band_months[0] && m < e.age_band_months[1]) || ERAS[ERAS.length - 1];
+}
+
+/* eraForUdi — UDI-band default eras for skills. Used by the migration to
+   populate the optional `eras` field. A skill at UDI 4.5 sits in the
+   early-childhood band; cross-era skills (UDI 9+) span early_adult →
+   mid_life.                                                               */
+function eraForUdi(u){
+  if (u < 2.5) return ["infant"];
+  if (u <= 5)  return ["early_childhood"];
+  if (u <= 7)  return ["school_age"];
+  if (u <= 8)  return ["adolescence"];
+  if (u <  9)  return ["early_adult"];
+  return ["early_adult", "mid_life"];
+}
+
+(function migrateErasV5(){
+  try {
+    SKILLS.forEach(s => {
+      if (Array.isArray(s.eras)) return;
+      s.eras = eraForUdi(typeof s.udi === "number" ? s.udi : 3.0);
+    });
+  } catch(e){ console.warn("v5 eras migration failed", e); }
+})();
+
+/* Transition detection. Called from renderProgressView on every render.
+   On first-ever v5 load, seeds state.lastKnownEra silently (no modal). */
+function checkEraTransition(){
+  const child = currentChild();
+  if (!child || !child.dob) return;
+  const cur = activeEra(child).key;
+  const last = state.lastKnownEra;
+  if (!last){
+    state.lastKnownEra = cur;
+    if (typeof saveState === "function") saveState(state);
+    return;
+  }
+  if (last === cur) return;
+  // Transition fires
+  try {
+    state.pendingGenerations = state.pendingGenerations || [];
+    state.pendingGenerations.push({
+      id: "era_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+      ts: Date.now(),
+      type: "era_retagging",
+      from: last,
+      to: cur,
+      status: "pending"
+    });
+    state.lastKnownEra = cur;
+    if (typeof saveState === "function") saveState(state);
+    if (typeof showEraTransitionModal === "function") showEraTransitionModal(last, cur);
+  } catch(e){ console.warn("era transition failed", e); }
+}
+
+function showEraTransitionModal(fromKey, toKey){
+  const to = ERAS.find(e => e.key === toKey) || {};
+  const newDomains = (to.advanced || to.backbone || to.foundation_chc || []).slice(0, 6);
+  const modal = document.getElementById("eraTransitionModal");
+  if (!modal) return;
+  const body = modal.querySelector(".panel");
+  if (body){
+    body.querySelector(".et-title").textContent = `🌱 New era: ${to.label}`;
+    body.querySelector(".et-body").innerHTML =
+      `<div style="margin-bottom:10px">Maxine has crossed from <strong>${escapeHtml(fromKey)}</strong> into <strong>${escapeHtml(toKey)}</strong>. The dashboard will refresh its domain structure.</div>
+       ${newDomains.length ? `<div style="font-size:12px"><strong>Newly relevant domains:</strong> ${newDomains.map(escapeHtml).join(", ")}</div>` : ""}
+       <div style="font-size:11px; color:var(--muted); margin-top:8px; font-style:italic">${escapeHtml(to.source || "")}</div>`;
+  }
+  modal.classList.add("open");
+}
+
+/* Render the era banner at top of Progress view. Falls back gracefully if
+   no child has a usable dob.                                              */
+function renderEraBanner(){
+  const el = document.getElementById("eraBanner");
+  if (!el) return;
+  const child = currentChild();
+  if (!child || !child.dob){ el.style.display = "none"; return; }
+  const m = chronoAgeMonths(child);
+  const era = activeEra(child);
+  const idx = ERAS.indexOf(era);
+  const next = idx >= 0 && idx < ERAS.length - 1 ? ERAS[idx + 1] : null;
+  const nextNewDomains = next ? (next.advanced || next.backbone || next.foundation_chc || []) : [];
+  const transitionMonths = era.age_band_months[1];
+  // Compute approximate transition date
+  let transitionDateStr = "";
+  if (next){
+    const birth = new Date(child.dob);
+    const dt = new Date(birth.getFullYear(), birth.getMonth() + transitionMonths, birth.getDate());
+    transitionDateStr = dt.toLocaleDateString("en-GB", { year:"numeric", month:"short" });
+  }
+  const ageBand = `${era.age_band_months[0]/12 | 0}–${era.age_band_months[1]/12 | 0}y`;
+  el.style.display = "";
+  el.innerHTML = `
+    <div style="display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap">
+      <div style="font-size:24px; line-height:1">🌱</div>
+      <div style="flex:1; min-width:180px">
+        <div style="font-size:14px; font-weight:700; color:#14532D">Current era: ${escapeHtml(era.label)} <span style="color:var(--muted); font-weight:400; font-size:12px">(${ageBand})</span> · age ${m}m</div>
+        ${next
+          ? `<div style="font-size:12px; color:var(--muted); margin-top:3px">Next era transition at ~${transitionMonths}m → ${escapeHtml(next.label)}${nextNewDomains.length ? ` (introduces: ${nextNewDomains.slice(0,4).map(escapeHtml).join(", ")}${nextNewDomains.length > 4 ? "…" : ""})` : ""}${transitionDateStr ? ` · ~${transitionDateStr}` : ""}</div>`
+          : `<div style="font-size:12px; color:var(--muted); margin-top:3px">Final era reached.</div>`}
+        <div style="font-size:10px; color:var(--muted); margin-top:4px; font-style:italic">${escapeHtml(era.source || "")}</div>
+      </div>
+    </div>
+  `;
+}
+
+/* Settings → Era schedule panel populated on settings open. */
+function renderEraSchedule(){
+  const el = document.getElementById("eraScheduleBody");
+  if (!el) return;
+  const child = currentChild();
+  if (!child){ el.innerHTML = `<div class="sub" style="color:var(--muted)">No child selected.</div>`; return; }
+  const m = chronoAgeMonths(child);
+  const curKey = activeEra(child).key;
+  const birth = child.dob ? new Date(child.dob) : null;
+  const rows = ERAS.map(e => {
+    const [from, to] = e.age_band_months;
+    const isCurrent = e.key === curKey;
+    let transitionStr = "";
+    if (birth && !isNaN(birth.getTime())){
+      const dt = new Date(birth.getFullYear(), birth.getMonth() + from, birth.getDate());
+      transitionStr = dt.toLocaleDateString("en-GB", { year:"numeric", month:"short" });
+    }
+    return `<div style="display:flex; gap:8px; padding:4px 6px; border-bottom:1px dotted var(--line); font-size:12px; ${isCurrent ? "background:#FFFBEB; font-weight:700" : ""}">
+      <span style="flex:1">${escapeHtml(e.label)}</span>
+      <span style="color:var(--muted); width:60px">${from/12 | 0}-${to/12 | 0}y</span>
+      <span style="color:var(--muted); width:80px; text-align:right">${transitionStr}</span>
+      ${isCurrent ? '<span style="color:#14532D; font-weight:700">[current]</span>' : ''}
+    </div>`;
+  }).join("");
+  el.innerHTML = `<div style="font-size:11px; color:var(--muted); margin-bottom:4px">Child: ${escapeHtml(child.name)} · age ${m}m</div>${rows}`;
+}
 
 /* v5 frontierSkills — accepts (domKey, maxN). When called with no args,
    preserves the v3.1 "max-per-domain cap" multi-domain view so existing
