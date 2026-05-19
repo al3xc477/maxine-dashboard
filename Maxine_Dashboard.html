@@ -6591,6 +6591,13 @@ function drawSkillCatalogue(){
     hidCount.textContent = hiddenTotal > 0 ? `${hiddenTotal} hidden` : "";
   }
 
+  // ── Improvement B: focus-toggle label state ──
+  const focBtn = document.getElementById("skillFocusToggle");
+  if (focBtn){
+    focBtn.textContent = _catFocusMode ? "⭐ Focus: ON" : "⭐ Focus";
+    focBtn.classList.toggle("primary", _catFocusMode);
+  }
+
   // Domain summary pills — clickable filter (Improvement C)
   // Now shows: Line 1: emoji + name. Line 2: Lv N · NNN XP.
   // No "N/M mastered" count anywhere — replaced by the live XP/Level pair.
