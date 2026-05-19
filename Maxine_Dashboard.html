@@ -761,6 +761,42 @@
   .v6-coaching-grid{ grid-template-columns: 1fr 1fr }
 }
 
+/* v6 — pending Cowork modal items */
+.cowork-item{
+  border:1px solid var(--line); border-radius:10px; padding:10px;
+  margin-bottom:10px; background:var(--card);
+}
+.cowork-item .cw-title{
+  display:flex; gap:6px; align-items:center; flex-wrap:wrap;
+  font-size:13px; margin-bottom:6px;
+}
+.cw-tag{
+  font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;
+  background:#F1F4FA; color:#374151; text-transform:uppercase; letter-spacing:.05em;
+}
+.cw-tag-backfill{ background:#FEF3C7; color:#854D0E }
+.cw-tag-pending{ background:#E0E7FF; color:#3730A3 }
+.cw-status{
+  margin-left:auto; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px;
+  background:#F3F4F6; color:#374151;
+}
+.cw-status.status-sent{ background:#DBEAFE; color:#1D4ED8 }
+.cw-status.status-completed{ background:#DCFCE7; color:#14532D }
+.cw-prompt{ margin-bottom:8px }
+.cw-prompt summary{ cursor:pointer; font-size:12px; font-weight:600; color:var(--accent) }
+.cw-prompt pre{
+  background:#F8FAFC; border:1px solid var(--line); border-radius:6px;
+  padding:8px; font-size:11px; max-height:300px; overflow:auto;
+  white-space:pre-wrap; word-break:break-word;
+}
+.cw-actions{ display:flex; gap:6px; flex-wrap:wrap }
+.cowork-pending-pill{
+  display:inline-flex; align-items:center; gap:4px; padding:4px 10px;
+  background:#FEF3C7; color:#854D0E; border:1px solid #FCD34D;
+  border-radius:999px; font-size:11px; font-weight:700; cursor:pointer;
+}
+.cowork-pending-pill:hover{ background:#FDE68A }
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
@@ -1529,6 +1565,20 @@
   </div>
 </div>
 
+<!-- v6 — Pending Cowork tasks modal (backfill + era retagging + future generations) -->
+<div class="modal" id="pendingCoworkModal" role="dialog" aria-modal="true">
+  <div class="panel" style="max-width:680px; max-height:80vh; display:flex; flex-direction:column">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+      <h3 style="margin:0">🤝 Pending Cowork tasks</h3>
+      <button class="small ghost" onclick="closePendingCoworkModal()">Close</button>
+    </div>
+    <div class="sub" style="color:var(--muted); font-size:12px; margin-bottom:10px">
+      Each entry below is a paste-ready prompt for Cowork. Copy → run in Claude Code → next page-load detects the new skills automatically.
+    </div>
+    <div class="panel-body" style="overflow:auto; flex:1"></div>
+  </div>
+</div>
+
 <div class="modal" id="setModal">
   <div class="panel" style="max-width:540px">
     <h3>Theme & settings</h3>
@@ -1630,6 +1680,55 @@
       <summary style="font-size:13px; font-weight:700; cursor:pointer">🌱 Era schedule</summary>
       <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">7 lifespan eras (Infant → Older Adult). Transitions trigger a domain-structure refresh and queue a Cowork retagging entry.</div>
       <div id="eraScheduleBody"></div>
+    </details>
+
+    <!-- v6 — Mastery config (reverify schedule + automatic threshold) -->
+    <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
+      <summary style="font-size:13px; font-weight:700; cursor:pointer">🎚 Mastery config</summary>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Mastery is a single-tap user declaration. Reverification prompts fire at fixed offsets after each mastery; "automatic" promotion silences old declarations.</div>
+      <label style="display:block; font-size:12px; margin-top:6px">Reverify schedule (comma-separated days):
+        <input id="cfgReverifySchedule" type="text" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <label style="display:block; font-size:12px; margin-top:6px">Auto-promote to "automatic" after (days):
+        <input id="cfgAutomaticAfter" type="number" min="14" max="365" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <label style="display:block; font-size:12px; margin-top:6px">Regression window (days):
+        <input id="cfgRegressionWindow" type="number" min="7" max="180" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <button class="small primary" id="cfgMasterySave" style="margin-top:8px">Save mastery config</button>
+      <span id="cfgMasterySaveStatus" class="sub" style="color:var(--muted); font-size:11px; margin-left:8px"></span>
+    </details>
+
+    <!-- v6 — Backfill engine -->
+    <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
+      <summary style="font-size:13px; font-weight:700; cursor:pointer">🔄 Backfill engine</summary>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Keeps every active-era domain stocked with ≥ N available skills. When a domain drops below the floor, a Cowork prompt is queued.</div>
+      <label style="display:block; font-size:12px; margin-top:6px">Target depth per domain:
+        <input id="cfgTargetDepth" type="number" min="3" max="30" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <label style="display:block; font-size:12px; margin-top:6px">ZPD range (UDI offset, e.g. -0.3,1.5):
+        <input id="cfgZpdRange" type="text" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <label style="display:block; font-size:12px; margin-top:6px">Beginner UDI ceiling:
+        <input id="cfgBeginnerUdi" type="number" min="0.5" max="5" step="0.1" style="width:100%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; margin-top:2px" />
+      </label>
+      <label style="display:flex; gap:6px; align-items:center; font-size:12px; margin-top:6px">
+        <input id="cfgAutoBackfill" type="checkbox" /> Auto-trigger on load + on every observation
+      </label>
+      <div class="row" style="margin-top:8px; gap:6px; flex-wrap:wrap">
+        <button class="small primary" id="cfgBackfillSave">Save backfill config</button>
+        <button class="small" id="cfgBackfillRefill">🔄 Refill skill pool now</button>
+        <button class="small ghost" id="cfgBackfillClear">🧹 Clear completed history</button>
+      </div>
+      <div id="cfgBackfillRecent" style="font-size:11px; color:var(--muted); margin-top:8px; max-height:140px; overflow:auto"></div>
+    </details>
+
+    <!-- v6 — Coaching rotation -->
+    <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
+      <summary style="font-size:13px; font-weight:700; cursor:pointer">🧭 Coaching rotation</summary>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Natural-pull and where-to-invest picks rotate every 90 days. You can force a fresh computation here.</div>
+      <div id="cfgCoachingBody" style="font-size:12px; margin-top:6px"></div>
+      <button class="small primary" id="cfgRotateNow" style="margin-top:8px">🔄 Rotate now</button>
     </details>
 
     <!-- v5 — Copy AI-tutor brief -->
@@ -4428,7 +4527,98 @@ function openSettings(){
       }
     });
   }
+  // v6 — populate + wire mastery / backfill / coaching settings on every open.
+  try { _renderV6Settings(); _wireV6Settings(); } catch(err){ console.warn("v6 settings wiring failed", err); }
   setModal.classList.add("open");
+}
+
+/* v6 — populate settings inputs from state on every Settings open. */
+function _renderV6Settings(){
+  const cfg = state.masteryConfig || {};
+  const get = (id) => document.getElementById(id);
+  if (get("cfgReverifySchedule")) get("cfgReverifySchedule").value = (cfg.reverifySchedule || [30, 60, 120, 240]).join(", ");
+  if (get("cfgAutomaticAfter"))   get("cfgAutomaticAfter").value   = cfg.automaticAfterDays   || 60;
+  if (get("cfgRegressionWindow")) get("cfgRegressionWindow").value = cfg.regressionWindowDays || 30;
+  if (get("cfgTargetDepth"))      get("cfgTargetDepth").value      = cfg.targetDepth          || 10;
+  if (get("cfgZpdRange"))         get("cfgZpdRange").value         = (cfg.zpdRange || [-0.3, 1.5]).join(", ");
+  if (get("cfgBeginnerUdi"))      get("cfgBeginnerUdi").value      = cfg.beginnerUdiCeiling   || 2.0;
+  if (get("cfgAutoBackfill"))     get("cfgAutoBackfill").checked   = (cfg.autoBackfill !== false);
+
+  const recent = get("cfgBackfillRecent");
+  if (recent){
+    const events = (state.backfillQueue || []).slice().sort((a, b) => (b.requested_at || 0) - (a.requested_at || 0)).slice(0, 20);
+    if (!events.length){
+      recent.innerHTML = `<div style="font-style:italic">No backfill events yet.</div>`;
+    } else {
+      recent.innerHTML = events.map(q => {
+        const dt = new Date(q.requested_at || 0).toLocaleString("en-GB", { dateStyle:"short", timeStyle:"short" });
+        const tag = q.status === "completed" ? "✓" : (q.status === "sent" ? "🚀" : "⏳");
+        return `<div>${escapeHtml(dt)} · ${escapeHtml(q.domain)} · +${q.needed_count} skills ${tag} ${escapeHtml(q.status)}</div>`;
+      }).join("");
+    }
+  }
+
+  const coaching = get("cfgCoachingBody");
+  if (coaching){
+    const picks = state.coachingPicks || {};
+    const last = picks.last_rotated ? new Date(picks.last_rotated).toLocaleDateString("en-GB", { year:"numeric", month:"short", day:"numeric" }) : "—";
+    const nextRotDays = picks.last_rotated
+      ? Math.max(0, Math.round((picks.last_rotated + COACHING_ROTATION_DAYS * 86400000 - Date.now()) / 86400000))
+      : "—";
+    const pulls = (picks.natural_pulls   || []).map(p => p.domain).join(", ") || "—";
+    const inv   = (picks.where_to_invest || []).map(p => p.domain).join(", ") || "—";
+    coaching.innerHTML = `Last rotated: <strong>${escapeHtml(last)}</strong> · next rotation in <strong>${nextRotDays}</strong>d<br/>Natural pull: <strong>${escapeHtml(pulls)}</strong><br/>Where to invest: <strong>${escapeHtml(inv)}</strong>`;
+  }
+}
+
+function _wireV6Settings(){
+  const once = (id, evt, fn) => {
+    const el = document.getElementById(id);
+    if (!el || el._wired) return;
+    el._wired = true;
+    el.addEventListener(evt, fn);
+  };
+  once("cfgMasterySave", "click", () => {
+    const schedRaw = (document.getElementById("cfgReverifySchedule") || {}).value || "";
+    const sched = schedRaw.split(/[,\s]+/).map(s => parseInt(s, 10)).filter(n => n > 0);
+    if (sched.length) state.masteryConfig.reverifySchedule = sched;
+    const auto = parseInt((document.getElementById("cfgAutomaticAfter") || {}).value, 10);
+    if (auto > 0) state.masteryConfig.automaticAfterDays = auto;
+    const regW = parseInt((document.getElementById("cfgRegressionWindow") || {}).value, 10);
+    if (regW > 0) state.masteryConfig.regressionWindowDays = regW;
+    if (typeof saveState === "function") saveState(state);
+    const status = document.getElementById("cfgMasterySaveStatus");
+    if (status) status.textContent = "✓ Saved.";
+  });
+  once("cfgBackfillSave", "click", () => {
+    const target = parseInt((document.getElementById("cfgTargetDepth") || {}).value, 10);
+    if (target > 0) state.masteryConfig.targetDepth = target;
+    const zpdRaw = (document.getElementById("cfgZpdRange") || {}).value || "";
+    const zpd = zpdRaw.split(/[,\s]+/).map(parseFloat).filter(n => !isNaN(n));
+    if (zpd.length === 2) state.masteryConfig.zpdRange = zpd;
+    const begin = parseFloat((document.getElementById("cfgBeginnerUdi") || {}).value);
+    if (!isNaN(begin)) state.masteryConfig.beginnerUdiCeiling = begin;
+    state.masteryConfig.autoBackfill = !!(document.getElementById("cfgAutoBackfill") || {}).checked;
+    if (typeof saveState === "function") saveState(state);
+    showToast("✓ Backfill config saved");
+  });
+  once("cfgBackfillRefill", "click", () => {
+    const n = (typeof backfillEngine === "function") ? backfillEngine() : 0;
+    showToast(n > 0 ? `🔄 Queued ${n} backfill task${n === 1 ? "" : "s"}` : "All domains are stocked");
+    _renderV6Settings();
+  });
+  once("cfgBackfillClear", "click", () => {
+    if (!confirm("Clear completed backfill events from the queue?")) return;
+    state.backfillQueue = (state.backfillQueue || []).filter(q => q && q.status !== "completed");
+    if (typeof saveState === "function") saveState(state);
+    _renderV6Settings();
+  });
+  once("cfgRotateNow", "click", () => {
+    if (typeof maybeRotateCoaching === "function") maybeRotateCoaching(true);
+    showToast("🔄 Coaching picks rotated");
+    if (typeof renderCoachingCard === "function") renderCoachingCard();
+    _renderV6Settings();
+  });
 }
 
 /* v5 — Skill graph list view. Per-domain expandable section; each skill
@@ -8761,10 +8951,20 @@ function renderCoachingCard(){
       ? `<div class="low-conf-caveat">⚠️ One or more domains has light data — these picks will sharpen as you log more observations.</div>`
       : "";
 
+    // Pending-Cowork pill: surface when there's anything for the parent to do.
+    const pendingCount = ((state.pendingGenerations || []).filter(p => p && p.status !== "completed").length)
+                       + ((state.backfillQueue || []).filter(q => q && q.status !== "completed").length);
+    const pendingPill = pendingCount > 0
+      ? `<button class="cowork-pending-pill" onclick="openPendingCoworkModal()">🤝 ${pendingCount} Cowork task${pendingCount === 1 ? "" : "s"}</button>`
+      : "";
+
     el.innerHTML = `
       <div class="v6-coaching-header">
         <h3>🧭 Coaching · last rotated ${escapeHtml(lastRot)} · next rotation in ${nextRotDays}d</h3>
-        <button class="small rotate-btn" id="v6RotateNow">🔄 Rotate now</button>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+          ${pendingPill}
+          <button class="small rotate-btn" id="v6RotateNow">🔄 Rotate now</button>
+        </div>
       </div>
       <div class="v6-coaching-grid">
         <div class="v6-coaching-col">
@@ -8797,6 +8997,313 @@ function renderCoachingCard(){
    call renderTailoredAssessment(). Map them to the v6 coaching card.        */
 function renderTailoredAssessment(){
   return renderCoachingCard();
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — BACKFILL ENGINE (Cowork-mediated)
+   ═════════════════════════════════════════════════════════════════════════
+   When an active-era domain has < targetDepth (10) available skills, the
+   engine captures a domain-state snapshot, builds a paste-ready Cowork
+   prompt, and pushes a pending entry to state.backfillQueue. The parent
+   copies the prompt, runs it through Cowork (which edits this file), then
+   detectBackfillCompletions() flips the entry to "completed" on next load.
+
+   Runs alongside the existing in-memory autoSeedDomain (which provides an
+   immediate seed-bank floor of 10 outstanding skills). The backfill engine
+   produces *permanent* catalogue additions.
+   ───────────────────────────────────────────────────────────────────────── */
+
+function _v6Uuid(){
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function countAvailableSkills(domKey){
+  return SKILLS_ALL.filter(s => s.dom === domKey && isAvailable(s)).length;
+}
+function countDomainSkills(domKey){
+  return SKILLS_ALL.filter(s => s.dom === domKey).length;
+}
+
+function captureDomainState(domKey){
+  const subs = ((typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[domKey]) ? SUBDOMAINS[domKey] : []).map(s => ({
+    key: s.key, label: s.label,
+    SL_sub: subdomainSL(domKey, s.key),
+    n_mastered: SKILLS_ALL.filter(sk => sk.dom === domKey && sk.subdomain === s.key && isMasteredV6(sk)).length,
+    confidence: subdomainConfidence(domKey, s.key)
+  }));
+  const mastered = SKILLS_ALL
+    .filter(sk => sk.dom === domKey && isMasteredV6(sk))
+    .map(sk => ({ id: sk.id, title: sk.t, subdomain: sk.subdomain, udi: sk.udi }));
+  const frontier = SKILLS_ALL
+    .filter(sk => sk.dom === domKey && isAvailable(sk))
+    .map(sk => ({ id: sk.id, title: sk.t, subdomain: sk.subdomain, udi: sk.udi }));
+  const keystone_gaps = SKILLS_ALL
+    .filter(sk => sk.dom === domKey && sk.keystone && !isMasteredV6(sk))
+    .map(sk => ({ id: sk.id, title: sk.t, sub: sk.subdomain, udi: sk.udi }));
+  const child = (typeof currentChild === "function") ? currentChild() : null;
+  return {
+    SL_dom: domainSL(domKey),
+    T_peak: domainTPeak(domKey),
+    T_floor: domainTFloor(domKey),
+    sub_domains: subs,
+    mastered, frontier, keystone_gaps,
+    era: (child && typeof activeEra === "function") ? activeEra(child).key : (state.lastKnownEra || "infant"),
+    chrono_age_months: (child && typeof chronoAgeMonths === "function") ? chronoAgeMonths(child) : 24
+  };
+}
+
+/* Sub-domain gap distribution. Returns a {subKey: count} map summing to
+   `totalNeeded` (rounded). Sub-domains with fewer available skills get more
+   slots, so backfill restores balance.                                        */
+function subdomainGaps(domKey, totalNeeded){
+  const subs = ((typeof SUBDOMAINS !== "undefined" && SUBDOMAINS[domKey]) ? SUBDOMAINS[domKey] : []).map(s => s.key);
+  if (!subs.length) return { _default: totalNeeded };
+  const fairShare = Math.ceil(totalNeeded / subs.length);
+  const gaps = {};
+  let totalGap = 0;
+  subs.forEach(sub => {
+    const curr = SKILLS_ALL.filter(s => s.dom === domKey && s.subdomain === sub && isAvailable(s)).length;
+    const g = Math.max(0, fairShare - curr);
+    gaps[sub] = g; totalGap += g;
+  });
+  if (totalGap > 0){
+    Object.keys(gaps).forEach(k => { gaps[k] = Math.round((gaps[k] / totalGap) * totalNeeded); });
+  } else {
+    // Every sub-domain at fair share — distribute evenly anyway.
+    subs.forEach((sub, i) => {
+      gaps[sub] = i < (totalNeeded % subs.length) ? Math.ceil(totalNeeded / subs.length) : Math.floor(totalNeeded / subs.length);
+    });
+  }
+  return gaps;
+}
+
+function buildBackfillPrompt(domKey, needed, ds){
+  const SL = ds.SL_dom != null ? ds.SL_dom.toFixed(2) : "null (no masteries)";
+  const slNum = ds.SL_dom || 0;
+  const subStatusText = ds.sub_domains.map(s =>
+    `  - ${s.key} (${s.label}): SL=${s.SL_sub != null ? s.SL_sub.toFixed(2) : "—"}, ${s.n_mastered} mastered, ${s.confidence} confidence`
+  ).join("\n");
+  const subGaps = subdomainGaps(domKey, needed);
+  const subGapText = Object.entries(subGaps).filter(([k,v]) => v > 0)
+    .map(([k,v]) => `  - ${k}: ${v} skill${v === 1 ? "" : "s"}`).join("\n");
+  const masteredText = ds.mastered.length
+    ? ds.mastered.map(m => `  - ${m.id}: "${m.title}" (UDI ${m.udi}, ${m.subdomain})`).join("\n")
+    : "  (none yet)";
+  const frontierText = ds.frontier.length
+    ? ds.frontier.map(f => `  - ${f.id}: "${f.title}" (UDI ${f.udi}, ${f.subdomain})`).join("\n")
+    : "  (none available)";
+  const keystoneText = ds.keystone_gaps.length
+    ? ds.keystone_gaps.map(k => `  - ${k.id}: "${k.title}" (UDI ${k.udi}, ${k.sub})`).join("\n")
+    : "  (none missing)";
+  const tFloor = (ds.T_floor && ds.T_floor.subdomain) ? `${ds.T_floor.subdomain} (SL ${ds.T_floor.value != null ? ds.T_floor.value.toFixed(2) : "—"})` : "—";
+
+  return `You are extending Maxine's developmental-skill catalogue in Maxine_Dashboard.html.
+
+CURRENT STATE FOR DOMAIN ${domKey.toUpperCase()}:
+  Current era: ${ds.era}
+  Child chrono age: ${ds.chrono_age_months} months
+  Domain Sustained Level: ${SL}
+  Rate-limiting sub-domain: ${tFloor}
+
+Sub-domain status:
+${subStatusText}
+
+Already mastered skills (DO NOT DUPLICATE; reference for prereqs):
+${masteredText}
+
+Currently available frontier skills (DO NOT DUPLICATE):
+${frontierText}
+
+Keystone gaps (PRIORITY — mark keystone:true where these are addressed):
+${keystoneText}
+
+GENERATE EXACTLY ${needed} NEW SKILLS for domain ${domKey} with these constraints:
+
+1. Sub-domain distribution (target counts):
+${subGapText || "  (no gap data — distribute evenly)"}
+
+2. UDI band distribution within the ${needed} skills:
+   - 30% at UDI ${slNum.toFixed(1)} to ${(slNum + 0.3).toFixed(1)} (consolidation)
+   - 50% at UDI ${(slNum + 0.3).toFixed(1)} to ${(slNum + 0.7).toFixed(1)} (sweet-spot ZPD — Vygotsky)
+   - 20% at UDI ${(slNum + 0.7).toFixed(1)} to ${(slNum + 1.5).toFixed(1)} (stretch — Ericsson deliberate practice)
+
+3. Each skill MUST:
+   - Be observable (clear success criteria)
+   - Be household-feasible (UDI<6) or use instruments/sport equipment (UDI≥6)
+   - Cite a framework in src (CDC / Bayley / Brazelton / Montessori / Vygotsky / Piaget / Dehaene / Tomasello / Hart-Risley / Ericsson / etc.)
+   - Reference prereqs from existing mastered or frontier skills only — never invent skill IDs
+   - Set keystone:true only when addressing a listed keystone gap
+   - Set eras: ["${ds.era}"]
+
+EDIT Maxine_Dashboard.html: APPEND ${needed} new skill objects to SKILLS_CUSTOM_SEED between the marker comments. Schema:
+
+{
+  id: "<kebab-case unique, prefix gm-/fm-/se-/co-/la-/so->",
+  dom: "${domKey}",
+  t: "<title>",
+  age: "<age band>",
+  what: "<observable behaviour>",
+  why: "<developmental rationale>",
+  how: "<how to support at home>",
+  next: "<harder version hint>",
+  src: "<framework citation>",
+  subdomain: "<sub-domain key from the status list>",
+  udi: <decimal 0-10>,
+  udi_rationale: "<calibration reasoning>",
+  keystone: <boolean>,
+  prereqs: ["<existing-id>"],
+  edges: [{to:"<id>", type:"prereq"}, {to:"<id>", type:"enables"}],
+  age_min: <months>, age_max: <months>,
+  next_ids: [], secondary_domains: [], eras: ["${ds.era}"]
+}
+
+DO NOT modify any other part of the file.
+
+After editing, return JSON only:
+{"domain":"${domKey}","added_count":${needed},"skills":[{"id":"<id>","title":"<t>","subdomain":"<sub>","udi":<udi>,"udi_band":"consolidation|sweet_spot|stretch"}]}
+`;
+}
+
+function backfillEngine(){
+  if (!state.masteryConfig || state.masteryConfig.autoBackfill === false) return 0;
+  state.backfillQueue = state.backfillQueue || [];
+  const target = state.masteryConfig.targetDepth || 10;
+  const maxCat = state.masteryConfig.maxCatalogueSize || 500;
+  const active = (typeof getActiveDomainKeys === "function") ? getActiveDomainKeys() : DOMAINS.map(d => d.key);
+  let enqueued = 0;
+  active.forEach(domKey => {
+    if (countDomainSkills(domKey) >= maxCat) return;
+    if (countAvailableSkills(domKey) >= target) return;
+    const existing = state.backfillQueue.find(q => q && q.domain === domKey && (q.status === "pending" || q.status === "sent"));
+    if (existing) return;
+    const needed = target - countAvailableSkills(domKey);
+    const ds = captureDomainState(domKey);
+    state.backfillQueue.push({
+      id: _v6Uuid(),
+      domain: domKey,
+      requested_at: Date.now(),
+      needed_count: needed,
+      domain_state: ds,
+      status: "pending",
+      prompt: buildBackfillPrompt(domKey, needed, ds),
+      completed_skill_ids: [],
+      completed_at: null
+    });
+    enqueued++;
+  });
+  if (enqueued > 0 && typeof saveState === "function") saveState(state);
+  return enqueued;
+}
+
+function detectBackfillCompletions(){
+  if (!state.backfillQueue || !state.backfillQueue.length) return 0;
+  let completed = 0;
+  state.backfillQueue.forEach(q => {
+    if (!q || q.status !== "sent") return;
+    const known = new Set([].concat(q.domain_state.mastered || [], q.domain_state.frontier || []).map(s => s.id));
+    const newSkills = SKILLS_ALL.filter(s => s.dom === q.domain && !known.has(s.id)).map(s => s.id);
+    if (newSkills.length >= q.needed_count){
+      q.status = "completed";
+      q.completed_skill_ids = newSkills.slice(0, q.needed_count);
+      q.completed_at = Date.now();
+      completed++;
+    }
+  });
+  if (completed > 0 && typeof saveState === "function") saveState(state);
+  return completed;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v6 — Pending Cowork tasks modal
+   ═════════════════════════════════════════════════════════════════════════ */
+function renderPendingGenerationsModal(){
+  const modal = document.getElementById("pendingCoworkModal");
+  if (!modal) return;
+  const body = modal.querySelector(".panel-body");
+  if (!body) return;
+  const items = [];
+  (state.pendingGenerations || []).forEach(p => {
+    if (!p || p.status === "completed") return;
+    items.push({
+      kind: "pending",
+      type: p.type || "generation",
+      domain: p.from && p.to ? (p.from + "→" + p.to) : "—",
+      title: p.type === "era_retagging" ? `Era retagging: ${p.from} → ${p.to}` : `Pending generation: ${p.type}`,
+      prompt: p.prompt || "(no prompt; era_retagging is informational)",
+      ref: p
+    });
+  });
+  (state.backfillQueue || []).forEach(q => {
+    if (!q || q.status === "completed") return;
+    items.push({
+      kind: "backfill",
+      type: "backfill",
+      domain: q.domain,
+      title: `Backfill: ${q.domain} (+${q.needed_count} skills)`,
+      prompt: q.prompt,
+      ref: q
+    });
+  });
+  if (!items.length){
+    body.innerHTML = `<div class="sub" style="color:var(--muted)">No pending Cowork tasks — every active domain has 10 available skills and no era transitions are pending.</div>`;
+    return;
+  }
+  body.innerHTML = items.map((it, idx) => `
+    <div class="cowork-item" data-idx="${idx}" data-kind="${it.kind}">
+      <div class="cw-title">
+        <span class="cw-tag cw-tag-${escapeHtml(it.kind)}">${escapeHtml(it.kind)}</span>
+        <strong>${escapeHtml(it.title)}</strong>
+        <span class="cw-status status-${it.ref.status || "pending"}">${escapeHtml(it.ref.status || "pending")}</span>
+      </div>
+      <details class="cw-prompt">
+        <summary>📋 View prompt</summary>
+        <pre>${escapeHtml(it.prompt || "(no prompt)")}</pre>
+      </details>
+      <div class="cw-actions">
+        <button class="small cw-copy" data-idx="${idx}">📋 Copy prompt</button>
+        <button class="small cw-sent" data-idx="${idx}">✅ Mark sent</button>
+        ${it.kind === "backfill" ? `<button class="small cw-discard" data-idx="${idx}">🗑 Discard</button>` : ''}
+      </div>
+    </div>
+  `).join("");
+  // wire buttons
+  body.querySelectorAll(".cw-copy").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const it = items[+btn.dataset.idx];
+      try {
+        await navigator.clipboard.writeText(it.prompt || "");
+        showToast("📋 Prompt copied");
+      } catch(e){ console.warn("copy failed", e); showToast("Copy failed — select manually"); }
+    });
+  });
+  body.querySelectorAll(".cw-sent").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const it = items[+btn.dataset.idx];
+      it.ref.status = "sent";
+      it.ref.sent_at = Date.now();
+      if (typeof saveState === "function") saveState(state);
+      renderPendingGenerationsModal();
+    });
+  });
+  body.querySelectorAll(".cw-discard").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const it = items[+btn.dataset.idx];
+      state.backfillQueue = (state.backfillQueue || []).filter(q => q !== it.ref);
+      if (typeof saveState === "function") saveState(state);
+      renderPendingGenerationsModal();
+    });
+  });
+}
+
+function openPendingCoworkModal(){
+  const modal = document.getElementById("pendingCoworkModal");
+  if (!modal) return;
+  renderPendingGenerationsModal();
+  modal.classList.add("open");
+}
+function closePendingCoworkModal(){
+  const modal = document.getElementById("pendingCoworkModal");
+  if (modal) modal.classList.remove("open");
 }
 
 /* Memory view */
