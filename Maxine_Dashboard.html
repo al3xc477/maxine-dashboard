@@ -6322,10 +6322,19 @@ function _normalizeSeed(seed){
    Accepts spec aliases (motor/language/creative/self_care) AND real keys.    */
 function autoSeedDomain(domKey){
   const realDom = _resolveDomain(domKey);
-  const visible = SKILLS.filter(s => s.dom === realDom && s.hidden !== true);
-  if (visible.length >= 10) return [];
 
-  const target = Math.min(5, 10 - visible.length);
+  // v5.x — count OUTSTANDING (not mastered / already_mastered / too_hard /
+  // hidden) so mastered+hidden skills no longer block seeding. Target is a
+  // floor of 10 actionable items per domain in the Skills tab.
+  const outstanding = SKILLS.filter(s => {
+    if (s.dom !== realDom) return false;
+    if (s.hidden === true) return false;
+    const st = deriveStatus(s.id);
+    return st !== "mastered" && st !== "already_mastered" && st !== "too_hard";
+  });
+  if (outstanding.length >= 10) return [];
+
+  const target = 10 - outstanding.length;  // no per-call cap
 
   // Anchor tier from current mastered/emerging skills in this domain.
   const anchors = SKILLS.filter(s => {
@@ -6345,9 +6354,11 @@ function autoSeedDomain(domKey){
 
   const existingIds = new Set(SKILLS.map(s => s.id));
   const bank = DOMAIN_SEED_BANK[realDom] || [];
-  // Prefer the target tier; then nearby tiers (closest first). Dedupe by id.
+  // Sort by tier-distance ascending so age-appropriate seeds come first.
+  // No hard tier filter — better to fill to 10 with a slightly off-target
+  // seed than to leave a domain with 3 visible skills.
   const candidates = bank
-    .filter(seed => !existingIds.has(seed.id) && seed.tier <= newSkillTier + 1)
+    .filter(seed => !existingIds.has(seed.id))
     .sort((a, b) => {
       const da = Math.abs(a.tier - newSkillTier);
       const db = Math.abs(b.tier - newSkillTier);
