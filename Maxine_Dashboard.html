@@ -1499,6 +1499,13 @@
       <div id="bktDiagBody" style="max-height:280px; overflow:auto; font-size:11px"></div>
     </details>
 
+    <!-- v5 — Skill graph (list view; force-directed SVG deferred per spec §3.5) -->
+    <details style="margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#FAFBFC">
+      <summary style="font-size:13px; font-weight:700; cursor:pointer">🕸️ Skill graph</summary>
+      <div class="sub" style="color:var(--muted); font-size:11px; margin:6px 0">Typed connections per skill: prereq (gate) · corequisite (pair) · enables (unlock) · reinforces (deepen) · bridges (cross-domain). List view; SVG visualisation deferred.</div>
+      <div id="skillGraphBody" style="max-height:340px; overflow:auto; font-size:11px"></div>
+    </details>
+
     <div class="row" style="margin-top:14px; justify-content:space-between; flex-wrap:wrap; gap:8px">
       <button class="small danger" id="resetBtn" style="font-size:12px">↺ Reset all data</button>
       <button class="small ghost" id="closeSet">Close</button>
@@ -4184,7 +4191,54 @@ function openSettings(){
   renderSyncStatus();
   // v5 — render BKT diagnostics body on each open (cheap, ~90 rows).
   if (typeof renderBktDiagnostics === "function") renderBktDiagnostics();
+  if (typeof renderSkillGraph    === "function") renderSkillGraph();
   setModal.classList.add("open");
+}
+
+/* v5 — Skill graph list view. Per-domain expandable section; each skill
+   row shows id + label + outbound edges by type. Color-coded badges per
+   spec (prereq=grey, enables=blue, corequisite=dashed-grey, reinforces=
+   green-dotted, bridges=orange).                                          */
+function renderSkillGraph(){
+  const body = document.getElementById("skillGraphBody");
+  if (!body) return;
+  try {
+    const badgeStyle = (type) => {
+      const base = "display:inline-block; padding:1px 6px; border-radius:4px; margin-left:4px; font-size:10px; font-weight:700";
+      switch (type){
+        case "prereq":      return base + "; background:#E5E7EB; color:#374151";
+        case "corequisite": return base + "; background:transparent; color:#374151; border:1px dashed #9CA3AF";
+        case "enables":     return base + "; background:#DBEAFE; color:#1E3A8A";
+        case "reinforces":  return base + "; background:transparent; color:#14532D; border:1px dotted #22C55E";
+        case "bridges":     return base + "; background:#FED7AA; color:#7C2D12";
+        default:            return base + "; background:#F3F4F6; color:var(--muted)";
+      }
+    };
+    const html = DOMAINS.map(d => {
+      const list = SKILLS_ALL.filter(s => s.dom === d.key);
+      if (!list.length) return "";
+      const rows = list.map(s => {
+        const edges = (s.edges || []);
+        const edgeHtml = edges.length
+          ? edges.map(e => `<span style="${badgeStyle(e.type)}">${escapeHtml(e.type)}: ${escapeHtml(e.to)}</span>`).join("")
+          : `<span style="color:var(--muted); font-size:10px">(no edges)</span>`;
+        const downstream = countDownstream(s.id);
+        const dsTag = downstream > 0 ? ` <span style="font-size:10px; color:#3730A3">↗ ${downstream} downstream</span>` : "";
+        return `<div style="padding:4px 0; border-bottom:1px dotted var(--line)">
+          <span style="font-weight:600">${escapeHtml(s.t)}</span> <span style="color:var(--muted); font-size:10px">${escapeHtml(s.id)} · UDI ${(s.udi||0).toFixed(1)}</span>${dsTag}<br/>
+          ${edgeHtml}
+        </div>`;
+      }).join("");
+      return `<details style="margin-bottom:6px">
+        <summary style="font-weight:700; font-size:12px; cursor:pointer">${d.emoji} ${escapeHtml(d.label)} <span style="color:var(--muted); font-weight:400; font-size:10px">(${list.length} skills)</span></summary>
+        <div style="margin-top:4px; padding-left:8px">${rows}</div>
+      </details>`;
+    }).join("");
+    body.innerHTML = html || `<div class="sub" style="color:var(--muted)">No skills.</div>`;
+  } catch(err){
+    console.warn("renderSkillGraph failed", err);
+    body.innerHTML = `<div class="sub" style="color:var(--muted)">Unavailable.</div>`;
+  }
 }
 
 /* v5 — BKT diagnostics table (Settings → advanced). Sortable by p_known desc.
@@ -6593,23 +6647,102 @@ function isFrontier(skillId){
   const s = SKILLS.find(x=>x.id===skillId); if (!s) return false;
   const st = deriveStatus(skillId);
   if (st === "mastered" || st === "already_mastered" || st === "too_hard") return false;
+  // v5: prereqs must be satisfied. Uses getPrereqs() which reads from edges
+  // (typed graph). Skills with no prereqs trivially pass.
+  if (typeof getPrereqs === "function"){
+    const masteredOK = (prId) => {
+      const ps = deriveStatus(prId);
+      return ps === "mastered" || ps === "already_mastered";
+    };
+    const pr = getPrereqs(s);
+    if (pr.length && !pr.every(masteredOK)) return false;
+  }
   const t = tierOf(s); const cur = currentTier();
   return t === cur || t === cur + 1;
 }
 
-function frontierSkills(){
-  const max = state.masteryConfig.frontierMaxPerDomain || 2;
-  const byDom = {};
-  // Sort priority: practising → emerging → new; lower tier first within group.
-  const order = { practising:0, emerging:1, new:2 };
-  const candidates = SKILLS
-    .filter(s => isFrontier(s.id))
-    .sort((a,b) => {
-      const sa = order[deriveStatus(a.id)] ?? 3;
-      const sb = order[deriveStatus(b.id)] ?? 3;
-      if (sa !== sb) return sa - sb;
-      return tierOf(a) - tierOf(b);
+/* ═════════════════════════════════════════════════════════════════════════
+   v5 — TYPED SKILL GRAPH
+   ═════════════════════════════════════════════════════════════════════════
+   Each skill carries an `edges: []` array of typed connections. 5 edge
+   types per spec — currently only `prereq` is populated by migration;
+   `corequisite/enables/reinforces/bridges` are added by future Cowork
+   passes.
+   ───────────────────────────────────────────────────────────────────────── */
+const EDGE_TYPES = {
+  prereq:      "Must master before attempting",         // strict gate
+  corequisite: "Faster when learned alongside",         // soft pairing
+  enables:     "Mastery unlocks this downstream skill", // forward unlock
+  reinforces:  "Mastery deepens earlier skill",         // backward strengthening
+  bridges:     "Cross-domain unlock connector"          // cross-domain link
+};
+
+/* getPrereqs(s) — canonical read for prerequisite IDs. Reads from edges
+   (v5 typed graph). Falls back to s.prereqs for unmigrated callers.       */
+function getPrereqs(skillOrId){
+  const s = typeof skillOrId === "string" ? SKILLS.find(x => x.id === skillOrId) : skillOrId;
+  if (!s) return [];
+  if (Array.isArray(s.edges)){
+    return s.edges.filter(e => e && e.type === "prereq").map(e => e.to);
+  }
+  return Array.isArray(s.prereqs) ? s.prereqs.slice() : [];
+}
+
+/* Count downstream skills enabled by this one — explicit "enables" edges
+   plus all skills that list this id as a prereq.                          */
+function countDownstream(skillId){
+  const self = SKILLS.find(x => x.id === skillId);
+  const explicit = self && Array.isArray(self.edges)
+    ? self.edges.filter(e => e.type === "enables").length
+    : 0;
+  const implicit = SKILLS.filter(s =>
+    Array.isArray(s.edges) && s.edges.some(e => e.to === skillId && e.type === "prereq")
+  ).length;
+  return explicit + implicit;
+}
+
+/* Frontier ranking score (Vygotsky ZPD weighted).
+   R = P(ready) × (1 + downstream × 0.15) × keystone_w × zpd_proximity
+   zpd_proximity = exp(-0.7 × |child_SL − skill.udi|)
+   Peaks when skill UDI is slightly above current SL.                       */
+function frontierScore(skill){
+  const p_ready = (typeof bktReady === "function") ? bktReady(skill.id) : 0.05;
+  const downstream = countDownstream(skill.id);
+  const keystone_w = skill.keystone ? 1.5 : 1.0;
+  const childSL = (typeof domainSL === "function" ? domainSL(skill.dom) : null) || 0;
+  const u = (typeof udiOf === "function") ? udiOf(skill) : 3.0;
+  const zpd_proximity = Math.exp(-0.7 * Math.abs(childSL - u));
+  return p_ready * (1 + downstream * 0.15) * keystone_w * zpd_proximity;
+}
+
+/* v5 edge migration: populate `edges` from existing `prereqs`. Keeps
+   `s.prereqs` for back-compat; canonical reads go through getPrereqs.    */
+(function migrateEdgesV5(){
+  try {
+    SKILLS.forEach(s => {
+      if (Array.isArray(s.edges)) return;
+      s.edges = Array.isArray(s.prereqs)
+        ? s.prereqs.map(p => ({ to: p, type: "prereq" }))
+        : [];
     });
+  } catch(e){ console.warn("v5 edges migration failed", e); }
+})();
+
+/* v5 frontierSkills — accepts (domKey, maxN). When called with no args,
+   preserves the v3.1 "max-per-domain cap" multi-domain view so existing
+   callers (Game Creator, coaching) keep working. When called with a
+   domKey, returns top-N sorted by frontierScore desc.                     */
+function frontierSkills(domKey, maxN){
+  let candidates = SKILLS.filter(s => isFrontier(s.id));
+  if (domKey){
+    candidates = candidates.filter(s => s.dom === domKey);
+    candidates.sort((a, b) => frontierScore(b) - frontierScore(a));
+    return candidates.slice(0, typeof maxN === "number" ? maxN : 5);
+  }
+  // No-arg: cap per domain at masteryConfig limit, sorted by score globally.
+  candidates.sort((a, b) => frontierScore(b) - frontierScore(a));
+  const max = (state.masteryConfig && state.masteryConfig.frontierMaxPerDomain) || 2;
+  const byDom = {};
   const out = [];
   for (const s of candidates){
     byDom[s.dom] = (byDom[s.dom] || 0) + 1;
