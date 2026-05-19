@@ -4191,7 +4191,54 @@ function openSettings(){
   renderSyncStatus();
   // v5 — render BKT diagnostics body on each open (cheap, ~90 rows).
   if (typeof renderBktDiagnostics === "function") renderBktDiagnostics();
+  if (typeof renderSkillGraph    === "function") renderSkillGraph();
   setModal.classList.add("open");
+}
+
+/* v5 — Skill graph list view. Per-domain expandable section; each skill
+   row shows id + label + outbound edges by type. Color-coded badges per
+   spec (prereq=grey, enables=blue, corequisite=dashed-grey, reinforces=
+   green-dotted, bridges=orange).                                          */
+function renderSkillGraph(){
+  const body = document.getElementById("skillGraphBody");
+  if (!body) return;
+  try {
+    const badgeStyle = (type) => {
+      const base = "display:inline-block; padding:1px 6px; border-radius:4px; margin-left:4px; font-size:10px; font-weight:700";
+      switch (type){
+        case "prereq":      return base + "; background:#E5E7EB; color:#374151";
+        case "corequisite": return base + "; background:transparent; color:#374151; border:1px dashed #9CA3AF";
+        case "enables":     return base + "; background:#DBEAFE; color:#1E3A8A";
+        case "reinforces":  return base + "; background:transparent; color:#14532D; border:1px dotted #22C55E";
+        case "bridges":     return base + "; background:#FED7AA; color:#7C2D12";
+        default:            return base + "; background:#F3F4F6; color:var(--muted)";
+      }
+    };
+    const html = DOMAINS.map(d => {
+      const list = SKILLS_ALL.filter(s => s.dom === d.key);
+      if (!list.length) return "";
+      const rows = list.map(s => {
+        const edges = (s.edges || []);
+        const edgeHtml = edges.length
+          ? edges.map(e => `<span style="${badgeStyle(e.type)}">${escapeHtml(e.type)}: ${escapeHtml(e.to)}</span>`).join("")
+          : `<span style="color:var(--muted); font-size:10px">(no edges)</span>`;
+        const downstream = countDownstream(s.id);
+        const dsTag = downstream > 0 ? ` <span style="font-size:10px; color:#3730A3">↗ ${downstream} downstream</span>` : "";
+        return `<div style="padding:4px 0; border-bottom:1px dotted var(--line)">
+          <span style="font-weight:600">${escapeHtml(s.t)}</span> <span style="color:var(--muted); font-size:10px">${escapeHtml(s.id)} · UDI ${(s.udi||0).toFixed(1)}</span>${dsTag}<br/>
+          ${edgeHtml}
+        </div>`;
+      }).join("");
+      return `<details style="margin-bottom:6px">
+        <summary style="font-weight:700; font-size:12px; cursor:pointer">${d.emoji} ${escapeHtml(d.label)} <span style="color:var(--muted); font-weight:400; font-size:10px">(${list.length} skills)</span></summary>
+        <div style="margin-top:4px; padding-left:8px">${rows}</div>
+      </details>`;
+    }).join("");
+    body.innerHTML = html || `<div class="sub" style="color:var(--muted)">No skills.</div>`;
+  } catch(err){
+    console.warn("renderSkillGraph failed", err);
+    body.innerHTML = `<div class="sub" style="color:var(--muted)">Unavailable.</div>`;
+  }
 }
 
 /* v5 — BKT diagnostics table (Settings → advanced). Sortable by p_known desc.
