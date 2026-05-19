@@ -564,13 +564,91 @@
   background:#DCFCE7; color:#14532D; padding:8px 12px; min-height:44px;
   border-radius:10px; font-weight:700; font-size:13px;
 }
-.gc-reroll-row{ display:flex; justify-content:flex-end; margin-top:6px }
+.gc-reroll-row{ display:flex; justify-content:flex-end; gap:6px; flex-wrap:wrap; margin-top:8px; }
 .gc-reroll-btn{
   font-size:13px; padding:8px 12px; min-height:44px;
   background:transparent; color:var(--muted); border:1px dashed var(--line);
   border-radius:10px; font-weight:600; cursor:pointer;
 }
 .gc-reroll-btn:hover{ background:#F8FAFC; color:var(--ink) }
+
+/* ── Scene-based Game Creator (v2) ──────────────────────────────────────── */
+.gc-scene-card{
+  background:#fff; border:1px solid var(--line); border-radius:14px;
+  padding:14px; margin-bottom:12px; box-shadow:var(--shadow);
+  animation: fadeIn 0.3s ease;
+}
+.gc-scene-head{
+  display:flex; justify-content:space-between; align-items:baseline;
+  gap:10px; margin-bottom:8px;
+}
+.gc-scene-title{ font-size:16px; font-weight:700; color:var(--ink); }
+.gc-scene-meta{ font-size:12px; color:var(--muted); white-space:nowrap; }
+.gc-scene-chips{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
+.gc-skill-chip{
+  background:#EEF2FF; color:#3730A3; padding:3px 8px; border-radius:999px;
+  font-size:11px; font-weight:600;
+}
+/* gc-vocab-chip overrides the v3.1 variant above with the v2 colour palette. */
+.gc-scene-chips .gc-vocab-chip,
+.gc-scene-card  .gc-vocab-chip{
+  background:#FCE7F3; color:#9D174D; border:none;
+  padding:3px 8px; border-radius:999px; font-size:11px; font-weight:600;
+  margin-right:0;
+}
+.gc-scene-props{
+  font-size:13px; color:var(--muted); margin-bottom:10px;
+  padding:8px 10px; background:#F8FAFC; border-radius:8px;
+}
+.gc-prop{
+  display:inline-block; margin:2px 4px 2px 0; padding:2px 6px;
+  background:#fff; border:1px solid var(--line); border-radius:6px;
+  font-size:11px; color:var(--ink);
+}
+.gc-scene-beats{ margin-bottom:10px; }
+.gc-beat{
+  display:flex; gap:10px; padding:8px 0;
+  border-bottom:1px dashed #F1F4FA;
+}
+.gc-beat:last-child{ border-bottom:none; }
+.gc-beat-num{
+  flex:0 0 22px; height:22px; border-radius:50%; background:#2E5BFF;
+  color:#fff; font-weight:700; font-size:12px;
+  display:flex; align-items:center; justify-content:center;
+}
+.gc-beat-body{ flex:1; min-width:0; }
+.gc-beat-actor{ font-weight:700; font-size:13px; color:var(--ink); }
+.gc-beat-line{
+  font-style:italic; color:#1F2A44; margin-top:2px;
+  font-size:14px; line-height:1.4;
+}
+.gc-beat-action{ color:var(--muted); font-size:12px; margin-top:3px; }
+.gc-scene-tips{ margin-bottom:10px; }
+.gc-scene-tips summary{
+  cursor:pointer; font-size:13px; font-weight:600;
+  color:var(--muted); padding:6px 0;
+}
+.gc-scene-tips ul{
+  margin:6px 0 0; padding-left:20px; font-size:13px; line-height:1.5;
+}
+.gc-scene-focus{
+  font-size:12px; color:#14532D; background:#F0FDF4;
+  padding:6px 10px; border-radius:8px; margin-bottom:10px;
+}
+.gc-cowork-btn{
+  background:#FCE7F3; color:#9D174D; border:1px solid #FBCFE8;
+  padding:8px 14px; min-height:44px; border-radius:10px;
+  font-size:13px; font-weight:600; cursor:pointer;
+}
+.gc-cowork-btn:hover{ background:#FBCFE8; }
+
+@media (max-width:640px){
+  .gc-scene-card{ padding:10px; }
+  .gc-scene-title{ font-size:14px; }
+  .gc-beat-line{ font-size:13px; }
+  .gc-reroll-row{ justify-content:stretch; }
+  .gc-reroll-btn, .gc-cowork-btn{ width:100%; }
+}
 @media (max-width:480px){
   .gc-ctx-btn{ padding:8px 10px; font-size:12px }
   .gc-card-text{ font-size:15px }
@@ -4018,75 +4096,134 @@ function _gcTemplate(ctx, customLabel, skillLabel, word){
   }
 }
 
-/* generateGameSuggestions(contextKey, customLabel) → Array of 3-5 suggestion
-   objects: { text, skillId, domain, vocabWord, emoji }                       */
+/* generateGameSuggestions(contextKey, customLabel) → Array of resolved scene
+   objects (see _gcRenderScene). Custom context routes to a single fallback
+   scaffold scene. Picks 3 scenes per context, rotated by last-shown timestamp
+   with a random tiebreak so the same scene doesn't always come first.       */
 function generateGameSuggestions(contextKey, customLabel){
-  const ctx = GC_CTX_DOMAINS[contextKey] ? contextKey : "custom";
-  const lens = GC_CTX_DOMAINS[ctx];
+  const ctx = (typeof SCENES_LIBRARY !== "undefined" && SCENES_LIBRARY[contextKey])
+              ? contextKey
+              : (contextKey === "custom" ? "custom" : "dollhouse");
   const theme = (typeof pickTheme === "function") ? pickTheme() : null;
 
-  // Vocab gaps from the current theme's word list
+  // Vocab gaps from the current theme's word list (≤6 to seed up to two scenes).
   const themeWords = (theme && Array.isArray(theme.words)) ? theme.words : [];
-  const gaps = themeWords
-    .filter(w => Array.isArray(w) && w[0] && !(state.vocabMaster||{})[`${w[0]}_en`])
-    .slice(0, 3);
+  const vocabGaps = themeWords
+    .filter(w => Array.isArray(w) && w[0] && !(state.vocabMaster || {})[`${w[0]}_en`])
+    .map(w => ({ en: w[0], fr: w[1] || null, emoji: w[2] || null }))
+    .slice(0, 6);
 
-  // Frontier skills filtered by lens; top up from non-mastered in those
-  // domains if there aren't enough frontier picks.
-  let lensSkills = [];
-  try {
-    lensSkills = (typeof frontierSkills === "function" ? frontierSkills() : [])
-      .filter(s => lens.includes(s.dom));
-  } catch(e){ lensSkills = []; }
-  if (lensSkills.length < 4){
-    const have = new Set(lensSkills.map(s => s.id));
-    const extras = SKILLS
-      .filter(s => lens.includes(s.dom) && !have.has(s.id) &&
-                   deriveStatus(s.id) !== "mastered" &&
-                   deriveStatus(s.id) !== "already_mastered" &&
-                   deriveStatus(s.id) !== "too_hard")
-      .sort((a,b) => tierOf(a) - tierOf(b))
-      .slice(0, 6 - lensSkills.length);
-    lensSkills = lensSkills.concat(extras);
+  if (ctx === "custom"){
+    return _gcCustomSceneFallback(customLabel, vocabGaps);
   }
-  // Shuffle for re-roll variety
-  for (let i = lensSkills.length - 1; i > 0; i--){
-    const j = Math.floor(Math.random() * (i + 1));
-    [lensSkills[i], lensSkills[j]] = [lensSkills[j], lensSkills[i]];
-  }
-  lensSkills = lensSkills.slice(0, 4);
 
-  const suggestions = lensSkills.map((s, i) => {
-    const gap = gaps[i % Math.max(1, gaps.length)];
-    const word = gap && gap[0] ? gap[0] : null;
-    return {
-      text:      _gcTemplate(ctx, customLabel, s.t || s.id, word),
-      skillId:   s.id,
-      domain:    s.dom,
-      vocabWord: word,
-      emoji:     _gcDomainEmoji(s.dom),
-    };
-  });
+  const library = (typeof SCENES_LIBRARY !== "undefined" && SCENES_LIBRARY[ctx]) ? SCENES_LIBRARY[ctx] : [];
+  if (!library.length) return [];
 
-  // Theme immersion suggestion — pick an activity from the primary lens domain
-  // (or fall back to the first lens domain that has theme activities).
-  if (theme){
-    let primary = lens.find(d => Array.isArray(theme[d]) && theme[d].length) || lens[0];
-    const acts = (primary && Array.isArray(theme[primary])) ? theme[primary] : [];
-    const act = acts[Math.floor(Math.random() * acts.length)];
-    if (act && act.t){
-      const word = gaps[0] && gaps[0][0] ? gaps[0][0] : null;
-      suggestions.push({
-        text:      `🌟 Theme immersion — ${theme.title}: ${act.t}.` + (word ? ` Slip in the word "${word}".` : ""),
-        skillId:   null,
-        domain:    primary || "cognitive",
-        vocabWord: word,
-        emoji:     theme.emoji || "🌟",
-      });
+  // Rotation: oldest-shown first, with a random tiebreak for variety.
+  state._gcSceneShownAt = state._gcSceneShownAt || {};
+  const scored = library.map(scene => ({
+    scene,
+    lastShown: state._gcSceneShownAt[scene.id] || 0,
+    rand: Math.random()
+  }));
+  scored.sort((a, b) => (a.lastShown - b.lastShown) || (a.rand - b.rand));
+  const picks = scored.slice(0, 3).map(x => x.scene);
+
+  return picks.map(scene => _gcRenderScene(scene, vocabGaps, ctx));
+}
+
+/**
+ * Resolve a scene template into a ready-to-display object.
+ * - Fills vocab_slot_count slots from vocabGaps (falls back to scene.default_vocab).
+ * - Substitutes {VOCAB_1/2/3} placeholders in beats, tips, and learning_focus.
+ * - Maps target_skill_ids → human-readable titles via the full skill universe.
+ */
+function _gcRenderScene(scene, vocabGaps, contextKey){
+  const slots = [];
+  for (let i = 0; i < (scene.vocab_slot_count || 0); i++){
+    if (vocabGaps[i]) {
+      slots.push(vocabGaps[i]);
+    } else {
+      const fallback = scene.default_vocab[i] || scene.default_vocab[0] || "";
+      slots.push({ en: fallback, fr: null, emoji: null });
     }
   }
+  const v1 = slots[0]?.en || "";
+  const v2 = slots[1]?.en || "";
+  const v3 = slots[2]?.en || "";
+  const sub = (str) => String(str || "")
+    .replace(/\{VOCAB_1\}/g, v1)
+    .replace(/\{VOCAB_2\}/g, v2)
+    .replace(/\{VOCAB_3\}/g, v3);
 
-  return suggestions.slice(0, 5);
+  const allSkills = [
+    ...SKILLS,
+    ...(typeof SKILLS_CUSTOM_SEED !== "undefined" ? SKILLS_CUSTOM_SEED : []),
+    ...(state.skillsCustom || [])
+  ];
+  const skillLabels = (scene.target_skill_ids || []).map(id => {
+    const s = allSkills.find(x => x && x.id === id);
+    return s ? (s.t || s.id) : id;
+  });
+
+  return {
+    id: scene.id,
+    contextKey,
+    title: scene.title,
+    emoji: scene.emoji,
+    duration_min: scene.duration_min,
+    props: scene.props || [],
+    beats: (scene.beats || []).map(b => ({
+      actor: b.actor,
+      line: sub(b.line),
+      action: sub(b.action)
+    })),
+    tips: (scene.tips || []).map(sub),
+    learning_focus: sub(scene.learning_focus),
+    vocab_slots: slots,
+    target_skill_ids: scene.target_skill_ids || [],
+    target_skill_labels: skillLabels,
+    target_subdomains: scene.target_subdomains || []
+  };
+}
+
+/* _gcCustomSceneFallback — single scaffold scene built from current frontier
+   + vocab gaps. Encourages either picking a fixed context or generating a
+   fresh scene via Cowork.                                                    */
+function _gcCustomSceneFallback(customLabel, vocabGaps){
+  let frontier = [];
+  try {
+    frontier = (typeof frontierSkills === "function" ? frontierSkills() : []).slice(0, 3);
+  } catch(e){ frontier = []; }
+  const skillIds = frontier.map(s => s.id);
+  const skillLabels = frontier.map(s => s.t || s.id);
+  const v1 = vocabGaps[0] || { en: "this", fr: "ceci" };
+  const v2 = vocabGaps[1] || { en: "that", fr: "cela" };
+  const v3 = vocabGaps[2] || { en: "here", fr: "ici" };
+  return [{
+    id: `custom-${Date.now()}`,
+    contextKey: "custom",
+    title: customLabel ? `Custom play: ${customLabel}` : "Free play",
+    emoji: "✏️",
+    duration_min: 10,
+    props: ["Whatever you have at hand"],
+    beats: [
+      { actor: "You",    line: `Set up your activity (${customLabel || "free play"}).`, action: "" },
+      { actor: "You",    line: `As you play, weave in: ${v1.en}, ${v2.en}, ${v3.en}.`, action: "Use each word twice." },
+      { actor: "Maxine", line: "Her turn — let her lead a beat.", action: "Wait 5 seconds. Mirror what she says." },
+      { actor: "You",    line: "Process praise: 'You worked hard at that!'", action: "End on warmth." }
+    ],
+    tips: [
+      "For a richer scene, switch to a fixed context (dollhouse / baby dolls / drawing / outside).",
+      "Or — generate a fresh custom scene via Cowork (button below)."
+    ],
+    learning_focus: skillLabels.length ? `Targets: ${skillLabels.join(", ")}` : "Free play with prompted vocab.",
+    vocab_slots: [v1, v2, v3],
+    target_skill_ids: skillIds,
+    target_skill_labels: skillLabels,
+    target_subdomains: []
+  }];
 }
 
 // Current Game Creator UI state
@@ -4097,9 +4234,9 @@ function _gcRenderResults(){
   const root = document.getElementById("gcResults");
   if (!root) return;
   if (!_gcCurrentCtx){ root.innerHTML = ""; return; }
-  let suggestions;
+  let scenes;
   try {
-    suggestions = generateGameSuggestions(_gcCurrentCtx, _gcCustomLabel);
+    scenes = generateGameSuggestions(_gcCurrentCtx, _gcCustomLabel);
   } catch(err){
     console.warn("generateGameSuggestions failed", err);
     root.innerHTML = `<div class="sub" style="color:var(--muted); padding:10px">Game Creator unavailable — please reload.</div>`;
@@ -4107,33 +4244,59 @@ function _gcRenderResults(){
   }
   const theme = (typeof pickTheme === "function") ? pickTheme() : null;
   const themeBadge = theme
-    ? `<div class="gc-theme-badge">📅 Week ${theme.w} · ${escapeHtml(theme.title)} ${theme.emoji||""}</div>`
+    ? `<div class="gc-theme-badge">📅 Week ${theme.w} · ${escapeHtml(theme.title)} ${theme.emoji || ""}</div>`
     : "";
-  const cards = suggestions.map((s, i) => {
-    const domClass = `dom-${s.domain}`;
-    const vocabChip = s.vocabWord
-      ? `<span class="gc-vocab-chip" title="Vocab gap to weave in">💬 ${escapeHtml(s.vocabWord)}</span>` : "";
-    return `
-      <div class="gc-card ${domClass}" data-gc-idx="${i}">
-        <div class="gc-card-head">
-          <span class="gc-dom-chip ${domClass}">${escapeHtml(s.domain)}</span>
-          <span style="font-size:18px" aria-hidden="true">${s.emoji}</span>
+
+  const cards = (scenes || []).map((s, i) => {
+    const vocabChips = (s.vocab_slots || []).map(v =>
+      `<span class="gc-vocab-chip">💬 ${escapeHtml(v.en)}${v.fr ? ` / ${escapeHtml(v.fr)}` : ""}</span>`
+    ).join("");
+    const skillChips = (s.target_skill_labels || []).map(lbl =>
+      `<span class="gc-skill-chip">🎯 ${escapeHtml(lbl)}</span>`
+    ).join("");
+    const beatsHtml = (s.beats || []).map((b, bi) => `
+      <div class="gc-beat">
+        <div class="gc-beat-num">${bi + 1}</div>
+        <div class="gc-beat-body">
+          <div class="gc-beat-actor">${escapeHtml(b.actor)}:</div>
+          <div class="gc-beat-line">"${escapeHtml(b.line)}"</div>
+          ${b.action ? `<div class="gc-beat-action">↪ ${escapeHtml(b.action)}</div>` : ""}
         </div>
-        <div class="gc-card-text">${escapeHtml(s.text)}</div>
-        ${vocabChip}
+      </div>
+    `).join("");
+    const tipsHtml = (s.tips || []).map(t => `<li>${escapeHtml(t)}</li>`).join("");
+    const propsHtml = (s.props || []).map(p => `<span class="gc-prop">${escapeHtml(p)}</span>`).join("");
+
+    return `
+      <div class="gc-scene-card" data-gc-idx="${i}">
+        <div class="gc-scene-head">
+          <div class="gc-scene-title">${s.emoji || "✨"} ${escapeHtml(s.title)}</div>
+          <div class="gc-scene-meta">~${s.duration_min} min</div>
+        </div>
+        ${(skillChips || vocabChips) ? `<div class="gc-scene-chips">${skillChips}${vocabChips}</div>` : ""}
+        ${(s.props && s.props.length) ? `<div class="gc-scene-props"><strong>Setup:</strong> ${propsHtml}</div>` : ""}
+        <div class="gc-scene-beats">${beatsHtml}</div>
+        ${(s.tips && s.tips.length) ? `
+          <details class="gc-scene-tips">
+            <summary>💡 Tips (${s.tips.length})</summary>
+            <ul>${tipsHtml}</ul>
+          </details>` : ""}
+        ${s.learning_focus ? `<div class="gc-scene-focus">${escapeHtml(s.learning_focus)}</div>` : ""}
         <button class="gc-did-btn" data-gc-did="${i}">✓ We did this!</button>
       </div>
     `;
   }).join("");
+
   root.innerHTML = `
     ${themeBadge}
-    ${cards || `<div class="sub" style="color:var(--muted); padding:10px">No suggestions right now — try logging a few activities first.</div>`}
+    ${cards || `<div class="sub" style="color:var(--muted); padding:10px">No scenes available for this context.</div>`}
     <div class="gc-reroll-row">
-      <button class="gc-reroll-btn" id="gcReroll">🔀 New suggestions</button>
+      <button class="gc-reroll-btn" id="gcReroll">🔀 New scenes</button>
+      <button class="gc-cowork-btn" id="gcCoworkFresh">🎨 Generate fresh scene via Cowork</button>
     </div>
   `;
-  // Stash the rendered suggestions so the click handler can read them
-  root._gcSuggestions = suggestions;
+  // Stash the resolved scenes so the click handler can read them.
+  root._gcScenes = scenes;
 }
 
 // Click delegation for Game Creator
@@ -4187,51 +4350,43 @@ document.addEventListener("click", (e) => {
     _gcRenderResults();
     return;
   }
-  // "We did this!" — log the suggestion
+  // "We did this!" — log the full scene
   const didBtn = e.target.closest("[data-gc-did]");
   if (didBtn){
     const root = document.getElementById("gcResults");
-    const list = root && root._gcSuggestions || [];
+    const list = (root && root._gcScenes) || [];
     const idx = parseInt(didBtn.dataset.gcDid, 10);
-    const sug = list[idx]; if (!sug) return;
+    const scene = list[idx];
+    if (!scene) return;
     try {
-      if (sug.skillId && typeof addObservation === "function"){
-        addObservation({
-          skillId: sug.skillId,
-          status:  "practising",
-          source:  "activity",
-          notes:   `Game Creator — ${_gcCurrentCtx}${_gcCustomLabel ? " (" + _gcCustomLabel + ")" : ""}`,
-        });
-      } else if (sug.skillId){
-        state.observations = state.observations || [];
-        // v6: status normalised — "practising" maps to "working_on_it" at read time.
-        state.observations.push({
-          skillId: sug.skillId, status: "working_on_it",
-          ts: Date.now(),
-          by: state.currentUser || "—",
-          source: "activity",
-          context: _gcCurrentCtx,
-          observer: "parent",
-          notes: `Game Creator — ${_gcCurrentCtx}${_gcCustomLabel ? " (" + _gcCustomLabel + ")" : ""}`,
-        });
-        if (typeof saveState === "function") saveState(state);
-      }
-      if (sug.vocabWord){
-        if (typeof addVocabMastery === "function"){
-          addVocabMastery(sug.vocabWord, "en", { source: "activity" });
-        } else {
-          state.vocabMaster = state.vocabMaster || {};
-          state.vocabMaster[`${sug.vocabWord}_en`] = { ts: Date.now() };
-          if (typeof saveState === "function") saveState(state);
+      // Log every target skill as "working_on_it" — the parent has not yet
+      // declared mastery. They observe Maxine and decide on the per-skill log.
+      (scene.target_skill_ids || []).forEach(skillId => {
+        if (typeof addObservation === "function"){
+          addObservation({
+            skillId,
+            status: "working_on_it",
+            source: "gc_scene",
+            notes:  `Game Creator scene: ${scene.title}`
+          });
         }
-      }
+      });
+      // Vocab exposure — NOT mastery. Parent stays the only path to mastery.
+      (scene.vocab_slots || []).forEach(v => {
+        if (v && v.en && typeof addVocabExposure === "function"){
+          addVocabExposure(v.en, "en", { notes: `Scene: ${scene.title}` });
+        }
+      });
+      // Stamp last-shown timestamp so the rotation pushes this scene to the
+      // back of the queue next time.
+      state._gcSceneShownAt = state._gcSceneShownAt || {};
+      state._gcSceneShownAt[scene.id] = Date.now();
+      if (typeof saveState === "function") saveState(state);
       if (typeof syncPushDebounced === "function") syncPushDebounced();
-      // Replace this card's button with a "Logged" pill — don't re-render the panel
-      const card = didBtn.closest(".gc-card");
-      if (card){
-        didBtn.outerHTML = `<span class="gc-logged">✓ Logged!</span>`;
-      }
-      if (typeof showToast === "function") showToast(`✓ Logged · ${sug.domain}`);
+      // Replace this card's button with a "Logged" pill — don't re-render the panel.
+      const skillsN = (scene.target_skill_ids || []).length;
+      didBtn.outerHTML = `<span class="gc-logged">✓ Logged — scene complete!</span>`;
+      if (typeof showToast === "function") showToast(`✓ Scene complete · ${skillsN} skill${skillsN === 1 ? "" : "s"} practised`);
     } catch(err){
       console.warn("Game Creator log failed", err);
       if (typeof showToast === "function") showToast("Couldn't log — please retry");
