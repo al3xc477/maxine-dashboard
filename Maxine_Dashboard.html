@@ -5884,6 +5884,89 @@ const SKILLS_CUSTOM_SEED = [
 ];
 SKILLS.push(...SKILLS_CUSTOM_SEED);
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v5 — UNIVERSAL DIFFICULTY INDEX (UDI)
+   ═════════════════════════════════════════════════════════════════════════
+   Decimal 0.0–10.0 log-scale that replaces v4's integer tier. Cross-domain
+   anchor from newborn reflex (UDI 0) to virtuoso mastery (UDI 9.7+).
+
+   Research grounding: Knowledge Space Theory (Doignon-Falmagne 1985),
+   IRT item difficulty (Lord, Rasch), CDC/Bayley milestones, Ericsson
+   deliberate-practice population rarity bands.
+   ───────────────────────────────────────────────────────────────────────── */
+const UDI_ANCHORS = [
+  { udi: 0.0, name: "Reflexive",                          examples: ["sucking", "blink", "moro reflex"],                                              pop_rate: 1.00,    framework: "Brazelton NBAS" },
+  { udi: 1.0, name: "Early infant",                       examples: ["social smile (6w)", "head control (2m)", "cooing"],                            pop_rate: 0.99,    framework: "Bayley 4" },
+  { udi: 2.0, name: "Late infant / toddler emergence",    examples: ["first steps (12-14m)", "first word (10-14m)", "pincer (10m)", "object permanence"], pop_rate: 0.95, framework: "CDC milestones / Bayley" },
+  { udi: 3.0, name: "Toddler",                            examples: ["runs", "50-word vocab", "counts to 3", "parallel play", "scribbles"],          pop_rate: 0.90,    framework: "CDC / MacArthur-Bates CDI" },
+  { udi: 4.0, name: "Preschool",                          examples: ["draws person", "counts to 10", "reads first words", "rides bike no stabilisers", "4-word sentences", "names 4 emotions"], pop_rate: 0.80, framework: "Teaching Strategies GOLD / AAP" },
+  { udi: 5.0, name: "Early-elementary",                   examples: ["fluent reading", "single-digit add/sub", "simple piano piece", "reliable throw/catch", "multi-step problem-solving"], pop_rate: 0.65, framework: "Common Core K-2 / NCTM" },
+  { udi: 6.0, name: "Mid-elementary (Competent)",         examples: ["multiplication fluency", "paragraph writing", "competitive youth sport", "sarcasm / mixed emotions"], pop_rate: 0.40, framework: "Common Core 3-5 / CHC" },
+  { udi: 7.0, name: "Adolescent (Proficient)",            examples: ["algebra", "conversational 2nd language", "amateur recital instrument", "structured debate"], pop_rate: 0.15, framework: "OECD PISA / Ericsson amateur" },
+  { udi: 8.0, name: "Late adolescent / pre-pro",          examples: ["calculus", "near-native 2nd language", "conservatory entry", "national-youth athletic"], pop_rate: 0.03, framework: "Ericsson deliberate practice" },
+  { udi: 9.0, name: "Professional / specialist",          examples: ["PhD research", "orchestral chair", "national-level athlete", "published author"], pop_rate: 0.001, framework: "Ericsson 10,000-hour band" },
+  { udi: 10.0, name: "World-class / virtuoso",            examples: ["Nobel-level contribution", "Ernst Grand Caprice in concert", "Olympic gold"],   pop_rate: 0.00001, framework: "Ericsson upper bound + talent + luck + opportunity" }
+];
+
+/**
+ * UDI calibration formula (for new skill generation by Cowork's Claude):
+ *
+ * For childhood skills (target UDI 0–5):
+ *   UDI ≈ log2(median_age_months_to_mastery / 6)
+ *   Anchors: 6m → UDI 0; 24m → UDI 2; 96m (8y) → UDI 4
+ *
+ * For adult / expert skills (target UDI 5+):
+ *   UDI ≈ 5 + log10(deliberate_practice_hours_to_master / 100)
+ *   Anchors: 100h → UDI 5; 1000h → UDI 6; 10,000h → UDI 7; 100,000h → UDI 9
+ *
+ * Population-rarity overlay (always apply):
+ *   If pop_mastery_rate < 0.50, add 0.5 × log10(0.5 / pop_mastery_rate) to UDI
+ *
+ * Cap UDI to nearest 0.1 within [0.0, 10.0].
+ * Cite the framework used in the udi_rationale field.
+ */
+const TIER_TO_UDI = {
+  0: 0.5,  1: 1.5,  2: 3.0,  3: 4.0,  4: 5.0,
+  5: 5.5,  6: 6.0,  7: 7.0,  8: 7.7,  9: 8.5,  10: 9.7
+};
+
+// Alias so v5 spec-style code that references SKILLS_ALL works as written.
+const SKILLS_ALL = SKILLS;
+
+/* udiOf(skillOrId) — preferred over tierOf(). Reads explicit s.udi if set,
+   otherwise falls back to TIER_TO_UDI[tierOf(s)] for skills not yet migrated.
+   Returned UDI is a decimal in [0.0, 10.0].                                  */
+function udiOf(skillOrId){
+  const s = typeof skillOrId === "string" ? SKILLS.find(x => x.id === skillOrId) : skillOrId;
+  if (!s) return 3.0;
+  if (typeof s.udi === "number") return s.udi;
+  return TIER_TO_UDI[tierOf(s)] != null ? TIER_TO_UDI[tierOf(s)] : 3.0;
+}
+
+/* One-shot v5 migration: for every skill in the catalogue, populate `udi` and
+   `udi_rationale`, then remove `tier`. Idempotent — gated by the v5 flag on
+   state. Note: SKILLS is a `const` array of plain objects; mutating its
+   entries is safe (the reference doesn't change).                            */
+(function migrateUdiV5(){
+  try {
+    if (state.v5UdiMigrationDone) return;
+    let touched = 0;
+    SKILLS.forEach(s => {
+      if (typeof s.udi === "number") return; // already migrated
+      const hadExplicitTier = (typeof s.tier === "number");
+      const t = hadExplicitTier ? s.tier : tierOf(s);
+      const u = TIER_TO_UDI[t] != null ? TIER_TO_UDI[t] : 3.0;
+      s.udi = u;
+      s.udi_rationale = `Migrated from v4 ${hadExplicitTier ? "explicit tier "+s.tier : "derived tier "+t+" (age '"+(s.age||"?")+"')"}; refine via Calibration Wizard`;
+      if (hadExplicitTier) delete s.tier;
+      touched++;
+    });
+    state.v5UdiMigrationDone = true;
+    state.v5MigratedAt = Date.now();
+    if (touched && typeof saveState === "function") saveState(state);
+  } catch(e){ console.warn("v5 UDI migration failed", e); }
+})();
+
 /* ─────────────────────────────────────────────────────────────────────────
    IMPROVEMENT A — DOMAIN_SEED_BANK + autoSeedDomain
    Auto-injects developmentally grounded skill seeds when a domain has <10
