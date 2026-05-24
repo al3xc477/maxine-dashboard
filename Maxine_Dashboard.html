@@ -3430,6 +3430,13 @@ state.backfillQueue      = Array.isArray(state.backfillQueue)      ? state.backf
 // Game Creator scene rotation timestamps: { sceneId: ts }
 state._gcSceneShownAt    = (state._gcSceneShownAt && typeof state._gcSceneShownAt === "object" && !Array.isArray(state._gcSceneShownAt))
                             ? state._gcSceneShownAt : {};
+// v7 — per-skill opt-in flags (requires_dual_observer, regression_prone)
+state.skillFlags         = (state.skillFlags && typeof state.skillFlags === "object" && !Array.isArray(state.skillFlags))
+                            ? state.skillFlags : {};
+// v7 — Tutor tab state: spotlight rotation history + 14-day pending-confirmation suppressions
+state.spotlightHistory   = Array.isArray(state.spotlightHistory) ? state.spotlightHistory : [];
+state.suppressedConfirmations = (state.suppressedConfirmations && typeof state.suppressedConfirmations === "object" && !Array.isArray(state.suppressedConfirmations))
+                            ? state.suppressedConfirmations : {};
 
 /* v6 one-shot observation-schema migration. Maps the v5 status vocabulary
    (new / emerging / practising / mastered / too_hard / already_mastered) onto
