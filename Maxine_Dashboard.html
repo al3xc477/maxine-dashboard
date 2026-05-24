@@ -1119,12 +1119,34 @@
 
     <!-- Section jump strip -->
     <nav class="section-jump no-print">
-      <button class="sj-btn sj-active" onclick="sjScrollTo('sec-vocab-words',this)">📖 Words</button>
+      <button class="sj-btn sj-active" onclick="sjScrollTo('sec-vocab-active',this)">📚 Active</button>
+      <button class="sj-btn" onclick="sjScrollTo('sec-vocab-words',this)">📖 All words</button>
       <button class="sj-btn" onclick="sjScrollTo('sec-vocab-add',this)">➕ Add</button>
       <button class="sj-btn" onclick="sjScrollTo('sec-vocab-story',this)">📝 Story</button>
       <button class="sj-btn" onclick="sjScrollTo('sec-vocab-bingo',this)">🎲 Bingo</button>
-      <button class="sj-btn" onclick="sjScrollTo('sec-vocab-mastered',this)">🏆 Mastered</button>
+      <button class="sj-btn" onclick="sjScrollTo('sec-vocab-mastered-v7',this)">🏆 Mastered</button>
     </nav>
+
+    <!-- v7 — Active Vocabulary (priority-ordered, bilingual-hides) -->
+    <div class="card" style="margin-bottom:14px" id="sec-vocab-active">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:8px">
+        <div>
+          <h2 style="text-transform:none; font-size:18px; color:var(--ink); margin:0 0 4px">📚 Active Vocabulary</h2>
+          <div class="sub" id="v7VocabActiveSub" style="color:var(--muted); font-size:13px">Priority-ordered words she's working toward bilingual mastery. Both-language mastery hides the word automatically.</div>
+        </div>
+        <div class="row" style="gap:6px; flex-wrap:wrap">
+          <button class="small" id="v7VocabFocus10Btn">⭐ Show next 10</button>
+          <button class="small" id="v7VocabShowAllBtn" style="display:none">📚 Show all</button>
+        </div>
+      </div>
+      <div id="v7VocabActiveBody"></div>
+    </div>
+
+    <!-- v7 — Mastered Vocabulary (extended archive) -->
+    <details class="card" style="margin-bottom:14px" id="sec-vocab-mastered-v7">
+      <summary style="cursor:pointer; font-weight:700; font-size:15px; color:#14532D">🏆 Mastered Vocabulary <span id="v7MasteredCount" style="color:var(--muted); font-weight:400; font-size:13px">(0)</span></summary>
+      <div id="v7VocabMasteredBody" style="margin-top:10px"></div>
+    </details>
 
     <!-- Word Tracker -->
     <div class="card" style="margin-bottom:14px" id="sec-vocab-words">
