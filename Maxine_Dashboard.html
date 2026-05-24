@@ -933,6 +933,54 @@
   .v7-vm-grid{ grid-template-columns:1fr; }
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v7 — Skill-modal flag toggles + Re-validate block in per-domain card
+   ═════════════════════════════════════════════════════════════════════════ */
+.v7-skflag-row{ margin-bottom:10px; }
+.v7-skflag-label{
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  font-size:13px; font-weight:600; color:var(--ink); cursor:pointer;
+}
+.v7-skflag-label input[type="checkbox"]{
+  width:20px; height:20px; cursor:pointer; accent-color:var(--accent);
+}
+.v7-skflag-hint{ font-size:11px; color:var(--muted); margin-top:3px; }
+
+.v7-reval-holder:empty{ display:none; }
+.v7-reval-block{
+  margin-top:10px; padding:10px 12px; border:1px solid #FCD34D;
+  background:#FFFBEB; border-radius:10px;
+}
+.v7-reval-h{
+  font-weight:700; font-size:13px; color:#92400E; margin-bottom:6px;
+  display:flex; align-items:center; gap:6px;
+}
+.v7-reval-count{
+  font-size:10px; background:#FCD34D; color:#7C2D12; padding:1px 7px;
+  border-radius:999px; font-weight:700;
+}
+.v7-reval-row{
+  display:flex; gap:8px; align-items:center; justify-content:space-between;
+  padding:6px 0; border-top:1px dashed #FDE68A; font-size:12px;
+  flex-wrap:wrap;
+}
+.v7-reval-row:first-of-type{ border-top:none; }
+.v7-reval-label{ flex:1; min-width:0; color:#78350F; }
+.v7-reval-btn{
+  background:#FEF3C7; color:#7C2D12; border:1px solid #FCD34D;
+  padding:5px 10px; min-height:32px; font-size:11px; font-weight:700;
+  border-radius:8px; cursor:pointer;
+}
+.v7-reval-btn:hover{ background:#FCD34D; }
+.v7-reval-hint{
+  font-size:11px; font-style:italic; color:var(--muted);
+  background:#F3F4F6; padding:3px 8px; border-radius:6px;
+}
+@media (max-width:640px){
+  .v7-reval-row{ flex-direction:column; align-items:flex-start; }
+  .v7-reval-btn, .v7-reval-hint{ width:100%; text-align:center; }
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
@@ -3430,6 +3478,13 @@ state.backfillQueue      = Array.isArray(state.backfillQueue)      ? state.backf
 // Game Creator scene rotation timestamps: { sceneId: ts }
 state._gcSceneShownAt    = (state._gcSceneShownAt && typeof state._gcSceneShownAt === "object" && !Array.isArray(state._gcSceneShownAt))
                             ? state._gcSceneShownAt : {};
+// v7 — per-skill opt-in flags (requires_dual_observer, regression_prone)
+state.skillFlags         = (state.skillFlags && typeof state.skillFlags === "object" && !Array.isArray(state.skillFlags))
+                            ? state.skillFlags : {};
+// v7 — Tutor tab state: spotlight rotation history + 14-day pending-confirmation suppressions
+state.spotlightHistory   = Array.isArray(state.spotlightHistory) ? state.spotlightHistory : [];
+state.suppressedConfirmations = (state.suppressedConfirmations && typeof state.suppressedConfirmations === "object" && !Array.isArray(state.suppressedConfirmations))
+                            ? state.suppressedConfirmations : {};
 
 /* v6 one-shot observation-schema migration. Maps the v5 status vocabulary
    (new / emerging / practising / mastered / too_hard / already_mastered) onto
@@ -7077,6 +7132,7 @@ function renderProgressView(){
       <div class="v6-domcard">
         <div class="v6-radar-holder" id="v6Radar_${d.key}"></div>
         <div class="v6-active10-holder" id="v6Active10_${d.key}"></div>
+        <div class="v7-reval-holder" id="v7Reval_${d.key}"></div>
         <div class="v6-mastered-holder" id="v6Mastered_${d.key}"></div>
       </div>
     `;
@@ -7084,6 +7140,7 @@ function renderProgressView(){
     // Populate v6 holders (typeof guards so a missing render fn doesn't crash).
     try { if (typeof renderDomainRadar    === "function") renderDomainRadar(d.key, row.querySelector("#v6Radar_"+d.key)); } catch(e){ console.warn("v6 radar render failed", e); }
     try { if (typeof renderActive10       === "function") renderActive10(d.key, row.querySelector("#v6Active10_"+d.key)); } catch(e){ console.warn("v6 Active10 render failed", e); }
+    try { if (typeof renderRevalidateBlock === "function") renderRevalidateBlock(d.key, row.querySelector("#v7Reval_"+d.key)); } catch(e){ console.warn("v7 revalidate render failed", e); }
     try { if (typeof renderMasteredLibrary === "function") renderMasteredLibrary(d.key, row.querySelector("#v6Mastered_"+d.key)); } catch(e){ console.warn("v6 mastered library render failed", e); }
   });
 
@@ -8242,6 +8299,130 @@ function addObservation({ skillId, status, by, source, notes }){
 /* v6 helper: flat-array accessor used everywhere from Phase 2 onward. */
 function obsForSkill(skillId){
   return (state.observations || []).filter(o => o && o.skillId === skillId);
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v7 — Per-skill opt-in flags + re-validation engine
+   ═════════════════════════════════════════════════════════════════════════
+   Two flags live on state.skillFlags[skillId] (NOT on the SKILLS const,
+   which can't survive a reload):
+     - requires_dual_observer  (default: skill.keystone === true)
+     - regression_prone        (default: false)
+
+   needsRevalidation() returns { reason, label } or null. Three reasons:
+     - dual_observer_pending : requires 2 distinct `by` values among
+       mastered observations; only one so far.
+     - edge_of_tier          : currently mastered, skill tier === child's
+       current tier, last mastery > 14 days ago.
+     - regression_prone      : flagged + last mastery > 7 days ago.
+
+   Uses v6 status vocabulary natively: deriveStatusV6 returns
+   mastered/automatic/working_on_it/regressed/unknown; "currently mastered"
+   means status ∈ {mastered, automatic}.
+   ───────────────────────────────────────────────────────────────────────── */
+function _skillUniverse(){
+  return [
+    ...SKILLS,
+    ...(typeof SKILLS_CUSTOM_SEED !== "undefined" ? SKILLS_CUSTOM_SEED : []),
+    ...(state.skillsCustom || [])
+  ];
+}
+
+function flagFor(skillId, key){
+  const f = (state.skillFlags || {})[skillId];
+  if (f && f[key] !== undefined) return !!f[key];
+  // Fall through to the skill's own default (keystone implies dual-observer).
+  const s = _skillUniverse().find(x => x && x.id === skillId);
+  if (!s) return false;
+  if (key === "requires_dual_observer") return !!s.keystone;
+  if (key === "regression_prone")       return false;
+  return false;
+}
+
+function setSkillFlag(skillId, key, value){
+  if (!skillId || !key) return;
+  state.skillFlags = state.skillFlags || {};
+  state.skillFlags[skillId] = state.skillFlags[skillId] || {};
+  state.skillFlags[skillId][key] = !!value;
+  if (typeof saveState === "function") saveState(state);
+}
+
+/* One-shot migration: set explicit requires_dual_observer=true on every
+   keystone so the flag stops relying on the keystone fallback (which means
+   "Settings → off" actually sticks, since false is recorded). Idempotent.    */
+(function migrateDualObserverFlagV7(){
+  if (state._migratedDualObserverV7) return;
+  try {
+    state.skillFlags = state.skillFlags || {};
+    _skillUniverse().forEach(s => {
+      if (!s || !s.id) return;
+      if (!state.skillFlags[s.id]) state.skillFlags[s.id] = {};
+      if (state.skillFlags[s.id].requires_dual_observer === undefined && s.keystone){
+        state.skillFlags[s.id].requires_dual_observer = true;
+      }
+    });
+    state._migratedDualObserverV7 = true;
+    if (typeof saveState === "function") saveState(state);
+  } catch(e){ console.warn("v7 dual-observer migration failed", e); }
+})();
+
+function _isCurrentlyMastered(skillId){
+  const st = (typeof deriveStatusV6 === "function") ? deriveStatusV6(skillId) : deriveStatus(skillId);
+  return st === "mastered" || st === "automatic" || st === "already_mastered";
+}
+
+function needsRevalidation(skillId){
+  const s = _skillUniverse().find(x => x && x.id === skillId);
+  if (!s) return null;
+  if (!_isCurrentlyMastered(skillId)) return null;
+
+  const masteryObs = obsForSkill(skillId).filter(o => o.status === "mastered" || o.status === "already_mastered");
+  const lastMasteryTs = masteryObs.length ? Math.max(...masteryObs.map(o => o.ts || 0)) : 0;
+  const ageDays = lastMasteryTs ? (Date.now() - lastMasteryTs) / 86400000 : 999;
+
+  // (a) Dual-observer pending — only one distinct `by` has confirmed mastery.
+  if (flagFor(skillId, "requires_dual_observer")){
+    // Exclude synthetic sources like "implicit_reverify" so the parent's
+    // own declaration is what counts toward the 2-observer rule.
+    const explicitObservers = new Set(
+      masteryObs
+        .filter(o => o.source !== "implicit_reverify")
+        .map(o => (o.by || "—").trim())
+        .filter(b => b && b !== "—")
+    );
+    if (explicitObservers.size < 2){
+      return { reason: "dual_observer_pending", label: "🛡️ Awaiting 2nd observer confirmation" };
+    }
+  }
+
+  // (b) Edge of tier — skill is at the child's current tier; verify it hasn't drifted.
+  if (typeof currentTier === "function" && typeof tierOf === "function"){
+    const myTier = tierOf(s);
+    const childT = currentTier();
+    if (myTier === childT && ageDays > 14){
+      return { reason: "edge_of_tier", label: "⚠️ At her current level — re-check?" };
+    }
+  }
+
+  // (c) Regression-prone — flagged + > 7 days since last confirmation.
+  if (flagFor(skillId, "regression_prone") && ageDays > 7){
+    return { reason: "regression_prone", label: "🔄 Flagged — re-check weekly" };
+  }
+
+  return null;
+}
+
+function revalidationList(domKey){
+  return _skillUniverse()
+    .filter(s => s && s.dom === domKey)
+    .map(s => ({ skill: s, flag: needsRevalidation(s.id) }))
+    .filter(x => x.flag !== null);
+}
+
+function getAllRevalidations(){
+  return _skillUniverse()
+    .map(s => ({ skill: s, flag: needsRevalidation(s.id) }))
+    .filter(x => x.flag !== null);
 }
 
 function skillXp(skillId){
@@ -9733,6 +9914,23 @@ function openSkillModal(id){
         ${STATUS_ORDER.map(st => `<button class="small ${st===status?"primary":""}" data-skillsetstatus="${escapeHtml(id)}-${st}">${escapeHtml(STATUS_LABEL[st])}</button>`).join("")}
       </div>
     </div>
+    <div class="stmp-section">
+      <div class="stmp-h">🎚 Confirmation rules</div>
+      <div class="v7-skflag-row">
+        <label class="v7-skflag-label">
+          <span>🛡️ Require 2-observer confirmation for mastery</span>
+          <input type="checkbox" data-v7-skill-flag="requires_dual_observer" data-v7-skill-id="${escapeHtml(id)}" ${flagFor(id, "requires_dual_observer") ? "checked" : ""} />
+        </label>
+        <div class="v7-skflag-hint">Keystones default to ON. Both parents must independently mark mastered before the skill leaves the re-validate list.</div>
+      </div>
+      <div class="v7-skflag-row">
+        <label class="v7-skflag-label">
+          <span>🔄 Regression-prone (re-check weekly)</span>
+          <input type="checkbox" data-v7-skill-flag="regression_prone" data-v7-skill-id="${escapeHtml(id)}" ${flagFor(id, "regression_prone") ? "checked" : ""} />
+        </label>
+        <div class="v7-skflag-hint">Skills that come and go (e.g. emerging speech, social courtesies). Surface in re-validate if not confirmed within 7 days.</div>
+      </div>
+    </div>
     <div class="stmp-section"><div class="stmp-h">🎯 What it is</div><div style="font-size:14px">${escapeHtml(s.what)}</div></div>
     <div class="stmp-section"><div class="stmp-h">🧠 Why it matters</div><div style="font-size:14px">${escapeHtml(s.why)}</div></div>
     <div class="stmp-section"><div class="stmp-h">👋 How to support</div><div style="font-size:14px">${escapeHtml(s.how)}</div></div>
@@ -9753,6 +9951,75 @@ document.addEventListener("click", (e)=>{
   openSkillModal(id);
   drawSkillCatalogue();
 });
+// v7 — skill modal toggle wiring (delegated, handles both checkboxes).
+document.addEventListener("change", (e) => {
+  const cb = e.target.closest("input[data-v7-skill-flag]");
+  if (!cb) return;
+  const id  = cb.dataset.v7SkillId;
+  const key = cb.dataset.v7SkillFlag;
+  setSkillFlag(id, key, cb.checked);
+  // Re-render the per-domain card so a flag change shows in the re-validate
+  // block immediately.
+  try { if (typeof renderProgressView === "function") renderProgressView(); } catch(err){}
+});
+// v7 — re-validate "Mark again" button. Logs a mastered observation tagged
+// source: "revalidate". For dual_observer_pending: if the latest mastery's
+// `by` matches the current user, surface a hint instead (the click handler
+// guards before logging).
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-v7-reval]");
+  if (!btn) return;
+  const skillId = btn.dataset.v7Reval;
+  const need = needsRevalidation(skillId);
+  if (!need) return;
+  if (need.reason === "dual_observer_pending"){
+    const masteryObs = obsForSkill(skillId).filter(o => o.status === "mastered" || o.status === "already_mastered");
+    masteryObs.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    const lastBy = (masteryObs[0] && masteryObs[0].by) || "—";
+    const cur = (state.currentUser || "—");
+    if (lastBy && lastBy !== "—" && lastBy === cur){
+      if (typeof showToast === "function") showToast(`Switch to the other observer to confirm "${lastBy}" already counts.`);
+      return;
+    }
+  }
+  if (typeof addObservation === "function"){
+    addObservation({ skillId, status: "mastered", source: "revalidate" });
+  }
+  if (typeof showToast === "function") showToast("✓ Re-confirmed.");
+  try { if (typeof renderProgressView === "function") renderProgressView(); } catch(err){}
+});
+
+/* renderRevalidateBlock — appended to each per-domain card in renderProgressView.
+   Lists every entry from revalidationList(domKey) with a [Mark again ✓] button.
+   For dual_observer_pending entries where the same observer is the only
+   confirmation source, render a hint instead of the action button.            */
+function renderRevalidateBlock(domKey, container){
+  if (!container) return;
+  const items = revalidationList(domKey);
+  if (!items.length){ container.innerHTML = ""; return; }
+  const cur = (state.currentUser || "—");
+  const rows = items.map(it => {
+    const id = it.skill.id;
+    const title = it.skill.t || id;
+    let actionHtml = `<button class="small v7-reval-btn" data-v7-reval="${escapeHtml(id)}">Mark again ✓</button>`;
+    if (it.flag.reason === "dual_observer_pending"){
+      const masteryObs = obsForSkill(id).filter(o => o.status === "mastered" || o.status === "already_mastered");
+      masteryObs.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      const lastBy = (masteryObs[0] && masteryObs[0].by) || "—";
+      if (lastBy && lastBy !== "—" && lastBy === cur){
+        actionHtml = `<span class="v7-reval-hint">Switch to other observer to confirm</span>`;
+      }
+    }
+    return `<div class="v7-reval-row">
+      <div class="v7-reval-label">${escapeHtml(it.flag.label)} — <strong>${escapeHtml(title)}</strong></div>
+      ${actionHtml}
+    </div>`;
+  }).join("");
+  container.innerHTML = `<div class="v7-reval-block">
+    <div class="v7-reval-h">🔁 Re-validate <span class="v7-reval-count">${items.length}</span></div>
+    ${rows}
+  </div>`;
+}
 
 /* Compute mastery % per domain — drives Vygotsky difficulty recommendation */
 function domainSkillMastery(domKey){
