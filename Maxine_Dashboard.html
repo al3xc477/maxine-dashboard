@@ -6576,6 +6576,9 @@ function showView(name){
     renderMemory();
   } else if (name === "vocabulary"){
     document.getElementById("vocabularyView").style.display = "";
+    try { _wireV7VocabButtons();    } catch(e){ console.warn("v7 vocab wire failed", e); }
+    try { renderVocabActiveV7();    } catch(e){ console.warn("v7 vocab active render failed", e); }
+    try { renderVocabMasteredV7();  } catch(e){ console.warn("v7 vocab mastered render failed", e); }
     renderVocabTracker();
     renderVocabularyBingo();
   } else if (name === "meals"){
