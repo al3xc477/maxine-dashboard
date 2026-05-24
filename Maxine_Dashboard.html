@@ -7084,6 +7084,7 @@ function renderProgressView(){
       <div class="v6-domcard">
         <div class="v6-radar-holder" id="v6Radar_${d.key}"></div>
         <div class="v6-active10-holder" id="v6Active10_${d.key}"></div>
+        <div class="v7-reval-holder" id="v7Reval_${d.key}"></div>
         <div class="v6-mastered-holder" id="v6Mastered_${d.key}"></div>
       </div>
     `;
@@ -7091,6 +7092,7 @@ function renderProgressView(){
     // Populate v6 holders (typeof guards so a missing render fn doesn't crash).
     try { if (typeof renderDomainRadar    === "function") renderDomainRadar(d.key, row.querySelector("#v6Radar_"+d.key)); } catch(e){ console.warn("v6 radar render failed", e); }
     try { if (typeof renderActive10       === "function") renderActive10(d.key, row.querySelector("#v6Active10_"+d.key)); } catch(e){ console.warn("v6 Active10 render failed", e); }
+    try { if (typeof renderRevalidateBlock === "function") renderRevalidateBlock(d.key, row.querySelector("#v7Reval_"+d.key)); } catch(e){ console.warn("v7 revalidate render failed", e); }
     try { if (typeof renderMasteredLibrary === "function") renderMasteredLibrary(d.key, row.querySelector("#v6Mastered_"+d.key)); } catch(e){ console.warn("v6 mastered library render failed", e); }
   });
 
