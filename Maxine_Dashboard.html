@@ -10446,6 +10446,150 @@ function renderVocabularyBingo(){
 }
 
 /* =========================================================
+   v7 — Active Vocabulary view (priority + bilingual-hide + next-10)
+   =========================================================
+   Sits ABOVE the legacy renderVocabTracker. Reads from VOCAB_EXTENDED.
+   Writes through setVocabMastery → state.vocabMaster, so the legacy
+   tracker, Bingo, and these views all share one source of truth.
+   ───────────────────────────────────────────────────────────── */
+let _v7VocabFocus10 = false;   // "Show next 10" toggle
+
+function renderVocabActiveV7(){
+  const body = document.getElementById("v7VocabActiveBody");
+  const sub  = document.getElementById("v7VocabActiveSub");
+  if (!body) return;
+  const list = _v7VocabFocus10 ? nextVocabToLearn(10) : activeVocabulary();
+  const totalActive = activeVocabulary().length;
+
+  // Group by category for visual structure.
+  const byCat = {};
+  list.forEach(w => {
+    (byCat[w.category] = byCat[w.category] || { emoji: w.cat_emoji, priority: w.priority, words: [] }).words.push(w);
+  });
+  const cats = Object.keys(byCat).sort((a, b) => byCat[a].priority - byCat[b].priority);
+
+  const html = cats.map(catName => {
+    const cat = byCat[catName];
+    const rows = cat.words.map(w => {
+      const enKey = escapeHtml(w.en);
+      const enBtn = `<button class="v7-vt-btn ${w.mastered_en ? "on" : "off"}" data-v7vm-word="${enKey}" data-v7vm-lang="en">🇬🇧 ${w.mastered_en ? "✓ Mastered" : "⏳"}</button>`;
+      const frBtn = `<button class="v7-vt-btn ${w.mastered_fr ? "on" : "off"}" data-v7vm-word="${enKey}" data-v7vm-lang="fr">🇫🇷 ${w.mastered_fr ? "✓ Maîtrisé" : "⏳"}</button>`;
+      const meta = `<span class="v7-vt-meta">~${w.age_month}m · ${w.frequency}</span>`;
+      return `<div class="v7-vt-row" data-v7vm-row="${enKey}">
+        <div class="v7-vt-em">${w.emoji || "🔤"}</div>
+        <div class="v7-vt-words">
+          <div class="v7-vt-en">${enKey} ${meta}</div>
+          <div class="v7-vt-fr">${escapeHtml(w.fr || "")}</div>
+        </div>
+        <div class="v7-vt-btns">${enBtn}${frBtn}</div>
+      </div>`;
+    }).join("");
+    return `<div class="v7-vt-cat">
+      <div class="v7-vt-cat-h">
+        <span class="v7-vt-cat-em">${cat.emoji || "📁"}</span>
+        <span class="v7-vt-cat-name">${escapeHtml(catName)}</span>
+        <span class="v7-vt-cat-pri">priority ${cat.priority}</span>
+      </div>
+      ${rows}
+    </div>`;
+  }).join("");
+
+  body.innerHTML = list.length
+    ? html
+    : `<div class="sub" style="color:var(--muted); padding:10px">🌟 All extended-catalogue words are bilingually mastered. See the archive below.</div>`;
+
+  if (sub){
+    const focusN = _v7VocabFocus10 ? Math.min(10, list.length) : list.length;
+    sub.textContent = _v7VocabFocus10
+      ? `Showing the top ${focusN} of ${totalActive} active words (priority + age + frequency).`
+      : `${totalActive} active words. Priority-ordered. Bilingual mastery hides the word automatically.`;
+  }
+  // Toggle button visibility
+  const f10 = document.getElementById("v7VocabFocus10Btn");
+  const fAll = document.getElementById("v7VocabShowAllBtn");
+  if (f10)  f10.style.display  = _v7VocabFocus10 ? "none" : "";
+  if (fAll) fAll.style.display = _v7VocabFocus10 ? "" : "none";
+}
+
+function renderVocabMasteredV7(){
+  const body = document.getElementById("v7VocabMasteredBody");
+  const counter = document.getElementById("v7MasteredCount");
+  if (!body) return;
+  const list = masteredVocabulary();
+  if (counter) counter.textContent = `(${list.length})`;
+  if (!list.length){
+    body.innerHTML = `<div class="sub" style="color:var(--muted)">No bilingually mastered extended-catalogue words yet.</div>`;
+    return;
+  }
+  // Group by category for the archive view.
+  const byCat = {};
+  list.forEach(w => { (byCat[w.category] = byCat[w.category] || { emoji: w.cat_emoji, words: [] }).words.push(w); });
+  const html = Object.keys(byCat).map(catName => {
+    const cat = byCat[catName];
+    const tiles = cat.words.map(w => `<div class="v7-vm-tile" title="Mastered ${new Date(w.mastered_at).toLocaleDateString("en-GB")}">
+      <span class="v7-vm-em">${w.emoji || "🔤"}</span>
+      <span class="v7-vm-en">${escapeHtml(w.en)}</span>
+      <span class="v7-vm-fr">${escapeHtml(w.fr || "")}</span>
+      <button class="v7-vm-restore" data-v7vm-restore="${escapeHtml(w.en)}" title="Restore to active">↩️</button>
+    </div>`).join("");
+    return `<div class="v7-vm-cat">
+      <div class="v7-vm-cat-h">${cat.emoji || "📁"} ${escapeHtml(catName)} <span style="color:var(--muted); font-size:11px">· ${cat.words.length}</span></div>
+      <div class="v7-vm-grid">${tiles}</div>
+    </div>`;
+  }).join("");
+  body.innerHTML = html;
+}
+
+/* Click delegation: 🇬🇧 / 🇫🇷 toggles in the Active view, 🗑/↩️ in the archive. */
+document.addEventListener("click", (e) => {
+  const tog = e.target.closest("[data-v7vm-word]");
+  if (tog){
+    const en   = tog.dataset.v7vmWord;
+    const lang = tog.dataset.v7vmLang;
+    const wasMastered = vocabMasteredIn(en, lang);
+    setVocabMastery(en, lang, !wasMastered);
+    // If this flip just made the word bilingual, animate the row out before
+    // re-rendering so it slides up into the archive.
+    if (!wasMastered && vocabBilinguallyMastered(en)){
+      const row = document.querySelector(`[data-v7vm-row="${CSS.escape(en)}"]`);
+      if (row){
+        row.classList.add("v7-vt-fading");
+        setTimeout(() => { renderVocabActiveV7(); renderVocabMasteredV7(); }, 320);
+        if (typeof showToast === "function") showToast(`🏆 "${en}" bilingually mastered`);
+        return;
+      }
+    }
+    renderVocabActiveV7();
+    renderVocabMasteredV7();
+    return;
+  }
+  const restore = e.target.closest("[data-v7vm-restore]");
+  if (restore){
+    const en = restore.dataset.v7vmRestore;
+    setVocabMastery(en, "en", false);
+    setVocabMastery(en, "fr", false);
+    if (typeof showToast === "function") showToast(`↩️ "${en}" restored to active`);
+    renderVocabActiveV7();
+    renderVocabMasteredV7();
+    return;
+  }
+});
+
+/* Focus-10 toggle wiring (once on view first mount). */
+function _wireV7VocabButtons(){
+  const f10 = document.getElementById("v7VocabFocus10Btn");
+  if (f10 && !f10._wired){
+    f10._wired = true;
+    f10.addEventListener("click", () => { _v7VocabFocus10 = true; renderVocabActiveV7(); });
+  }
+  const fAll = document.getElementById("v7VocabShowAllBtn");
+  if (fAll && !fAll._wired){
+    fAll._wired = true;
+    fAll.addEventListener("click", () => { _v7VocabFocus10 = false; renderVocabActiveV7(); });
+  }
+}
+
+/* =========================================================
    VOCABULARY TRACKER
    ========================================================= */
 function renderVocabTracker(){
