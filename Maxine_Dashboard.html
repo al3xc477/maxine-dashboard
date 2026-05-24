@@ -875,6 +875,64 @@
 }
 .cowork-pending-pill:hover{ background:#FDE68A }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v7 — Active Vocabulary view + Mastered archive
+   ═════════════════════════════════════════════════════════════════════════ */
+.v7-vt-cat{ margin-bottom:14px; }
+.v7-vt-cat-h{
+  display:flex; gap:6px; align-items:baseline; flex-wrap:wrap;
+  font-size:14px; font-weight:700; color:var(--ink);
+  padding:6px 8px; background:#F8FAFC; border-radius:8px; margin-bottom:6px;
+}
+.v7-vt-cat-em{ font-size:18px; }
+.v7-vt-cat-name{ flex:1; }
+.v7-vt-cat-pri{
+  font-size:10px; font-weight:700; color:#3730A3; background:#EEF2FF;
+  padding:1px 6px; border-radius:999px; text-transform:uppercase; letter-spacing:.05em;
+}
+.v7-vt-row{
+  display:flex; gap:10px; align-items:center; padding:8px 10px;
+  border:1px solid var(--line); border-radius:10px; margin-bottom:4px;
+  background:#fff; transition: opacity .25s ease, max-height .3s ease, padding .3s ease, margin .3s ease;
+  max-height:120px; overflow:hidden;
+}
+.v7-vt-row.v7-vt-fading{ opacity:0; max-height:0; padding:0 10px; margin:0; border-color:transparent; }
+.v7-vt-em{ font-size:22px; flex:0 0 28px; text-align:center; }
+.v7-vt-words{ flex:1; min-width:0; }
+.v7-vt-en{ font-size:14px; font-weight:600; color:var(--ink); }
+.v7-vt-fr{ font-size:13px; color:var(--muted); margin-top:2px; }
+.v7-vt-meta{ font-size:10px; color:var(--muted); font-weight:400; margin-left:6px; }
+.v7-vt-btns{ display:flex; gap:4px; flex-wrap:wrap; }
+.v7-vt-btn{
+  font-size:11px; font-weight:700; padding:5px 10px; min-height:32px;
+  border:1px solid var(--line); border-radius:999px; cursor:pointer; background:#F1F4FA;
+}
+.v7-vt-btn.on{ background:#DCFCE7; color:#14532D; border-color:#86EFAC; }
+.v7-vt-btn.off{ color:var(--muted); }
+.v7-vt-btn:hover{ filter:brightness(.97); }
+
+.v7-vm-cat{ margin-bottom:10px; }
+.v7-vm-cat-h{ font-weight:700; font-size:13px; color:#14532D; margin-bottom:6px; }
+.v7-vm-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:6px; }
+.v7-vm-tile{
+  display:flex; align-items:center; gap:6px; padding:6px 8px;
+  background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; font-size:12px;
+}
+.v7-vm-em{ font-size:16px; }
+.v7-vm-en{ font-weight:600; }
+.v7-vm-fr{ color:var(--muted); font-style:italic; font-size:11px; }
+.v7-vm-restore{
+  margin-left:auto; background:transparent; border:none; cursor:pointer;
+  font-size:14px; color:var(--muted); padding:2px 4px;
+}
+.v7-vm-restore:hover{ color:#3730A3; }
+
+@media (max-width:640px){
+  .v7-vt-row{ flex-wrap:wrap; }
+  .v7-vt-btns{ flex-basis:100%; justify-content:flex-end; }
+  .v7-vm-grid{ grid-template-columns:1fr; }
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
@@ -1119,12 +1177,34 @@
 
     <!-- Section jump strip -->
     <nav class="section-jump no-print">
-      <button class="sj-btn sj-active" onclick="sjScrollTo('sec-vocab-words',this)">📖 Words</button>
+      <button class="sj-btn sj-active" onclick="sjScrollTo('sec-vocab-active',this)">📚 Active</button>
+      <button class="sj-btn" onclick="sjScrollTo('sec-vocab-words',this)">📖 All words</button>
       <button class="sj-btn" onclick="sjScrollTo('sec-vocab-add',this)">➕ Add</button>
       <button class="sj-btn" onclick="sjScrollTo('sec-vocab-story',this)">📝 Story</button>
       <button class="sj-btn" onclick="sjScrollTo('sec-vocab-bingo',this)">🎲 Bingo</button>
-      <button class="sj-btn" onclick="sjScrollTo('sec-vocab-mastered',this)">🏆 Mastered</button>
+      <button class="sj-btn" onclick="sjScrollTo('sec-vocab-mastered-v7',this)">🏆 Mastered</button>
     </nav>
+
+    <!-- v7 — Active Vocabulary (priority-ordered, bilingual-hides) -->
+    <div class="card" style="margin-bottom:14px" id="sec-vocab-active">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:8px">
+        <div>
+          <h2 style="text-transform:none; font-size:18px; color:var(--ink); margin:0 0 4px">📚 Active Vocabulary</h2>
+          <div class="sub" id="v7VocabActiveSub" style="color:var(--muted); font-size:13px">Priority-ordered words she's working toward bilingual mastery. Both-language mastery hides the word automatically.</div>
+        </div>
+        <div class="row" style="gap:6px; flex-wrap:wrap">
+          <button class="small" id="v7VocabFocus10Btn">⭐ Show next 10</button>
+          <button class="small" id="v7VocabShowAllBtn" style="display:none">📚 Show all</button>
+        </div>
+      </div>
+      <div id="v7VocabActiveBody"></div>
+    </div>
+
+    <!-- v7 — Mastered Vocabulary (extended archive) -->
+    <details class="card" style="margin-bottom:14px" id="sec-vocab-mastered-v7">
+      <summary style="cursor:pointer; font-weight:700; font-size:15px; color:#14532D">🏆 Mastered Vocabulary <span id="v7MasteredCount" style="color:var(--muted); font-weight:400; font-size:13px">(0)</span></summary>
+      <div id="v7VocabMasteredBody" style="margin-top:10px"></div>
+    </details>
 
     <!-- Word Tracker -->
     <div class="card" style="margin-bottom:14px" id="sec-vocab-words">
@@ -2950,6 +3030,257 @@ const VOCAB_BANK = [
     { en:"truck",  fr:"camion",   emoji:"🚚" },
   ]},
 ];
+
+/* =========================================================
+   v7 — VOCAB_EXTENDED (priority + age + frequency)
+   =========================================================
+   Replaces VOCAB_MASTER as the primary source for the Tutor tab + the
+   Active Vocabulary view. Ordered by priority (1 = foundational) and
+   typical-acquisition age (months). Words bilingually mastered (both EN
+   + FR) are hidden from active views; available in the Mastered archive.
+
+   Reads + writes go through state.vocabMaster — the same store the legacy
+   tracker + Bingo use — so all surfaces stay in sync. Coexists with
+   VOCAB_MASTER (untouched) so the legacy tracker, Bingo, Story Creator,
+   add-a-word flow keep working.
+
+   Sources: MacArthur-Bates CDI (Words & Sentences, English + French),
+   CDC milestones, Hart-Risley high-frequency early words, Tomasello
+   usage-based first-words list.
+   ───────────────────────────────────────────────────────────────────── */
+const VOCAB_EXTENDED = [
+  { category:"Body parts", emoji:"🧍", priority:1, words:[
+    { en:"eye",     fr:"œil",       emoji:"👁️",  age_month:18, frequency:"high" },
+    { en:"nose",    fr:"nez",       emoji:"👃",  age_month:18, frequency:"high" },
+    { en:"mouth",   fr:"bouche",    emoji:"👄",  age_month:18, frequency:"high" },
+    { en:"ear",     fr:"oreille",   emoji:"👂",  age_month:18, frequency:"high" },
+    { en:"hand",    fr:"main",      emoji:"✋",  age_month:18, frequency:"high" },
+    { en:"foot",    fr:"pied",      emoji:"🦶",  age_month:18, frequency:"high" },
+    { en:"hair",    fr:"cheveux",   emoji:"💇",  age_month:24, frequency:"med"  },
+    { en:"tummy",   fr:"ventre",    emoji:"🫃",  age_month:24, frequency:"high" },
+    { en:"knee",    fr:"genou",     emoji:"🦵",  age_month:30, frequency:"med"  },
+    { en:"finger",  fr:"doigt",     emoji:"👆",  age_month:24, frequency:"med"  },
+    { en:"toe",     fr:"orteil",    emoji:"🦶",  age_month:30, frequency:"med"  },
+    { en:"teeth",   fr:"dents",     emoji:"🦷",  age_month:24, frequency:"high" }
+  ]},
+  { category:"Family", emoji:"👨‍👩‍👧", priority:1, words:[
+    { en:"mama",    fr:"maman",     emoji:"👩",  age_month:12, frequency:"high" },
+    { en:"papa",    fr:"papa",      emoji:"👨",  age_month:12, frequency:"high" },
+    { en:"baby",    fr:"bébé",      emoji:"👶",  age_month:18, frequency:"high" },
+    { en:"sister",  fr:"sœur",      emoji:"👧",  age_month:24, frequency:"med"  },
+    { en:"brother", fr:"frère",     emoji:"👦",  age_month:24, frequency:"med"  },
+    { en:"grandma", fr:"mamie",     emoji:"👵",  age_month:24, frequency:"high" },
+    { en:"grandpa", fr:"papi",      emoji:"👴",  age_month:24, frequency:"high" }
+  ]},
+  { category:"Food", emoji:"🍎", priority:1, words:[
+    { en:"apple",   fr:"pomme",     emoji:"🍎",  age_month:18, frequency:"high" },
+    { en:"banana",  fr:"banane",    emoji:"🍌",  age_month:18, frequency:"high" },
+    { en:"bread",   fr:"pain",      emoji:"🍞",  age_month:18, frequency:"high" },
+    { en:"milk",    fr:"lait",      emoji:"🥛",  age_month:15, frequency:"high" },
+    { en:"water",   fr:"eau",       emoji:"💧",  age_month:18, frequency:"high" },
+    { en:"cheese",  fr:"fromage",   emoji:"🧀",  age_month:24, frequency:"high" },
+    { en:"egg",     fr:"œuf",       emoji:"🥚",  age_month:24, frequency:"med"  },
+    { en:"pasta",   fr:"pâtes",     emoji:"🍝",  age_month:24, frequency:"med"  },
+    { en:"chicken", fr:"poulet",    emoji:"🍗",  age_month:30, frequency:"med"  },
+    { en:"rice",    fr:"riz",       emoji:"🍚",  age_month:30, frequency:"med"  },
+    { en:"cookie",  fr:"biscuit",   emoji:"🍪",  age_month:24, frequency:"high" },
+    { en:"juice",   fr:"jus",       emoji:"🧃",  age_month:24, frequency:"med"  },
+    { en:"yogurt",  fr:"yaourt",    emoji:"🥛",  age_month:24, frequency:"high" },
+    { en:"fruit",   fr:"fruit",     emoji:"🍉",  age_month:24, frequency:"med"  }
+  ]},
+  { category:"Animals", emoji:"🐾", priority:2, words:[
+    { en:"dog",     fr:"chien",     emoji:"🐶",  age_month:18, frequency:"high" },
+    { en:"cat",     fr:"chat",      emoji:"🐱",  age_month:18, frequency:"high" },
+    { en:"bird",    fr:"oiseau",    emoji:"🐦",  age_month:24, frequency:"high" },
+    { en:"fish",    fr:"poisson",   emoji:"🐟",  age_month:24, frequency:"med"  },
+    { en:"cow",     fr:"vache",     emoji:"🐄",  age_month:24, frequency:"high" },
+    { en:"horse",   fr:"cheval",    emoji:"🐴",  age_month:24, frequency:"med"  },
+    { en:"pig",     fr:"cochon",    emoji:"🐷",  age_month:24, frequency:"med"  },
+    { en:"sheep",   fr:"mouton",    emoji:"🐑",  age_month:30, frequency:"med"  },
+    { en:"duck",    fr:"canard",    emoji:"🦆",  age_month:24, frequency:"high" },
+    { en:"rabbit",  fr:"lapin",     emoji:"🐰",  age_month:24, frequency:"high" },
+    { en:"bear",    fr:"ours",      emoji:"🐻",  age_month:24, frequency:"high" },
+    { en:"lion",    fr:"lion",      emoji:"🦁",  age_month:30, frequency:"med"  }
+  ]},
+  { category:"Actions", emoji:"🏃", priority:1, words:[
+    { en:"walk",    fr:"marcher",   emoji:"🚶",  age_month:18, frequency:"high" },
+    { en:"run",     fr:"courir",    emoji:"🏃",  age_month:24, frequency:"high" },
+    { en:"jump",    fr:"sauter",    emoji:"🤸",  age_month:24, frequency:"high" },
+    { en:"eat",     fr:"manger",    emoji:"🍴",  age_month:18, frequency:"high" },
+    { en:"drink",   fr:"boire",     emoji:"🥤",  age_month:18, frequency:"high" },
+    { en:"sleep",   fr:"dormir",    emoji:"😴",  age_month:18, frequency:"high" },
+    { en:"sit",     fr:"s'asseoir", emoji:"🪑",  age_month:18, frequency:"high" },
+    { en:"stand",   fr:"debout",    emoji:"🧍",  age_month:18, frequency:"high" },
+    { en:"dance",   fr:"danser",    emoji:"💃",  age_month:24, frequency:"high" },
+    { en:"sing",    fr:"chanter",   emoji:"🎤",  age_month:24, frequency:"high" },
+    { en:"play",    fr:"jouer",     emoji:"🎈",  age_month:18, frequency:"high" },
+    { en:"read",    fr:"lire",      emoji:"📖",  age_month:24, frequency:"high" }
+  ]},
+  { category:"Daily routine", emoji:"🛁", priority:1, words:[
+    { en:"bath",    fr:"bain",      emoji:"🛁",  age_month:18, frequency:"high" },
+    { en:"brush",   fr:"brosser",   emoji:"🪥",  age_month:24, frequency:"high" },
+    { en:"wake",    fr:"réveiller", emoji:"☀️",  age_month:24, frequency:"high" },
+    { en:"hug",     fr:"câlin",     emoji:"🤗",  age_month:18, frequency:"high" },
+    { en:"kiss",    fr:"bisou",     emoji:"😘",  age_month:18, frequency:"high" },
+    { en:"story",   fr:"histoire",  emoji:"📖",  age_month:24, frequency:"high" },
+    { en:"nap",     fr:"sieste",    emoji:"💤",  age_month:24, frequency:"med"  }
+  ]},
+  { category:"Emotions", emoji:"😊", priority:1, words:[
+    { en:"happy",   fr:"heureux",   emoji:"😊",  age_month:24, frequency:"high" },
+    { en:"sad",     fr:"triste",    emoji:"😢",  age_month:24, frequency:"high" },
+    { en:"angry",   fr:"fâché",     emoji:"😠",  age_month:30, frequency:"med"  },
+    { en:"scared",  fr:"peur",      emoji:"😨",  age_month:30, frequency:"med"  },
+    { en:"calm",    fr:"calme",     emoji:"😌",  age_month:30, frequency:"med"  },
+    { en:"love",    fr:"amour",     emoji:"❤️",  age_month:24, frequency:"high" },
+    { en:"tired",   fr:"fatigué",   emoji:"😴",  age_month:24, frequency:"high" }
+  ]},
+  { category:"Toys & objects", emoji:"🧸", priority:2, words:[
+    { en:"ball",    fr:"ballon",    emoji:"⚽",  age_month:18, frequency:"high" },
+    { en:"book",    fr:"livre",     emoji:"📚",  age_month:18, frequency:"high" },
+    { en:"doll",    fr:"poupée",    emoji:"🪆",  age_month:24, frequency:"high" },
+    { en:"car",     fr:"voiture",   emoji:"🚗",  age_month:18, frequency:"high" },
+    { en:"blocks",  fr:"cubes",     emoji:"🧱",  age_month:24, frequency:"med"  },
+    { en:"crayon",  fr:"crayon",    emoji:"🖍️", age_month:24, frequency:"high" },
+    { en:"spoon",   fr:"cuillère",  emoji:"🥄",  age_month:18, frequency:"high" },
+    { en:"cup",     fr:"tasse",     emoji:"🥤",  age_month:18, frequency:"high" },
+    { en:"plate",   fr:"assiette",  emoji:"🍽️", age_month:24, frequency:"med"  }
+  ]},
+  { category:"Clothing", emoji:"👕", priority:2, words:[
+    { en:"shirt",   fr:"chemise",   emoji:"👕",  age_month:24, frequency:"high" },
+    { en:"pants",   fr:"pantalon",  emoji:"👖",  age_month:24, frequency:"med"  },
+    { en:"shoes",   fr:"chaussures",emoji:"👟",  age_month:24, frequency:"high" },
+    { en:"socks",   fr:"chaussettes",emoji:"🧦", age_month:24, frequency:"med"  },
+    { en:"hat",     fr:"chapeau",   emoji:"🎩",  age_month:24, frequency:"high" },
+    { en:"coat",    fr:"manteau",   emoji:"🧥",  age_month:24, frequency:"med"  },
+    { en:"pyjamas", fr:"pyjama",    emoji:"🩴",  age_month:24, frequency:"high" }
+  ]},
+  { category:"Nature & outside", emoji:"🌳", priority:2, words:[
+    { en:"sun",     fr:"soleil",    emoji:"☀️",  age_month:24, frequency:"high" },
+    { en:"moon",    fr:"lune",      emoji:"🌙",  age_month:24, frequency:"high" },
+    { en:"tree",    fr:"arbre",     emoji:"🌳",  age_month:24, frequency:"high" },
+    { en:"flower",  fr:"fleur",     emoji:"🌸",  age_month:24, frequency:"high" },
+    { en:"leaf",    fr:"feuille",   emoji:"🍃",  age_month:24, frequency:"med"  },
+    { en:"stone",   fr:"pierre",    emoji:"🪨",  age_month:30, frequency:"med"  },
+    { en:"sky",     fr:"ciel",      emoji:"🌌",  age_month:30, frequency:"med"  },
+    { en:"rain",    fr:"pluie",     emoji:"🌧️", age_month:24, frequency:"high" },
+    { en:"snow",    fr:"neige",     emoji:"❄️",  age_month:30, frequency:"med"  }
+  ]},
+  { category:"Colours", emoji:"🌈", priority:2, words:[
+    { en:"red",     fr:"rouge",     emoji:"🔴",  age_month:24, frequency:"high" },
+    { en:"blue",    fr:"bleu",      emoji:"🔵",  age_month:24, frequency:"high" },
+    { en:"yellow",  fr:"jaune",     emoji:"🟡",  age_month:24, frequency:"high" },
+    { en:"green",   fr:"vert",      emoji:"🟢",  age_month:24, frequency:"high" },
+    { en:"orange",  fr:"orange",    emoji:"🟠",  age_month:30, frequency:"med"  },
+    { en:"purple",  fr:"violet",    emoji:"🟣",  age_month:30, frequency:"med"  },
+    { en:"pink",    fr:"rose",      emoji:"🌸",  age_month:30, frequency:"med"  },
+    { en:"black",   fr:"noir",      emoji:"⚫",  age_month:30, frequency:"med"  },
+    { en:"white",   fr:"blanc",     emoji:"⚪",  age_month:30, frequency:"med"  }
+  ]},
+  { category:"Numbers", emoji:"🔢", priority:2, words:[
+    { en:"one",     fr:"un",        emoji:"1️⃣", age_month:24, frequency:"high" },
+    { en:"two",     fr:"deux",      emoji:"2️⃣", age_month:24, frequency:"high" },
+    { en:"three",   fr:"trois",     emoji:"3️⃣", age_month:30, frequency:"high" },
+    { en:"four",    fr:"quatre",    emoji:"4️⃣", age_month:30, frequency:"med"  },
+    { en:"five",    fr:"cinq",      emoji:"5️⃣", age_month:30, frequency:"med"  }
+  ]},
+  { category:"Polite words", emoji:"🙏", priority:1, words:[
+    { en:"please",     fr:"s'il te plaît", emoji:"🙏", age_month:24, frequency:"high" },
+    { en:"thank you",  fr:"merci",         emoji:"🙏", age_month:24, frequency:"high" },
+    { en:"sorry",      fr:"pardon",        emoji:"😔", age_month:30, frequency:"high" },
+    { en:"hello",      fr:"bonjour",       emoji:"👋", age_month:18, frequency:"high" },
+    { en:"goodbye",    fr:"au revoir",     emoji:"👋", age_month:18, frequency:"high" },
+    { en:"yes",        fr:"oui",           emoji:"✅", age_month:15, frequency:"high" },
+    { en:"no",         fr:"non",           emoji:"❌", age_month:15, frequency:"high" }
+  ]},
+  { category:"Spatial", emoji:"📍", priority:2, words:[
+    { en:"up",      fr:"haut",      emoji:"⬆️",  age_month:24, frequency:"high" },
+    { en:"down",    fr:"bas",       emoji:"⬇️",  age_month:24, frequency:"high" },
+    { en:"in",      fr:"dans",      emoji:"📥",  age_month:24, frequency:"high" },
+    { en:"out",     fr:"dehors",    emoji:"📤",  age_month:24, frequency:"high" },
+    { en:"big",     fr:"grand",     emoji:"🔵",  age_month:24, frequency:"high" },
+    { en:"small",   fr:"petit",     emoji:"🔹",  age_month:24, frequency:"high" },
+    { en:"more",    fr:"encore",    emoji:"➕",  age_month:18, frequency:"high" }
+  ]},
+  { category:"Vehicles", emoji:"🚗", priority:3, words:[
+    { en:"car",     fr:"voiture",   emoji:"🚗",  age_month:18, frequency:"high" },
+    { en:"bus",     fr:"bus",       emoji:"🚌",  age_month:24, frequency:"med"  },
+    { en:"train",   fr:"train",     emoji:"🚂",  age_month:24, frequency:"med"  },
+    { en:"plane",   fr:"avion",     emoji:"✈️",  age_month:24, frequency:"med"  },
+    { en:"boat",    fr:"bateau",    emoji:"⛵",  age_month:24, frequency:"med"  },
+    { en:"truck",   fr:"camion",    emoji:"🚚",  age_month:24, frequency:"med"  },
+    { en:"bike",    fr:"vélo",      emoji:"🚲",  age_month:24, frequency:"med"  }
+  ]}
+];
+
+/* v7 vocab helpers — all reads + writes go through state.vocabMaster via the
+   existing vmKey normaliser ("thank you" → "thank_you_en"), so the new views
+   stay in lock-step with the legacy tracker + Bingo without any migration.   */
+function vocabMasteredIn(wordEn, lang){
+  if (!wordEn || !lang) return false;
+  return !!(state.vocabMaster || {})[vmKey(wordEn, lang)];
+}
+function vocabBilinguallyMastered(wordEn){
+  return vocabMasteredIn(wordEn, "en") && vocabMasteredIn(wordEn, "fr");
+}
+function setVocabMastery(wordEn, lang, mastered){
+  if (!wordEn || !lang) return;
+  if (mastered === undefined) mastered = true;
+  state.vocabMaster = state.vocabMaster || {};
+  const k = vmKey(wordEn, lang);
+  if (mastered){
+    if (!state.vocabMaster[k]){
+      state.vocabMaster[k] = { ts: Date.now(), by: state.currentUser || "—" };
+    }
+  } else {
+    delete state.vocabMaster[k];
+  }
+  if (typeof saveState === "function") saveState(state);
+}
+
+/* Active vocabulary: every word from VOCAB_EXTENDED EXCEPT bilingual masters.
+   Sorted by priority asc → age_month asc → frequency rank → category.        */
+function activeVocabulary(){
+  const freqRank = { high:0, med:1, low:2 };
+  const out = [];
+  VOCAB_EXTENDED.forEach(cat => {
+    cat.words.forEach(w => {
+      if (vocabBilinguallyMastered(w.en)) return;
+      out.push(Object.assign({}, w, {
+        category: cat.category, cat_emoji: cat.emoji, priority: cat.priority,
+        mastered_en: vocabMasteredIn(w.en, "en"),
+        mastered_fr: vocabMasteredIn(w.en, "fr")
+      }));
+    });
+  });
+  out.sort((a, b) =>
+    (a.priority - b.priority) ||
+    (a.age_month - b.age_month) ||
+    ((freqRank[a.frequency] || 9) - (freqRank[b.frequency] || 9)) ||
+    a.category.localeCompare(b.category)
+  );
+  return out;
+}
+
+function nextVocabToLearn(n){
+  return activeVocabulary().slice(0, typeof n === "number" ? n : 10);
+}
+
+function masteredVocabulary(){
+  const out = [];
+  VOCAB_EXTENDED.forEach(cat => {
+    cat.words.forEach(w => {
+      if (!vocabBilinguallyMastered(w.en)) return;
+      const enTs = ((state.vocabMaster || {})[vmKey(w.en, "en")] || {}).ts || 0;
+      const frTs = ((state.vocabMaster || {})[vmKey(w.en, "fr")] || {}).ts || 0;
+      out.push(Object.assign({}, w, {
+        category: cat.category, cat_emoji: cat.emoji,
+        mastered_at: Math.max(enTs, frTs)   // when both were known
+      }));
+    });
+  });
+  out.sort((a, b) => b.mastered_at - a.mastered_at);
+  return out;
+}
 
 /* =========================================================
    WIKIPEDIA IMAGE FETCHER — real photos for vocab words
@@ -6303,6 +6634,9 @@ function showView(name){
     renderMemory();
   } else if (name === "vocabulary"){
     document.getElementById("vocabularyView").style.display = "";
+    try { _wireV7VocabButtons();    } catch(e){ console.warn("v7 vocab wire failed", e); }
+    try { renderVocabActiveV7();    } catch(e){ console.warn("v7 vocab active render failed", e); }
+    try { renderVocabMasteredV7();  } catch(e){ console.warn("v7 vocab mastered render failed", e); }
     renderVocabTracker();
     renderVocabularyBingo();
   } else if (name === "meals"){
@@ -10170,6 +10504,150 @@ function renderVocabularyBingo(){
       <div class="fr">${m.frKnown ? "🇫🇷 " : ""}${escapeHtml(m.fr)}</div>
     </div>
   `).join("") : '<div style="color:var(--muted); font-size:13px; grid-column:1/-1">No words mastered yet. Tap cells in the bingo card to stamp them.</div>';
+}
+
+/* =========================================================
+   v7 — Active Vocabulary view (priority + bilingual-hide + next-10)
+   =========================================================
+   Sits ABOVE the legacy renderVocabTracker. Reads from VOCAB_EXTENDED.
+   Writes through setVocabMastery → state.vocabMaster, so the legacy
+   tracker, Bingo, and these views all share one source of truth.
+   ───────────────────────────────────────────────────────────── */
+let _v7VocabFocus10 = false;   // "Show next 10" toggle
+
+function renderVocabActiveV7(){
+  const body = document.getElementById("v7VocabActiveBody");
+  const sub  = document.getElementById("v7VocabActiveSub");
+  if (!body) return;
+  const list = _v7VocabFocus10 ? nextVocabToLearn(10) : activeVocabulary();
+  const totalActive = activeVocabulary().length;
+
+  // Group by category for visual structure.
+  const byCat = {};
+  list.forEach(w => {
+    (byCat[w.category] = byCat[w.category] || { emoji: w.cat_emoji, priority: w.priority, words: [] }).words.push(w);
+  });
+  const cats = Object.keys(byCat).sort((a, b) => byCat[a].priority - byCat[b].priority);
+
+  const html = cats.map(catName => {
+    const cat = byCat[catName];
+    const rows = cat.words.map(w => {
+      const enKey = escapeHtml(w.en);
+      const enBtn = `<button class="v7-vt-btn ${w.mastered_en ? "on" : "off"}" data-v7vm-word="${enKey}" data-v7vm-lang="en">🇬🇧 ${w.mastered_en ? "✓ Mastered" : "⏳"}</button>`;
+      const frBtn = `<button class="v7-vt-btn ${w.mastered_fr ? "on" : "off"}" data-v7vm-word="${enKey}" data-v7vm-lang="fr">🇫🇷 ${w.mastered_fr ? "✓ Maîtrisé" : "⏳"}</button>`;
+      const meta = `<span class="v7-vt-meta">~${w.age_month}m · ${w.frequency}</span>`;
+      return `<div class="v7-vt-row" data-v7vm-row="${enKey}">
+        <div class="v7-vt-em">${w.emoji || "🔤"}</div>
+        <div class="v7-vt-words">
+          <div class="v7-vt-en">${enKey} ${meta}</div>
+          <div class="v7-vt-fr">${escapeHtml(w.fr || "")}</div>
+        </div>
+        <div class="v7-vt-btns">${enBtn}${frBtn}</div>
+      </div>`;
+    }).join("");
+    return `<div class="v7-vt-cat">
+      <div class="v7-vt-cat-h">
+        <span class="v7-vt-cat-em">${cat.emoji || "📁"}</span>
+        <span class="v7-vt-cat-name">${escapeHtml(catName)}</span>
+        <span class="v7-vt-cat-pri">priority ${cat.priority}</span>
+      </div>
+      ${rows}
+    </div>`;
+  }).join("");
+
+  body.innerHTML = list.length
+    ? html
+    : `<div class="sub" style="color:var(--muted); padding:10px">🌟 All extended-catalogue words are bilingually mastered. See the archive below.</div>`;
+
+  if (sub){
+    const focusN = _v7VocabFocus10 ? Math.min(10, list.length) : list.length;
+    sub.textContent = _v7VocabFocus10
+      ? `Showing the top ${focusN} of ${totalActive} active words (priority + age + frequency).`
+      : `${totalActive} active words. Priority-ordered. Bilingual mastery hides the word automatically.`;
+  }
+  // Toggle button visibility
+  const f10 = document.getElementById("v7VocabFocus10Btn");
+  const fAll = document.getElementById("v7VocabShowAllBtn");
+  if (f10)  f10.style.display  = _v7VocabFocus10 ? "none" : "";
+  if (fAll) fAll.style.display = _v7VocabFocus10 ? "" : "none";
+}
+
+function renderVocabMasteredV7(){
+  const body = document.getElementById("v7VocabMasteredBody");
+  const counter = document.getElementById("v7MasteredCount");
+  if (!body) return;
+  const list = masteredVocabulary();
+  if (counter) counter.textContent = `(${list.length})`;
+  if (!list.length){
+    body.innerHTML = `<div class="sub" style="color:var(--muted)">No bilingually mastered extended-catalogue words yet.</div>`;
+    return;
+  }
+  // Group by category for the archive view.
+  const byCat = {};
+  list.forEach(w => { (byCat[w.category] = byCat[w.category] || { emoji: w.cat_emoji, words: [] }).words.push(w); });
+  const html = Object.keys(byCat).map(catName => {
+    const cat = byCat[catName];
+    const tiles = cat.words.map(w => `<div class="v7-vm-tile" title="Mastered ${new Date(w.mastered_at).toLocaleDateString("en-GB")}">
+      <span class="v7-vm-em">${w.emoji || "🔤"}</span>
+      <span class="v7-vm-en">${escapeHtml(w.en)}</span>
+      <span class="v7-vm-fr">${escapeHtml(w.fr || "")}</span>
+      <button class="v7-vm-restore" data-v7vm-restore="${escapeHtml(w.en)}" title="Restore to active">↩️</button>
+    </div>`).join("");
+    return `<div class="v7-vm-cat">
+      <div class="v7-vm-cat-h">${cat.emoji || "📁"} ${escapeHtml(catName)} <span style="color:var(--muted); font-size:11px">· ${cat.words.length}</span></div>
+      <div class="v7-vm-grid">${tiles}</div>
+    </div>`;
+  }).join("");
+  body.innerHTML = html;
+}
+
+/* Click delegation: 🇬🇧 / 🇫🇷 toggles in the Active view, 🗑/↩️ in the archive. */
+document.addEventListener("click", (e) => {
+  const tog = e.target.closest("[data-v7vm-word]");
+  if (tog){
+    const en   = tog.dataset.v7vmWord;
+    const lang = tog.dataset.v7vmLang;
+    const wasMastered = vocabMasteredIn(en, lang);
+    setVocabMastery(en, lang, !wasMastered);
+    // If this flip just made the word bilingual, animate the row out before
+    // re-rendering so it slides up into the archive.
+    if (!wasMastered && vocabBilinguallyMastered(en)){
+      const row = document.querySelector(`[data-v7vm-row="${CSS.escape(en)}"]`);
+      if (row){
+        row.classList.add("v7-vt-fading");
+        setTimeout(() => { renderVocabActiveV7(); renderVocabMasteredV7(); }, 320);
+        if (typeof showToast === "function") showToast(`🏆 "${en}" bilingually mastered`);
+        return;
+      }
+    }
+    renderVocabActiveV7();
+    renderVocabMasteredV7();
+    return;
+  }
+  const restore = e.target.closest("[data-v7vm-restore]");
+  if (restore){
+    const en = restore.dataset.v7vmRestore;
+    setVocabMastery(en, "en", false);
+    setVocabMastery(en, "fr", false);
+    if (typeof showToast === "function") showToast(`↩️ "${en}" restored to active`);
+    renderVocabActiveV7();
+    renderVocabMasteredV7();
+    return;
+  }
+});
+
+/* Focus-10 toggle wiring (once on view first mount). */
+function _wireV7VocabButtons(){
+  const f10 = document.getElementById("v7VocabFocus10Btn");
+  if (f10 && !f10._wired){
+    f10._wired = true;
+    f10.addEventListener("click", () => { _v7VocabFocus10 = true; renderVocabActiveV7(); });
+  }
+  const fAll = document.getElementById("v7VocabShowAllBtn");
+  if (fAll && !fAll._wired){
+    fAll._wired = true;
+    fAll.addEventListener("click", () => { _v7VocabFocus10 = false; renderVocabActiveV7(); });
+  }
 }
 
 /* =========================================================
