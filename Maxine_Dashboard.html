@@ -9864,6 +9864,23 @@ function openSkillModal(id){
         ${STATUS_ORDER.map(st => `<button class="small ${st===status?"primary":""}" data-skillsetstatus="${escapeHtml(id)}-${st}">${escapeHtml(STATUS_LABEL[st])}</button>`).join("")}
       </div>
     </div>
+    <div class="stmp-section">
+      <div class="stmp-h">🎚 Confirmation rules</div>
+      <div class="v7-skflag-row">
+        <label class="v7-skflag-label">
+          <span>🛡️ Require 2-observer confirmation for mastery</span>
+          <input type="checkbox" data-v7-skill-flag="requires_dual_observer" data-v7-skill-id="${escapeHtml(id)}" ${flagFor(id, "requires_dual_observer") ? "checked" : ""} />
+        </label>
+        <div class="v7-skflag-hint">Keystones default to ON. Both parents must independently mark mastered before the skill leaves the re-validate list.</div>
+      </div>
+      <div class="v7-skflag-row">
+        <label class="v7-skflag-label">
+          <span>🔄 Regression-prone (re-check weekly)</span>
+          <input type="checkbox" data-v7-skill-flag="regression_prone" data-v7-skill-id="${escapeHtml(id)}" ${flagFor(id, "regression_prone") ? "checked" : ""} />
+        </label>
+        <div class="v7-skflag-hint">Skills that come and go (e.g. emerging speech, social courtesies). Surface in re-validate if not confirmed within 7 days.</div>
+      </div>
+    </div>
     <div class="stmp-section"><div class="stmp-h">🎯 What it is</div><div style="font-size:14px">${escapeHtml(s.what)}</div></div>
     <div class="stmp-section"><div class="stmp-h">🧠 Why it matters</div><div style="font-size:14px">${escapeHtml(s.why)}</div></div>
     <div class="stmp-section"><div class="stmp-h">👋 How to support</div><div style="font-size:14px">${escapeHtml(s.how)}</div></div>
@@ -9884,6 +9901,75 @@ document.addEventListener("click", (e)=>{
   openSkillModal(id);
   drawSkillCatalogue();
 });
+// v7 — skill modal toggle wiring (delegated, handles both checkboxes).
+document.addEventListener("change", (e) => {
+  const cb = e.target.closest("input[data-v7-skill-flag]");
+  if (!cb) return;
+  const id  = cb.dataset.v7SkillId;
+  const key = cb.dataset.v7SkillFlag;
+  setSkillFlag(id, key, cb.checked);
+  // Re-render the per-domain card so a flag change shows in the re-validate
+  // block immediately.
+  try { if (typeof renderProgressView === "function") renderProgressView(); } catch(err){}
+});
+// v7 — re-validate "Mark again" button. Logs a mastered observation tagged
+// source: "revalidate". For dual_observer_pending: if the latest mastery's
+// `by` matches the current user, surface a hint instead (the click handler
+// guards before logging).
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-v7-reval]");
+  if (!btn) return;
+  const skillId = btn.dataset.v7Reval;
+  const need = needsRevalidation(skillId);
+  if (!need) return;
+  if (need.reason === "dual_observer_pending"){
+    const masteryObs = obsForSkill(skillId).filter(o => o.status === "mastered" || o.status === "already_mastered");
+    masteryObs.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    const lastBy = (masteryObs[0] && masteryObs[0].by) || "—";
+    const cur = (state.currentUser || "—");
+    if (lastBy && lastBy !== "—" && lastBy === cur){
+      if (typeof showToast === "function") showToast(`Switch to the other observer to confirm "${lastBy}" already counts.`);
+      return;
+    }
+  }
+  if (typeof addObservation === "function"){
+    addObservation({ skillId, status: "mastered", source: "revalidate" });
+  }
+  if (typeof showToast === "function") showToast("✓ Re-confirmed.");
+  try { if (typeof renderProgressView === "function") renderProgressView(); } catch(err){}
+});
+
+/* renderRevalidateBlock — appended to each per-domain card in renderProgressView.
+   Lists every entry from revalidationList(domKey) with a [Mark again ✓] button.
+   For dual_observer_pending entries where the same observer is the only
+   confirmation source, render a hint instead of the action button.            */
+function renderRevalidateBlock(domKey, container){
+  if (!container) return;
+  const items = revalidationList(domKey);
+  if (!items.length){ container.innerHTML = ""; return; }
+  const cur = (state.currentUser || "—");
+  const rows = items.map(it => {
+    const id = it.skill.id;
+    const title = it.skill.t || id;
+    let actionHtml = `<button class="small v7-reval-btn" data-v7-reval="${escapeHtml(id)}">Mark again ✓</button>`;
+    if (it.flag.reason === "dual_observer_pending"){
+      const masteryObs = obsForSkill(id).filter(o => o.status === "mastered" || o.status === "already_mastered");
+      masteryObs.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      const lastBy = (masteryObs[0] && masteryObs[0].by) || "—";
+      if (lastBy && lastBy !== "—" && lastBy === cur){
+        actionHtml = `<span class="v7-reval-hint">Switch to other observer to confirm</span>`;
+      }
+    }
+    return `<div class="v7-reval-row">
+      <div class="v7-reval-label">${escapeHtml(it.flag.label)} — <strong>${escapeHtml(title)}</strong></div>
+      ${actionHtml}
+    </div>`;
+  }).join("");
+  container.innerHTML = `<div class="v7-reval-block">
+    <div class="v7-reval-h">🔁 Re-validate <span class="v7-reval-count">${items.length}</span></div>
+    ${rows}
+  </div>`;
+}
 
 /* Compute mastery % per domain — drives Vygotsky difficulty recommendation */
 function domainSkillMastery(domKey){
