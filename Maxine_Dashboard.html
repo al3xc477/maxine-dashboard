@@ -981,6 +981,78 @@
   .v7-reval-btn, .v7-reval-hint{ width:100%; text-align:center; }
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v7 — Tutor tab
+   ═════════════════════════════════════════════════════════════════════════ */
+.v7-tutor-hero{
+  background:linear-gradient(135deg, #F0F9FF, #FAF8F5);
+  border:1px solid #BAE6FD;
+}
+.v7-tutor-narr{
+  margin-top:10px; font-size:14px; line-height:1.6; color:var(--ink);
+}
+.v7-tutor-narr p{ margin:0; }
+.v7-tutor-section h3.v7-tutor-h{
+  margin:0 0 8px; font-size:15px; font-weight:700; color:var(--ink);
+  text-transform:none; letter-spacing:0;
+}
+.v7-tutor-sub{
+  margin-top:10px; margin-bottom:4px; font-size:12px; font-weight:700;
+  color:var(--muted); text-transform:uppercase; letter-spacing:.06em;
+}
+.v7-tutor-list{ margin:0 0 4px; padding-left:20px; font-size:13px; line-height:1.55; }
+.v7-tutor-list li{ margin-bottom:2px; }
+.v7-tutor-why{ color:var(--muted); font-size:12px; }
+.v7-tutor-empty{ color:var(--muted); font-style:italic; font-size:13px; padding:6px 0; }
+
+.v7-tutor-grid{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));
+  gap:8px;
+}
+.v7-tutor-chip{
+  background:#F8FAFC; border:1px solid var(--line); border-radius:10px;
+  padding:8px 10px; font-size:13px;
+}
+.v7-tutor-chip.v7-tutor-chip-spotlight{
+  background:linear-gradient(135deg, #FEF3C7, #FFFBEB);
+  border-color:#FCD34D;
+}
+.v7-tutor-chip-h{ font-weight:700; color:var(--ink); margin-bottom:2px; }
+.v7-tutor-chip-meta{ font-size:11px; color:var(--muted); }
+.v7-spotlight-badge{
+  display:inline-block; font-size:10px; font-weight:700; color:#7C2D12;
+  background:#FCD34D; border-radius:999px; padding:1px 6px; margin-left:4px;
+}
+
+.v7-potential-line{
+  display:flex; gap:12px; align-items:flex-start; padding:8px 0;
+}
+.v7-potential-em{ font-size:36px; line-height:1; }
+.v7-potential-body{ flex:1; min-width:0; }
+.v7-potential-h{ font-weight:700; font-size:14px; color:#14532D; }
+.v7-potential-meta{ font-size:11px; color:var(--muted); margin-top:2px; }
+.v7-potential-tip{ font-size:12px; color:var(--ink); margin-top:6px; padding:6px 8px; background:#F0FDF4; border-radius:6px; }
+
+.v7-tutor-watch li{ color:#92400E; }
+
+.v7-pending-row{
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  padding:8px 10px; margin-bottom:6px;
+  background:#F8FAFC; border:1px solid var(--line); border-radius:10px;
+}
+.v7-pending-text{ flex:1; min-width:0; font-size:13px; color:var(--ink); }
+.v7-pending-meta{ font-size:11px; color:var(--muted); margin-top:2px; }
+.v7-pending-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+
+.v7-tutor-horizons li{ margin-bottom:6px; }
+
+@media (max-width:640px){
+  .v7-tutor-grid{ grid-template-columns:1fr; }
+  .v7-pending-row{ flex-direction:column; align-items:flex-start; }
+  .v7-pending-actions{ width:100%; }
+  .v7-pending-actions .small{ flex:1; }
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
@@ -1011,6 +1083,7 @@
   <nav class="view-nav no-print">
     <button class="nav-btn active" data-view="dashboard">🏠 Dashboard</button>
     <button class="nav-btn" data-view="progress">📊 Progress</button>
+    <button class="nav-btn" data-view="tutor">🎓 Tutor</button>
     <button class="nav-btn" data-view="catalogue">🎯 Skills</button>
     <button class="nav-btn" data-view="vocabulary">📖 Vocabulary</button>
     <button class="nav-btn" data-view="meals">🍽 Meals</button>
@@ -1160,6 +1233,47 @@
     <div class="card" id="sec-prog-recent">
       <h2>Recent activity (last 20)</h2>
       <div id="progRecent" style="font-size:13px; max-height:50vh; overflow:auto"></div>
+    </div>
+  </section>
+
+  <!-- v7 — AI TUTOR VIEW (deep-read analytical surface) -->
+  <section id="tutorView" style="display:none">
+    <div class="card v7-tutor-hero" style="margin-bottom:14px">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap">
+        <h2 style="margin:0; font-size:20px">🎓 Maxine's Tutor</h2>
+        <div class="sub" id="v7TutorMeta" style="color:var(--muted); font-size:12px"></div>
+      </div>
+      <div id="v7TutorNarrative" class="v7-tutor-narr"></div>
+    </div>
+
+    <div class="card v7-tutor-section" style="margin-bottom:14px">
+      <h3 class="v7-tutor-h">📊 Snapshot</h3>
+      <div id="v7TutorSnapshot"></div>
+    </div>
+
+    <div class="card v7-tutor-section" style="margin-bottom:14px">
+      <h3 class="v7-tutor-h">🎯 What's next — top priorities</h3>
+      <div id="v7TutorPriorities"></div>
+    </div>
+
+    <div class="card v7-tutor-section" style="margin-bottom:14px">
+      <h3 class="v7-tutor-h">🌟 Greatest potential</h3>
+      <div id="v7TutorPotential"></div>
+    </div>
+
+    <div class="card v7-tutor-section" style="margin-bottom:14px">
+      <h3 class="v7-tutor-h">👁️ Watch list</h3>
+      <div id="v7TutorWatch"></div>
+    </div>
+
+    <div class="card v7-tutor-section" style="margin-bottom:14px">
+      <h3 class="v7-tutor-h">🛂 Pending mastery confirmations</h3>
+      <div id="v7TutorPending"></div>
+    </div>
+
+    <div class="card v7-tutor-section" style="margin-bottom:14px">
+      <h3 class="v7-tutor-h">🗓️ Horizons</h3>
+      <div id="v7TutorHorizons"></div>
     </div>
   </section>
 
@@ -6668,7 +6782,7 @@ function showView(name){
   document.getElementById("progressView").style.display = "none";
   document.getElementById("catalogueView").style.display = "none";
   document.getElementById("memoryView").style.display = "none";
-  ["vocabularyView","mealsView","playlistView","louHome"].forEach(id => {
+  ["vocabularyView","mealsView","playlistView","louHome","tutorView"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });
@@ -6681,6 +6795,10 @@ function showView(name){
   } else if (name === "progress"){
     document.getElementById("progressView").style.display = "";
     renderProgressView();
+  } else if (name === "tutor"){
+    const tv = document.getElementById("tutorView");
+    if (tv) tv.style.display = "";
+    try { if (typeof renderTutorTab === "function") renderTutorTab(); } catch(e){ console.warn("v7 tutor render failed", e); }
   } else if (name === "catalogue"){
     document.getElementById("catalogueView").style.display = "";
     renderSkillCatalogue();
@@ -10020,6 +10138,386 @@ function renderRevalidateBlock(domKey, container){
     ${rows}
   </div>`;
 }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v7 — AI TUTOR TAB
+   ═════════════════════════════════════════════════════════════════════════
+   Read-only analytical surface. Parent opens this while Maxine sleeps,
+   reads it once, closes phone, and applies insights during play. Each
+   helper returns plain data; renderTutorTab renders all six sections.
+   ───────────────────────────────────────────────────────────────────────── */
+
+function _isoWeekKey(){
+  const d = new Date();
+  const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = tmp.getUTCDay() || 7;
+  tmp.setUTCDate(tmp.getUTCDate() + 4 - day);
+  const start = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((tmp - start) / 86400000 + 1) / 7);
+  return `${tmp.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+/* pickDomainSpotlight — stable per ISO week; rotates so each domain gets
+   spotlighted at least every 6 weeks. Persists in state.spotlightHistory.    */
+function pickDomainSpotlight(){
+  state.spotlightHistory = state.spotlightHistory || [];
+  const thisWeek = _isoWeekKey();
+  const found = state.spotlightHistory.find(h => h.week === thisWeek);
+  if (found) return found.domain;
+
+  // Prefer the domain whose rate-limiting sub-domain has the lowest SL.
+  // Ties broken by who was spotlighted least recently.
+  const active = (typeof getActiveDomainKeys === "function") ? getActiveDomainKeys() : DOMAINS.map(d => d.key);
+  const recencyIdx = {};
+  state.spotlightHistory.forEach((h, i) => { recencyIdx[h.domain] = i; });
+  const ranked = active.map(k => {
+    const fl = (typeof domainTFloor === "function") ? domainTFloor(k) : { value: null };
+    const flv = (fl && typeof fl.value === "number") ? fl.value : 99;
+    const lastIdx = recencyIdx[k] != null ? recencyIdx[k] : -1;
+    return { k, flv, lastIdx };
+  }).sort((a, b) => (a.lastIdx - b.lastIdx) || (a.flv - b.flv));
+
+  const choice = (ranked[0] && ranked[0].k) || (active[0] || DOMAINS[0].key);
+  state.spotlightHistory.push({ week: thisWeek, domain: choice });
+  state.spotlightHistory = state.spotlightHistory.slice(-12);
+  if (typeof saveState === "function") saveState(state);
+  return choice;
+}
+
+/* pendingMasteryConfirmations — skills with ≥3 working_on_it observations
+   spanning ≥7 days and no regressed in the last 14 days. Excludes already
+   mastered/automatic skills. Respects state.suppressedConfirmations.         */
+function pendingMasteryConfirmations(){
+  const out = [];
+  const now = Date.now();
+  _skillUniverse().forEach(s => {
+    if (!s || !s.id) return;
+    if (_isCurrentlyMastered(s.id)) return;
+    const suppress = state.suppressedConfirmations && state.suppressedConfirmations[s.id];
+    if (suppress && (now - suppress) < 14 * 86400000) return;
+
+    const obs = obsForSkill(s.id);
+    const positives = obs.filter(o => o && (o.status === "working_on_it" || o.status === "practising" || o.status === "emerging"));
+    if (positives.length < 3) return;
+    const tsList = positives.map(o => o.ts || 0);
+    const span = Math.max(...tsList) - Math.min(...tsList);
+    if (span < 7 * 86400000) return;
+    const hadRecentNeg = obs.some(o => o && (o.status === "regressed" || o.status === "too_hard") && (now - (o.ts || 0)) < 14 * 86400000);
+    if (hadRecentNeg) return;
+    out.push({
+      skill: s,
+      count: positives.length,
+      span_days: Math.round(span / 86400000),
+      last_ts: Math.max(...tsList)
+    });
+  });
+  out.sort((a, b) => b.count - a.count);
+  return out.slice(0, 5);
+}
+
+function getKeystoneGaps(){
+  return _skillUniverse()
+    .filter(s => s && s.keystone && !_isCurrentlyMastered(s.id))
+    .map(s => ({ id: s.id, label: s.t || s.id, domain: s.dom, why: s.why || s.what || "" }));
+}
+
+function getBridgeSkills(limit){
+  if (typeof limit !== "number") limit = 5;
+  const all = _skillUniverse();
+  const count = (id) => {
+    if (typeof countDownstream === "function") return countDownstream(id);
+    // Fallback to prereqs[] scan if typed graph helper isn't available.
+    return all.filter(x => Array.isArray(x.prereqs) && x.prereqs.includes(id)).length;
+  };
+  return all
+    .filter(s => s && !_isCurrentlyMastered(s.id))
+    .map(s => ({ id: s.id, label: s.t || s.id, domain: s.dom, downstream: count(s.id) }))
+    .filter(x => x.downstream > 0)
+    .sort((a, b) => b.downstream - a.downstream)
+    .slice(0, limit);
+}
+
+function getZpdSweetSkills(limit){
+  if (typeof limit !== "number") limit = 5;
+  const all = _skillUniverse();
+  return all
+    .filter(s => s && !_isCurrentlyMastered(s.id) && (typeof isAvailable === "function" ? isAvailable(s) : true))
+    .sort((a, b) => {
+      const sa = (typeof frontierScoreV6 === "function") ? frontierScoreV6(a) : 0;
+      const sb = (typeof frontierScoreV6 === "function") ? frontierScoreV6(b) : 0;
+      return sb - sa;
+    })
+    .slice(0, limit)
+    .map(s => ({ id: s.id, label: s.t || s.id, domain: s.dom, udi: s.udi || 0 }));
+}
+
+function getStalledSkills(thresholdDays){
+  if (typeof thresholdDays !== "number") thresholdDays = 30;
+  const now = Date.now();
+  return _skillUniverse().filter(s => {
+    if (!s || !s.id) return false;
+    if (_isCurrentlyMastered(s.id)) return false;
+    const obs = obsForSkill(s.id);
+    if (obs.length < 2) return false;
+    const lastTs = Math.max(...obs.map(o => o.ts || 0));
+    return (now - lastTs) > thresholdDays * 86400000;
+  }).map(s => ({ id: s.id, label: s.t || s.id, domain: s.dom }));
+}
+
+function getGreatestPotential(){
+  const now = Date.now();
+  const D = 86400000;
+  const counts = {};
+  (state.observations || []).forEach(o => {
+    if (!o || (now - (o.ts || 0)) > 30 * D) return;
+    if (o.status === "regressed" || o.status === "unknown") return;
+    const sk = _skillUniverse().find(x => x && x.id === o.skillId);
+    if (!sk) return;
+    counts[sk.dom] = (counts[sk.dom] || 0) + 1;
+  });
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) return null;
+  const [domKey, n] = entries[0];
+  const dom = (DOMAINS.find(d => d.key === domKey) || { label: domKey });
+  return { domain: domKey, domain_label: dom.label, domain_emoji: dom.emoji || "✨", obs_count_30d: n };
+}
+
+function getLowCoverageSubdomains(){
+  if (typeof SUBDOMAINS === "undefined") return [];
+  const out = [];
+  Object.keys(SUBDOMAINS).forEach(domKey => {
+    SUBDOMAINS[domKey].forEach(sub => {
+      const skills = _skillUniverse().filter(s => s && s.dom === domKey && s.subdomain === sub.key);
+      if (skills.length < 2) return;
+      const observed = skills.filter(s => obsForSkill(s.id).length > 0).length;
+      const coverage = observed / skills.length;
+      if (coverage < 0.3){
+        out.push({ domain: domKey, sub: sub.key, sub_label: sub.label, coverage });
+      }
+    });
+  });
+  return out;
+}
+
+function getRegressionFlaggedCount(){
+  return _skillUniverse().filter(s => s && s.id && flagFor(s.id, "regression_prone")).length;
+}
+
+/* computeTutorNarrative — 2–3 sentence plain-English summary using current
+   state. Templated locally so it always works offline; an optional Cowork-
+   regenerated narrative can replace this later.                              */
+function computeTutorNarrative(){
+  const child = (typeof currentChild === "function" ? currentChild() : null) || { name: "Maxine" };
+  const ct = (typeof currentTier === "function") ? currentTier() : 0;
+  const spotlightKey = pickDomainSpotlight();
+  const spotlightDom = DOMAINS.find(d => d.key === spotlightKey) || { label: spotlightKey, emoji: "✨" };
+  const potential = getGreatestPotential();
+  const keys = getKeystoneGaps().length;
+  const pending = pendingMasteryConfirmations().length;
+  const stalled = getStalledSkills().length;
+  const ageM = (typeof chronoAgeMonths === "function" && child) ? chronoAgeMonths(child) : null;
+  const ageBit = ageM ? ` (age ${ageM}m)` : "";
+
+  const p1 = `${child.name || "Maxine"}${ageBit} is at developmental tier T${ct}. This week's spotlight domain is ${spotlightDom.emoji} ${spotlightDom.label} — lean play, reading, and one-on-one time toward it.`;
+  const p2 = potential
+    ? `Her greatest current momentum is ${potential.domain_emoji} ${potential.domain_label} (${potential.obs_count_30d} observations in the last 30 days). Amplify what's already pulling.`
+    : `Not enough recent observations to detect momentum — log a few activities to surface the trend.`;
+  const fragments = [];
+  if (pending > 0) fragments.push(`${pending} skill${pending === 1 ? "" : "s"} look${pending === 1 ? "s" : ""} ready to declare mastered — see "Pending confirmations" below`);
+  if (keys > 0)    fragments.push(`${keys} keystone${keys === 1 ? "" : "s"} still open — prioritise these`);
+  if (stalled > 0) fragments.push(`${stalled} stalled skill${stalled === 1 ? "" : "s"} need a fresh look`);
+  const p3 = fragments.length ? fragments.join(". ") + "." : "Nothing flagged — keep playing.";
+  return [p1, p2, p3].join(" ");
+}
+
+function renderTutorTab(){
+  const meta = document.getElementById("v7TutorMeta");
+  const narr = document.getElementById("v7TutorNarrative");
+  const snap = document.getElementById("v7TutorSnapshot");
+  const prio = document.getElementById("v7TutorPriorities");
+  const pot  = document.getElementById("v7TutorPotential");
+  const watch= document.getElementById("v7TutorWatch");
+  const pend = document.getElementById("v7TutorPending");
+  const horz = document.getElementById("v7TutorHorizons");
+  if (!narr) return;
+
+  // Meta line
+  if (meta){
+    const child = (typeof currentChild === "function" ? currentChild() : null);
+    const ageM = (child && typeof chronoAgeMonths === "function") ? chronoAgeMonths(child) : null;
+    const era  = (child && typeof activeEra === "function") ? activeEra(child) : null;
+    const today = new Date().toLocaleDateString("en-GB", { year:"numeric", month:"short", day:"numeric" });
+    meta.textContent = `${today}${ageM ? " · age " + ageM + "m" : ""}${era ? " · era: " + era.label : ""}`;
+  }
+
+  // Narrative
+  narr.innerHTML = `<p>${escapeHtml(computeTutorNarrative())}</p>`;
+
+  // Snapshot — one chip per active-era domain
+  if (snap){
+    const active = (typeof getActiveDomainKeys === "function") ? getActiveDomainKeys() : DOMAINS.map(d => d.key);
+    const spotlight = pickDomainSpotlight();
+    const chips = active.map(k => {
+      const d = DOMAINS.find(x => x.key === k) || { label: k, emoji: "·" };
+      const sl = (typeof domainSL === "function") ? domainSL(k) : null;
+      const tf = (typeof domainTFloor === "function") ? domainTFloor(k) : { subdomain_label: null };
+      const isSpot = (k === spotlight);
+      return `<div class="v7-tutor-chip ${isSpot ? "v7-tutor-chip-spotlight" : ""}">
+        <div class="v7-tutor-chip-h">${d.emoji || "·"} ${escapeHtml(d.label)} ${isSpot ? '<span class="v7-spotlight-badge">★ spotlight</span>' : ""}</div>
+        <div class="v7-tutor-chip-meta">SL ${sl == null ? "—" : sl.toFixed(1)}${tf && tf.subdomain_label ? ` · limiter: ${escapeHtml(tf.subdomain_label)}` : ""}</div>
+      </div>`;
+    }).join("");
+    snap.innerHTML = `<div class="v7-tutor-grid">${chips}</div>`;
+  }
+
+  // Priorities
+  if (prio){
+    const ks = getKeystoneGaps().slice(0, 5);
+    const br = getBridgeSkills(5);
+    const zp = getZpdSweetSkills(5);
+    const rv = getAllRevalidations().slice(0, 5);
+
+    const ksRows = ks.length ? ks.map(k => {
+      const dom = DOMAINS.find(d => d.key === k.domain) || { emoji: "·" };
+      return `<li>${dom.emoji} <strong>${escapeHtml(k.label)}</strong>${k.why ? ` <span class="v7-tutor-why">— ${escapeHtml(k.why)}</span>` : ""}</li>`;
+    }).join("") : `<li class="v7-tutor-empty">No open keystones — all foundations confirmed.</li>`;
+
+    const brRows = br.length ? br.map(b => {
+      const dom = DOMAINS.find(d => d.key === b.domain) || { emoji: "·" };
+      return `<li>${dom.emoji} <strong>${escapeHtml(b.label)}</strong> <span class="v7-tutor-why">unlocks ${b.downstream} downstream skill${b.downstream === 1 ? "" : "s"}</span></li>`;
+    }).join("") : `<li class="v7-tutor-empty">No active bridge skills detected (typed-graph empty for unmastered set).</li>`;
+
+    const zpRows = zp.length ? zp.map(z => {
+      const dom = DOMAINS.find(d => d.key === z.domain) || { emoji: "·" };
+      return `<li>${dom.emoji} <strong>${escapeHtml(z.label)}</strong> <span class="v7-tutor-why">UDI ${(z.udi || 0).toFixed(1)}</span></li>`;
+    }).join("") : `<li class="v7-tutor-empty">No available skills in ZPD right now — Active 10 view may help refresh.</li>`;
+
+    const rvRows = rv.length ? rv.map(r => {
+      const dom = DOMAINS.find(d => d.key === r.skill.dom) || { emoji: "·" };
+      return `<li>${dom.emoji} <strong>${escapeHtml(r.skill.t || r.skill.id)}</strong> <span class="v7-tutor-why">${escapeHtml(r.flag.label)}</span></li>`;
+    }).join("") : `<li class="v7-tutor-empty">No skills need re-validation right now.</li>`;
+
+    prio.innerHTML = `
+      <div class="v7-tutor-sub">🔑 Keystone gaps${ks.length ? ` (${ks.length})` : ""}</div>
+      <ul class="v7-tutor-list">${ksRows}</ul>
+      <div class="v7-tutor-sub">🌉 Bridge skills (unlock most downstream)</div>
+      <ul class="v7-tutor-list">${brRows}</ul>
+      <div class="v7-tutor-sub">🎯 Sweet-spot ZPD (just-right challenge)</div>
+      <ul class="v7-tutor-list">${zpRows}</ul>
+      <div class="v7-tutor-sub">🔁 Re-validate (across all domains)</div>
+      <ul class="v7-tutor-list">${rvRows}</ul>
+    `;
+  }
+
+  // Potential
+  if (pot){
+    const p = getGreatestPotential();
+    if (!p){
+      pot.innerHTML = `<div class="v7-tutor-empty">Log a few activities so the tutor can detect momentum.</div>`;
+    } else {
+      const tip = ({
+        gross:     "Open space, climbing, ball games, dance to music.",
+        fine:      "Drawing scenes, dressing the doll, tool-use practice.",
+        sensory:   "Mystery bag, smell jars, sound matching, texture walks.",
+        cognitive: "Sorting games, counting in routines, 'what's missing'.",
+        vocab:     "Three books a day, narrate the walk, model 2→3-word combos.",
+        social:    "Name the feeling, co-regulate first, mirror-play emotions."
+      })[p.domain] || "Lean in with intentional play in this domain.";
+      pot.innerHTML = `
+        <div class="v7-potential-line">
+          <div class="v7-potential-em">${p.domain_emoji}</div>
+          <div class="v7-potential-body">
+            <div class="v7-potential-h">${escapeHtml(p.domain_label)} — strongest current pull</div>
+            <div class="v7-potential-meta">${p.obs_count_30d} observations in the last 30 days</div>
+            <div class="v7-potential-tip">↪ ${escapeHtml(tip)}</div>
+          </div>
+        </div>`;
+    }
+  }
+
+  // Watch list
+  if (watch){
+    const stalled = getStalledSkills();
+    const lowSubs = getLowCoverageSubdomains();
+    const reg     = getRegressionFlaggedCount();
+    const rows = [];
+    if (stalled.length){
+      rows.push(`<li>⚠️ <strong>${stalled.length} stalled</strong> skill${stalled.length === 1 ? "" : "s"} (working_on_it without recent observation in 30+ days)</li>`);
+    }
+    if (lowSubs.length){
+      const list = lowSubs.slice(0, 3).map(x => `${escapeHtml(x.sub_label)} (${(x.coverage * 100).toFixed(0)}%)`).join(", ");
+      rows.push(`<li>⚠️ <strong>Low coverage</strong> in ${lowSubs.length} sub-domain${lowSubs.length === 1 ? "" : "s"}: ${list}${lowSubs.length > 3 ? "…" : ""}</li>`);
+    }
+    if (reg > 0){
+      rows.push(`<li>⚠️ <strong>${reg} skill${reg === 1 ? "" : "s"}</strong> flagged regression-prone</li>`);
+    }
+    watch.innerHTML = rows.length
+      ? `<ul class="v7-tutor-list v7-tutor-watch">${rows.join("")}</ul>`
+      : `<div class="v7-tutor-empty">Nothing on the watch list. ✨</div>`;
+  }
+
+  // Pending confirmations
+  if (pend){
+    const items = pendingMasteryConfirmations();
+    if (!items.length){
+      pend.innerHTML = `<div class="v7-tutor-empty">No skills look ready for declared mastery right now.</div>`;
+    } else {
+      pend.innerHTML = items.map(it => {
+        const dom = DOMAINS.find(d => d.key === it.skill.dom) || { emoji: "·" };
+        return `<div class="v7-pending-row">
+          <div class="v7-pending-text">
+            ${dom.emoji} <strong>${escapeHtml(it.skill.t || it.skill.id)}</strong>
+            <div class="v7-pending-meta">logged ${it.count}× over ${it.span_days} day${it.span_days === 1 ? "" : "s"} as working_on_it — looks consistent.</div>
+          </div>
+          <div class="v7-pending-actions">
+            <button class="small primary" data-v7-tutor-confirm="${escapeHtml(it.skill.id)}">✓ Mastered</button>
+            <button class="small" data-v7-tutor-suppress="${escapeHtml(it.skill.id)}">⏳ Still working</button>
+          </div>
+        </div>`;
+      }).join("");
+    }
+  }
+
+  // Horizons
+  if (horz){
+    const spotlight = pickDomainSpotlight();
+    const spotDom = DOMAINS.find(d => d.key === spotlight) || { label: spotlight };
+    const child = (typeof currentChild === "function") ? currentChild() : null;
+    const era = (child && typeof activeEra === "function") ? activeEra(child) : null;
+    const eraIdx = era && typeof ERAS !== "undefined" ? ERAS.findIndex(e => e.key === era.key) : -1;
+    const nextEra = (eraIdx >= 0 && eraIdx < (typeof ERAS !== "undefined" ? ERAS.length - 1 : -1)) ? ERAS[eraIdx + 1] : null;
+    const ks = getKeystoneGaps()[0];
+    horz.innerHTML = `<ul class="v7-tutor-list v7-tutor-horizons">
+      <li><strong>This week:</strong> ${spotDom.emoji || "✨"} ${escapeHtml(spotDom.label)} spotlight${ks ? " + push toward keystone " + escapeHtml(ks.label) : ""}.</li>
+      <li><strong>This month:</strong> Consolidate Active 10 mastery across foundation domains; declare any pending confirmations decisively.</li>
+      <li><strong>Next quarter:</strong> ${nextEra ? "Approach " + escapeHtml(nextEra.label) + " transition — surface new domains (e.g. pre-writing, numeracy)." : "Continue era-current focus; refresh sub-domain coverage."}</li>
+    </ul>`;
+  }
+}
+
+/* Pending-confirmation click delegation (✓ Mastered / ⏳ Still working). */
+document.addEventListener("click", (e) => {
+  const conf = e.target.closest("[data-v7-tutor-confirm]");
+  if (conf){
+    const id = conf.dataset.v7TutorConfirm;
+    if (typeof addObservation === "function"){
+      addObservation({ skillId: id, status: "mastered", source: "tutor_pending_confirm" });
+    }
+    if (typeof showToast === "function") showToast("✓ Declared mastered");
+    try { renderTutorTab(); } catch(err){ console.warn("tutor re-render failed", err); }
+    return;
+  }
+  const sup = e.target.closest("[data-v7-tutor-suppress]");
+  if (sup){
+    const id = sup.dataset.v7TutorSuppress;
+    state.suppressedConfirmations = state.suppressedConfirmations || {};
+    state.suppressedConfirmations[id] = Date.now();
+    if (typeof saveState === "function") saveState(state);
+    if (typeof showToast === "function") showToast("⏳ Suppressed for 14 days");
+    try { renderTutorTab(); } catch(err){ console.warn("tutor re-render failed", err); }
+    return;
+  }
+});
 
 /* Compute mastery % per domain — drives Vygotsky difficulty recommendation */
 function domainSkillMastery(domKey){
