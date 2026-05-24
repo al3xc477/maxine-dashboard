@@ -6723,6 +6723,10 @@ function showView(name){
   } else if (name === "progress"){
     document.getElementById("progressView").style.display = "";
     renderProgressView();
+  } else if (name === "tutor"){
+    const tv = document.getElementById("tutorView");
+    if (tv) tv.style.display = "";
+    try { if (typeof renderTutorTab === "function") renderTutorTab(); } catch(e){ console.warn("v7 tutor render failed", e); }
   } else if (name === "catalogue"){
     document.getElementById("catalogueView").style.display = "";
     renderSkillCatalogue();
