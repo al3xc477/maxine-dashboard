@@ -875,6 +875,64 @@
 }
 .cowork-pending-pill:hover{ background:#FDE68A }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v7 — Active Vocabulary view + Mastered archive
+   ═════════════════════════════════════════════════════════════════════════ */
+.v7-vt-cat{ margin-bottom:14px; }
+.v7-vt-cat-h{
+  display:flex; gap:6px; align-items:baseline; flex-wrap:wrap;
+  font-size:14px; font-weight:700; color:var(--ink);
+  padding:6px 8px; background:#F8FAFC; border-radius:8px; margin-bottom:6px;
+}
+.v7-vt-cat-em{ font-size:18px; }
+.v7-vt-cat-name{ flex:1; }
+.v7-vt-cat-pri{
+  font-size:10px; font-weight:700; color:#3730A3; background:#EEF2FF;
+  padding:1px 6px; border-radius:999px; text-transform:uppercase; letter-spacing:.05em;
+}
+.v7-vt-row{
+  display:flex; gap:10px; align-items:center; padding:8px 10px;
+  border:1px solid var(--line); border-radius:10px; margin-bottom:4px;
+  background:#fff; transition: opacity .25s ease, max-height .3s ease, padding .3s ease, margin .3s ease;
+  max-height:120px; overflow:hidden;
+}
+.v7-vt-row.v7-vt-fading{ opacity:0; max-height:0; padding:0 10px; margin:0; border-color:transparent; }
+.v7-vt-em{ font-size:22px; flex:0 0 28px; text-align:center; }
+.v7-vt-words{ flex:1; min-width:0; }
+.v7-vt-en{ font-size:14px; font-weight:600; color:var(--ink); }
+.v7-vt-fr{ font-size:13px; color:var(--muted); margin-top:2px; }
+.v7-vt-meta{ font-size:10px; color:var(--muted); font-weight:400; margin-left:6px; }
+.v7-vt-btns{ display:flex; gap:4px; flex-wrap:wrap; }
+.v7-vt-btn{
+  font-size:11px; font-weight:700; padding:5px 10px; min-height:32px;
+  border:1px solid var(--line); border-radius:999px; cursor:pointer; background:#F1F4FA;
+}
+.v7-vt-btn.on{ background:#DCFCE7; color:#14532D; border-color:#86EFAC; }
+.v7-vt-btn.off{ color:var(--muted); }
+.v7-vt-btn:hover{ filter:brightness(.97); }
+
+.v7-vm-cat{ margin-bottom:10px; }
+.v7-vm-cat-h{ font-weight:700; font-size:13px; color:#14532D; margin-bottom:6px; }
+.v7-vm-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:6px; }
+.v7-vm-tile{
+  display:flex; align-items:center; gap:6px; padding:6px 8px;
+  background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; font-size:12px;
+}
+.v7-vm-em{ font-size:16px; }
+.v7-vm-en{ font-weight:600; }
+.v7-vm-fr{ color:var(--muted); font-style:italic; font-size:11px; }
+.v7-vm-restore{
+  margin-left:auto; background:transparent; border:none; cursor:pointer;
+  font-size:14px; color:var(--muted); padding:2px 4px;
+}
+.v7-vm-restore:hover{ color:#3730A3; }
+
+@media (max-width:640px){
+  .v7-vt-row{ flex-wrap:wrap; }
+  .v7-vt-btns{ flex-basis:100%; justify-content:flex-end; }
+  .v7-vm-grid{ grid-template-columns:1fr; }
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
