@@ -7604,6 +7604,194 @@ const SKILLS_CUSTOM_SEED = [
 SKILLS.push(...SKILLS_CUSTOM_SEED);
 
 /* ═════════════════════════════════════════════════════════════════════════
+   v8 — ACTIVITY HAT (printable mission cards)
+   ═════════════════════════════════════════════════════════════════════════
+   ACTIVITY_TEMPLATES — printable hat-mission card library.
+
+     id:                  stable string (used by cooldown + dedupe)
+     verb_en, verb_fr:    card title in both languages
+     desc:                1-line parent instruction (inline <strong>/<em> ok)
+     iconify:             primary Iconify icon name (e.g. "tabler:gift")
+     iconify_fallbacks:   array of fallback names if primary fails (optional)
+     iconify_grid:        for emotion-style cards, 4 icons in 2x2 grid (optional)
+     targets_skills:      skill IDs this activity exercises
+     target_subdomains:   sub-domain keys (for diversification)
+     tier:                1-5 — picker chooses templates within ±1 of her tier
+     context:             "indoor" | "outdoor" | "both"
+     props:               array of household items needed (optional, parent ref)
+
+   Icons fetched at print time from api.iconify.design. Color: dashboard ink
+   #1F2A44. Width: 400px so the 5cm icon area stays crisp.
+   ───────────────────────────────────────────────────────────────────────── */
+const ACTIVITY_TEMPLATES = [
+  { id: "jump-scarf",
+    verb_en: "Jump!", verb_fr: "sauter",
+    desc: "Lay a scarf on the floor. Both feet together — <strong>JUMP over it 3 times!</strong>",
+    iconify: "tabler:run", iconify_fallbacks: ["mdi:run", "lucide:running"],
+    targets_skills: ["gm-jump"], target_subdomains: ["locomotion"],
+    tier: 2, context: "both", props: ["scarf or rope"] },
+
+  { id: "sort-shapes",
+    verb_en: "Sort the shapes", verb_fr: "trier les formes",
+    desc: "3 bowls + 3 kinds of items. <strong>Match each one to its bowl.</strong>",
+    iconify: "tabler:arrows-sort", iconify_fallbacks: ["mdi:sort-variant"],
+    targets_skills: ["co-sort-color", "co-sort-size"], target_subdomains: ["classification"],
+    tier: 2, context: "both", props: ["3 bowls", "9 items in 3 categories"] },
+
+  { id: "stork-stand",
+    verb_en: "Stork stand", verb_fr: "cigogne",
+    desc: "Stand on <strong>ONE foot</strong> · arms out · count <em>1 · 2 · 3!</em>",
+    iconify: "tabler:yoga", iconify_fallbacks: ["mdi:yoga"],
+    targets_skills: ["gm-one-foot"], target_subdomains: ["balance_vestibular"],
+    tier: 3, context: "both", props: ["just bodies"] },
+
+  { id: "mystery-bag",
+    verb_en: "Mystery bag", verb_fr: "sac mystère",
+    desc: "Hide 3 toys. <strong>Reach in · feel · guess</strong> before pulling out!",
+    iconify: "tabler:shopping-bag", iconify_fallbacks: ["tabler:bag", "mdi:bag-personal"],
+    targets_skills: ["se-mystery"], target_subdomains: ["tactile_stereo"],
+    tier: 2, context: "both", props: ["cloth bag", "3 familiar toys"] },
+
+  { id: "count-5",
+    verb_en: "Count to 5", verb_fr: "compter jusqu'à 5",
+    desc: "Find <strong>5 things</strong>. Touch each: <em>un · deux · trois · quatre · cinq!</em>",
+    iconify: "tabler:hand-stop", iconify_fallbacks: ["mdi:hand-back-right", "lucide:hand"],
+    targets_skills: ["co-count-5"], target_subdomains: ["number_quant"],
+    tier: 3, context: "both", props: ["5 small items"] },
+
+  { id: "sniff-3",
+    verb_en: "Sniff sniff!", verb_fr: "sentir",
+    desc: "Smell <strong>3 things</strong>: flower · lemon · herb. <em>Yummy or yucky?</em>",
+    iconify: "tabler:nose", iconify_fallbacks: ["healthicons:nose", "mdi:nose"],
+    targets_skills: ["se-smell"], target_subdomains: ["olfact_gust"],
+    tier: 2, context: "both", props: ["3 smell items"] },
+
+  { id: "animal-sounds",
+    verb_en: "Animal sounds", verb_fr: "cris d'animaux",
+    desc: "Make 3 animal sounds — <strong>woof! moo! meow!</strong> Take turns guessing.",
+    iconify: "tabler:dog", iconify_fallbacks: ["mdi:dog-side", "noto:dog"],
+    // la-words-50 from the spec doesn't exist in this catalogue — la-2word is the
+    // best vocab analogue (uses 2-word combinations; "big woof", "little meow").
+    targets_skills: ["la-2word", "co-imitate-simple"], target_subdomains: ["expressive"],
+    tier: 2, context: "both", props: ["just voices"] },
+
+  { id: "big-small",
+    verb_en: "Big or small?", verb_fr: "grand ou petit?",
+    desc: "4 things (2 big · 2 small). <strong>Sort into 2 piles.</strong>",
+    iconify: "tabler:circles-relation", iconify_fallbacks: ["mdi:circle-multiple"],
+    targets_skills: ["co-sort-size"], target_subdomains: ["classification"],
+    tier: 2, context: "both", props: ["4 items in 2 sizes"] },
+
+  { id: "emotion-faces",
+    verb_en: "Make a face", verb_fr: "les émotions",
+    desc: "<strong>Happy · sad · angry · scared.</strong> You make · she copies!",
+    iconify: "tabler:mood-happy",
+    iconify_grid: ["tabler:mood-happy", "tabler:mood-sad", "tabler:mood-angry", "tabler:mood-cry"],
+    targets_skills: ["so-emotion-4"], target_subdomains: ["emotion_recognition"],
+    tier: 2, context: "both", props: ["just faces"] },
+
+  { id: "give-gift",
+    verb_en: "Give a gift", verb_fr: "offrir un cadeau",
+    desc: "Pick something pretty. <strong>Give it to a doll:</strong> <em>\"This is for YOU!\"</em>",
+    iconify: "tabler:gift", iconify_fallbacks: ["mdi:gift", "lucide:gift"],
+    targets_skills: ["so-please-thanks", "co-pretend"], target_subdomains: ["prosocial"],
+    tier: 2, context: "both", props: ["a doll", "small object"] },
+
+  // ─── Bonus templates (for variety + ZPD coverage) ───
+  { id: "draw-circle",
+    verb_en: "Draw a circle", verb_fr: "dessiner un rond",
+    desc: "Crayon + paper. Show her a circle, then <strong>she draws one</strong>.",
+    iconify: "tabler:circle", iconify_fallbacks: ["mdi:pencil-circle"],
+    targets_skills: ["fm-circle"], target_subdomains: ["visual_motor"],
+    tier: 3, context: "indoor", props: ["crayon", "paper"] },
+
+  { id: "thread-beads",
+    verb_en: "Thread beads", verb_fr: "enfiler",
+    desc: "Lace + 3 beads or pasta. <strong>Thread 3 onto the lace</strong>. Strong pinch!",
+    iconify: "mdi:thread", iconify_fallbacks: ["tabler:braille"],
+    targets_skills: ["fm-thread"], target_subdomains: ["bilateral_fine"],
+    tier: 2, context: "indoor", props: ["lace", "3 large beads or pasta"] },
+
+  { id: "feed-doll",
+    verb_en: "Feed the doll", verb_fr: "nourrir la poupée",
+    desc: "Spoon + doll. <strong>Pretend to feed</strong>. Make happy eating sounds!",
+    iconify: "tabler:baby-bottle", iconify_fallbacks: ["mdi:baby-bottle", "tabler:milk"],
+    targets_skills: ["co-pretend"], target_subdomains: ["symbolic_pretend"],
+    tier: 2, context: "indoor", props: ["doll", "spoon"] },
+
+  { id: "follow-2step",
+    verb_en: "Two steps", verb_fr: "deux étapes",
+    desc: "<strong>\"Pick up the ball — then bring it to me.\"</strong>",
+    iconify: "tabler:list-numbers", iconify_fallbacks: ["mdi:format-list-numbered"],
+    targets_skills: ["co-instr-2"], target_subdomains: ["executive_function"],
+    tier: 2, context: "both", props: ["any 2 props"] },
+
+  { id: "body-parts-5",
+    verb_en: "Body parts!", verb_fr: "le corps",
+    desc: "Touch and name <strong>5 body parts</strong>: nose · eyes · ears · mouth · hands.",
+    iconify: "tabler:body-scan", iconify_fallbacks: ["mdi:human", "tabler:user"],
+    targets_skills: ["la-body-5"], target_subdomains: ["expressive"],
+    tier: 2, context: "both", props: ["just bodies"] },
+
+  { id: "color-hunt",
+    verb_en: "Colour hunt", verb_fr: "chasse aux couleurs",
+    desc: "Find <strong>3 red · 3 yellow · 3 blue</strong> things.",
+    iconify: "tabler:rainbow", iconify_fallbacks: ["mdi:palette"],
+    targets_skills: ["se-colors-3"], target_subdomains: ["visual_discr"],
+    tier: 2, context: "both", props: ["just eyes"] },
+
+  { id: "tower-of-6",
+    verb_en: "Tower of 6", verb_fr: "tour de 6",
+    desc: "<strong>Stack 6 blocks</strong>. Count as you go. Knock it down!",
+    iconify: "tabler:stack", iconify_fallbacks: ["mdi:cube-outline"],
+    targets_skills: ["fm-stack-6"], target_subdomains: ["pincer_strength"],
+    tier: 2, context: "indoor", props: ["6 blocks"] },
+
+  { id: "dance-party",
+    verb_en: "Dance party!", verb_fr: "danser",
+    desc: "Put on music. <strong>Dance for 1 song</strong>. Stop when it stops!",
+    iconify: "tabler:music", iconify_fallbacks: ["mdi:music-note"],
+    targets_skills: ["gm-dance-rhythm"], target_subdomains: ["rhythm_motor"],
+    tier: 1, context: "both", props: ["music"] },
+
+  { id: "hide-seek-toy",
+    verb_en: "Where's it?", verb_fr: "où est-ce?",
+    desc: "Hide a toy under a cloth. <strong>She finds it!</strong> Move and repeat.",
+    iconify: "tabler:eye-search", iconify_fallbacks: ["tabler:search", "mdi:magnify"],
+    targets_skills: ["co-obj-perm", "co-missing"], target_subdomains: ["executive_function"],
+    tier: 1, context: "both", props: ["a small toy", "a cloth"] },
+
+  { id: "book-pages",
+    verb_en: "Read a story", verb_fr: "lire une histoire",
+    desc: "Pick a book. <strong>She turns each page</strong>. Point and name pictures.",
+    iconify: "tabler:book", iconify_fallbacks: ["mdi:book-open"],
+    targets_skills: ["fm-pages", "la-points-pic"], target_subdomains: ["tool_use", "receptive"],
+    tier: 2, context: "indoor", props: ["a book"] }
+];
+
+/* One-shot audit: warn (do not throw) if any ACTIVITY_TEMPLATES targets_skills
+   id does not resolve in the live skill universe. Helps catch drift if SKILLS
+   evolves; never breaks the dashboard.                                       */
+(function _auditActivityTemplates(){
+  try {
+    const all = new Set([
+      ...SKILLS.map(s => s.id),
+      ...(typeof SKILLS_CUSTOM_SEED !== "undefined" ? SKILLS_CUSTOM_SEED.map(s => s.id) : []),
+      ...((state.skillsCustom || []).map(s => s.id))
+    ]);
+    const broken = [];
+    ACTIVITY_TEMPLATES.forEach(t => {
+      (t.targets_skills || []).forEach(sid => {
+        if (!all.has(sid)) broken.push({ template: t.id, missingSkill: sid });
+      });
+    });
+    if (broken.length){
+      console.warn("[activity-hat] Broken targets_skills references — please fix:", broken);
+    }
+  } catch(e){ /* never throw at load time */ }
+})();
+
+/* ═════════════════════════════════════════════════════════════════════════
    v5 — UNIVERSAL DIFFICULTY INDEX (UDI)
    ═════════════════════════════════════════════════════════════════════════
    Decimal 0.0–10.0 log-scale that replaces v4's integer tier. Cross-domain
