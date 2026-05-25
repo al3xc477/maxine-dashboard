@@ -7792,6 +7792,131 @@ const ACTIVITY_TEMPLATES = [
 })();
 
 /* ═════════════════════════════════════════════════════════════════════════
+   Activity Hat — picker + Iconify URL helper
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* Build the Iconify SVG URL.
+   Iconify URL format: https://api.iconify.design/<prefix>/<name>.svg?...
+   color=%231F2A44 sets B&W ink; width=400 keeps the 5cm icon crisp at print.   */
+function iconifyUrl(name){
+  if (!name) return "";
+  const slug = String(name).replace(":", "/");
+  return "https://api.iconify.design/" + slug + ".svg?color=%231F2A44&width=400";
+}
+
+/* "Currently mastered" predicate across v5 and v6 status vocabularies. */
+function _hatIsMastered(status){
+  return status === "mastered" || status === "already_mastered" || status === "automatic";
+}
+/* "Skill blocked from this round" — mastered OR explicitly hard/regressed. */
+function _hatIsBlocked(status){
+  return _hatIsMastered(status) || status === "too_hard" || status === "regressed";
+}
+
+/* Is this skill currently in the child's frontier?
+   - Not mastered / already_mastered / automatic / too_hard / regressed
+   - Every prereq is mastered (or automatic / already_mastered)
+   - skill tier ∈ [childTier, childTier+1]   (strict ZPD: at-level or just-above)
+*/
+function isFrontierSkillForHat(skillId, childTier){
+  const all = [
+    ...SKILLS,
+    ...(typeof SKILLS_CUSTOM_SEED !== "undefined" ? SKILLS_CUSTOM_SEED : []),
+    ...((state.skillsCustom || []))
+  ];
+  const s = all.find(x => x && x.id === skillId);
+  if (!s) return false;
+  const status = (typeof deriveStatus === "function") ? deriveStatus(skillId) : "new";
+  if (_hatIsBlocked(status)) return false;
+  const skillTier = (typeof tierOf === "function") ? tierOf(s) : (typeof s.tier === "number" ? s.tier : 0);
+  if (skillTier < childTier || skillTier > childTier + 1) return false;
+  const prereqs = (typeof getPrereqs === "function") ? getPrereqs(s) : (Array.isArray(s.prereqs) ? s.prereqs : []);
+  for (const pid of prereqs){
+    const ps = (typeof deriveStatus === "function") ? deriveStatus(pid) : "new";
+    if (!_hatIsMastered(ps)) return false;
+  }
+  return true;
+}
+
+/* Pick the best `count` templates for the current state.
+
+   HARD FILTER — a template is eligible only if:
+     (a) context matches (indoor / outdoor / both)
+     (b) at least one of its targets_skills is in her current frontier
+
+   RANKING — among eligible templates, score by:
+     +10 per JUST-ABOVE (tier+1) frontier skill hit  ← strongest preference
+     +6  per AT-LEVEL  (tier+0) frontier skill hit
+     +5  per keystone skill among the frontier hits
+     −(7−daysSince) cooldown penalty if shown in last 7 days
+     +random()×0.5  jitter for re-roll variety
+
+   DIVERSIFICATION — greedy pick, max 2 per primary sub-domain.
+                     Top up if diversification leaves us short.
+
+   Returns up to `count` templates; [] if no eligible templates exist.       */
+function pickHatActivities(opts){
+  opts = opts || {};
+  const ctx = opts.context || "both";
+  const count = typeof opts.count === "number" ? opts.count : 9;
+  const childTier = (typeof currentTier === "function") ? currentTier() : 1;
+  const all = [
+    ...SKILLS,
+    ...(typeof SKILLS_CUSTOM_SEED !== "undefined" ? SKILLS_CUSTOM_SEED : []),
+    ...((state.skillsCustom || []))
+  ];
+
+  // STEP 1 — hard filter: context + ≥1 frontier hit
+  const eligible = ACTIVITY_TEMPLATES.filter(t => {
+    if (ctx !== "both" && t.context !== "both" && t.context !== ctx) return false;
+    const hits = (t.targets_skills || []).filter(sid => isFrontierSkillForHat(sid, childTier));
+    if (hits.length === 0) return false;
+    t._frontierHits = hits;
+    return true;
+  });
+  if (eligible.length === 0) return [];
+
+  // STEP 2 — score
+  state._hatShown = state._hatShown || {};
+  const COOLDOWN_DAYS = 7;
+  const now = Date.now();
+  const scored = eligible.map(t => {
+    let score = 0;
+    (t._frontierHits || []).forEach(sid => {
+      const s = all.find(x => x && x.id === sid);
+      if (!s) return;
+      const st = (typeof tierOf === "function") ? tierOf(s) : (typeof s.tier === "number" ? s.tier : 0);
+      if      (st === childTier + 1) score += 10;
+      else if (st === childTier)     score += 6;
+      if (s.keystone) score += 5;
+    });
+    const last = state._hatShown[t.id] || 0;
+    const daysSince = (now - last) / 86400000;
+    if (daysSince < COOLDOWN_DAYS) score -= (COOLDOWN_DAYS - daysSince);
+    score += Math.random() * 0.5;
+    return { t, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+
+  // STEP 3 — greedy diversification (max 2 per primary sub-domain)
+  const picked = [];
+  const subCounts = {};
+  for (const s of scored){
+    if (picked.length >= count) break;
+    const primarySub = (s.t.target_subdomains || ["_misc"])[0] || "_misc";
+    if ((subCounts[primarySub] || 0) >= 2) continue;
+    picked.push(s.t);
+    subCounts[primarySub] = (subCounts[primarySub] || 0) + 1;
+  }
+  // STEP 4 — top up if diversification left us short
+  for (const s of scored){
+    if (picked.length >= count) break;
+    if (!picked.includes(s.t)) picked.push(s.t);
+  }
+  return picked;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
    v5 — UNIVERSAL DIFFICULTY INDEX (UDI)
    ═════════════════════════════════════════════════════════════════════════
    Decimal 0.0–10.0 log-scale that replaces v4's integer tier. Cross-domain
