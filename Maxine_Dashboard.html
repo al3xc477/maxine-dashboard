@@ -7937,6 +7937,214 @@ function pickHatActivities(opts){
   return picked;
 }
 
+/* Activity Hat — in-page preview. Empty state shows the helpful warning
+   instead of printing filler.                                                 */
+let _hatCtx = "both";
+
+function renderHatPreview(picks){
+  const root = document.getElementById("hatPreview");
+  if (!root) return;
+  root.style.display = "";
+
+  if (!picks || picks.length === 0){
+    root.innerHTML = `<div style="background:#FEF3C7; border:1px solid #F59E0B; border-radius:8px; padding:8px 10px; font-size:12px; color:#92400E">
+      <strong>No frontier-matched activities yet.</strong> Log a few skill observations to fill out her frontier — the hat picks from skills she's ready to work on (at-level or just above).
+    </div>`;
+    return;
+  }
+
+  const all = [
+    ...SKILLS,
+    ...(typeof SKILLS_CUSTOM_SEED !== "undefined" ? SKILLS_CUSTOM_SEED : []),
+    ...((state.skillsCustom || []))
+  ];
+  const childTier = (typeof currentTier === "function") ? currentTier() : 0;
+
+  root.innerHTML = `<div style="font-size:12px; color:var(--muted); margin-bottom:6px">Picked for her — each card targets a skill at her level or just above (T${childTier}–T${childTier+1}):</div>` +
+    picks.map((t, i) => {
+      const hits = (t._frontierHits || t.targets_skills || []).map(sid => {
+        const s = all.find(x => x && x.id === sid);
+        if (!s) return null;
+        const skillTier = (typeof tierOf === "function") ? tierOf(s) : (typeof s.tier === "number" ? s.tier : 0);
+        const delta = skillTier - childTier;
+        const tierBadge = delta === 1 ? "↑ JUST-ABOVE" : delta === 0 ? "AT-LEVEL" : "T" + skillTier;
+        return { label: s.t || sid, keystone: !!s.keystone, tierBadge };
+      }).filter(Boolean);
+
+      const skillChips = hits.map(h => `
+        <span style="display:inline-block; font-size:10px; padding:1px 5px; border-radius:8px;
+                     background:${h.tierBadge === "↑ JUST-ABOVE" ? "#DBEAFE" : "#F3F4F6"};
+                     color:#1F2A44; margin-right:3px; white-space:nowrap">
+          ${h.keystone ? "⭐ " : ""}${escapeHtml(h.label)}
+          <span style="opacity:.6; font-size:9px">${escapeHtml(h.tierBadge)}</span>
+        </span>`).join("");
+
+      return `<div style="display:flex; align-items:flex-start; gap:8px; padding:6px 0; font-size:12px; border-bottom:1px dashed var(--line)">
+        <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:#1F2A44; color:#fff; font-weight:700; font-size:11px; flex:0 0 22px">${i + 1}</span>
+        <div style="flex:1; min-width:0">
+          <div style="font-weight:700">${escapeHtml(t.verb_en)}</div>
+          <div style="margin-top:2px">${skillChips}</div>
+        </div>
+      </div>`;
+    }).join("");
+}
+
+/* Open a new tab with the 1-page A4 print view (3×3 = 9 cards).
+   Each card uses <img src="api.iconify.design/..."> — browser fetches icons.
+   Inline <script> waits for every <img> to settle, then calls window.print().  */
+function openHatPrintView(picks){
+  const slots = (picks || []).slice(0, 9);
+
+  function iconSlotHtml(t){
+    if (Array.isArray(t.iconify_grid) && t.iconify_grid.length === 4){
+      // 4-icon grid for emotion-style cards
+      return `<div class="icon-grid">${t.iconify_grid.map(n =>
+        `<img src="${iconifyUrl(n)}" alt="" style="width:100%; height:100%; object-fit:contain" />`
+      ).join("")}</div>`;
+    }
+    const primary = iconifyUrl(t.iconify);
+    const fallbacks = (t.iconify_fallbacks || []).map(iconifyUrl);
+    // Encode the fallback chain as a JSON literal embedded in an attribute.
+    // Quote escape: " → &quot; so the attribute value stays well-formed HTML.
+    const errorChain = fallbacks.length
+      ? `onerror="(function(img){const f=${JSON.stringify(fallbacks).replace(/"/g, "&quot;")};const i=parseInt(img.dataset.fb||'0',10);if(i<f.length){img.dataset.fb=String(i+1);img.src=f[i];}else{img.onerror=null;}})(this)"`
+      : "";
+    return `<div class="icon-slot"><img src="${primary}" data-fb="0" ${errorChain} alt="" style="width:100%; height:100%; object-fit:contain" /></div>`;
+  }
+
+  function cardHtml(t, i){
+    const ctxBadge = t.context === "indoor" ? "🏠" : t.context === "outdoor" ? "🌳" : "🏠🌳";
+    return `<div class="card">
+      <div class="num">${i + 1}</div>
+      <div class="ctx">${ctxBadge}</div>
+      ${iconSlotHtml(t)}
+      <div class="verb">${escapeHtml(t.verb_en)}</div>
+      <div class="verb-fr">${escapeHtml(t.verb_fr)}</div>
+      <div class="desc">${t.desc}</div>
+    </div>`;
+  }
+
+  const pageHtml = `<div class="page"><div class="cards">${slots.map(cardHtml).join("")}</div></div>`;
+
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>Maxine — Activity Hat</title>
+<style>
+  @page { size: A4 portrait; margin: 8mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #FFFFFF; color: #1F2A44;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .page { width: 194mm; padding: 0; margin: 0 auto; }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 93mm);
+    border-top: 2.5px dashed #1F2A44;
+    border-left: 2.5px dashed #1F2A44;
+  }
+  .card { border-right: 2.5px dashed #1F2A44; border-bottom: 2.5px dashed #1F2A44;
+          background: #FFFFFF; padding: 2.5mm;
+          display: flex; flex-direction: column; align-items: center;
+          position: relative; overflow: hidden; }
+  .card .num { position: absolute; top: 2mm; left: 2mm; width: 7mm; height: 7mm; border-radius: 50%;
+               background: #1F2A44; color: #FFF; font-weight: 900; font-size: 9pt;
+               display: flex; align-items: center; justify-content: center; z-index: 2; }
+  .card .ctx { position: absolute; top: 2mm; right: 2mm; font-size: 8pt; background: #FFFFFF;
+               padding: 0.5mm 1.5mm; border-radius: 2mm; border: 1px solid #1F2A44; font-weight: 700; z-index: 2; }
+  .card .icon-slot { width: 50mm; height: 50mm; margin: 3mm 0 1mm;
+                     display: flex; align-items: center; justify-content: center; }
+  .card .icon-grid { width: 50mm; height: 50mm; margin: 3mm 0 1mm;
+                     display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1mm; }
+  .card .verb { font-size: 11pt; font-weight: 900; text-transform: uppercase; letter-spacing: .02em;
+                color: #1F2A44; text-align: center; line-height: 1.05; margin-top: 1mm; }
+  .card .verb-fr { font-size: 7pt; font-style: italic; color: #1F2A44; text-align: center; margin-top: .3mm; }
+  .card .desc { margin-top: 1mm; font-size: 7pt; color: #1F2A44; line-height: 1.3; text-align: center; padding: 0 .5mm; }
+  .loading-banner { background: #FEF3C7; border: 1.5px solid #F59E0B; border-radius: 4mm; padding: 2mm 4mm;
+                    margin-bottom: 4mm; font-size: 10pt; color: #92400E; text-align: center; }
+  @media print { .loading-banner { display: none; } }
+</style></head><body>
+  <div class="loading-banner">⏳ Loading icons from Iconify… print will auto-trigger when ready.</div>
+  ${pageHtml}
+  <script>
+    (function () {
+      const imgs = Array.from(document.images);
+      if (imgs.length === 0) { setTimeout(function(){ window.print(); }, 200); return; }
+      let settled = 0;
+      const tryPrint = function(){
+        if (++settled >= imgs.length) {
+          const b = document.querySelector(".loading-banner"); if (b) b.remove();
+          setTimeout(function(){ window.print(); }, 400);
+        }
+      };
+      imgs.forEach(function(img){
+        if (img.complete) tryPrint();
+        else { img.addEventListener("load", tryPrint); img.addEventListener("error", tryPrint); }
+      });
+      // Safety: print after 8s no matter what
+      setTimeout(function(){
+        if (settled < imgs.length){
+          const b = document.querySelector(".loading-banner"); if (b) b.remove();
+          window.print();
+        }
+      }, 8000);
+    })();
+  <\/script>
+</body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win){
+    alert("Please allow popups for the dashboard so the print view can open.");
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+
+  // Stamp cooldown so re-roll variety kicks in next time
+  state._hatShown = state._hatShown || {};
+  const now = Date.now();
+  slots.forEach(t => { state._hatShown[t.id] = now; });
+
+  // Log a working_on_it observation for every printed card's targets_skills
+  slots.forEach(t => {
+    (t.targets_skills || []).forEach(skillId => {
+      if (typeof addObservation === "function"){
+        addObservation({
+          skillId,
+          status: "working_on_it",
+          source: "hat_print",
+          notes: "Activity Hat printed — " + t.verb_en
+        });
+      }
+    });
+  });
+  if (typeof saveState === "function") saveState(state);
+  if (typeof showToast === "function") showToast("🎩 Hat opened in new tab — print dialog appears once icons load");
+}
+
+/* Activity Hat — click delegation (context toggle + Preview + Generate). */
+document.addEventListener("click", (e) => {
+  const ctxBtn = e.target.closest("[data-hat-ctx]");
+  if (ctxBtn){
+    _hatCtx = ctxBtn.dataset.hatCtx;
+    document.querySelectorAll("[data-hat-ctx]").forEach(b => b.classList.toggle("active", b === ctxBtn));
+    return;
+  }
+  if (e.target.closest("#hatPreviewOnly")){
+    const picks = pickHatActivities({ context: _hatCtx, count: 9 });
+    renderHatPreview(picks);
+    return;
+  }
+  if (e.target.closest("#hatGenerate")){
+    const picks = pickHatActivities({ context: _hatCtx, count: 9 });
+    renderHatPreview(picks);
+    if (!picks || picks.length === 0){
+      if (typeof showToast === "function") showToast("⚠️ No frontier-matched activities — log more skills first");
+      return;
+    }
+    openHatPrintView(picks);
+    return;
+  }
+});
+
 /* ═════════════════════════════════════════════════════════════════════════
    v5 — UNIVERSAL DIFFICULTY INDEX (UDI)
    ═════════════════════════════════════════════════════════════════════════
