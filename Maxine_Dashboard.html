@@ -1733,6 +1733,27 @@
         <div id="gcResults" class="game-results" aria-live="polite"></div>
       </div>
 
+      <!-- ── ACTIVITY HAT ── Print-and-cut mission cards · 9 personalised slots ── -->
+      <div class="card" id="hatCard" style="margin-bottom:14px">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:6px; flex-wrap:wrap">
+          <h2 style="margin:0">🎩 Activity Hat</h2>
+          <span class="sub" style="color:var(--muted); font-size:12px">9 print-and-cut cards · personalised</span>
+        </div>
+        <div style="font-size:13px; color:var(--muted); margin-bottom:10px">
+          Picks 9 missions from her current frontier · professional icons · cut and drop in a hat.
+        </div>
+        <div class="row" id="hatCtxRow" style="gap:6px; flex-wrap:wrap; margin-bottom:8px">
+          <button class="small active" data-hat-ctx="both">🏠🌳 Both</button>
+          <button class="small" data-hat-ctx="indoor">🏠 Indoor</button>
+          <button class="small" data-hat-ctx="outdoor">🌳 Outdoor</button>
+        </div>
+        <div class="row" style="gap:6px; flex-wrap:wrap">
+          <button class="small primary" id="hatGenerate">🎩 Generate &amp; Print (9 cards · 1 page)</button>
+          <button class="small" id="hatPreviewOnly">👁 Preview only</button>
+        </div>
+        <div id="hatPreview" style="display:none; margin-top:10px"></div>
+      </div>
+
       <div class="card" style="margin-bottom:14px">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap">
           <h2 style="margin:0">📚 Vocabulary this week</h2>
