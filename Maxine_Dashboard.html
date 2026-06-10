@@ -7434,8 +7434,25 @@ function renderProgressView(){
     </div>
   `;
 
-  // Per-domain — clickable level cards
-  doms.innerHTML = "";
+  // Per-domain — clickable level cards (preceded by the Domain-balance radar,
+  // a Balance-index row, and a Focus-domain callout when one domain lags).
+  const _dfsL  = DOMAINS.map(d=>({label:d.label, key:d.key, dfs:computeDFS(d.key)}));
+  const _mean  = _dfsL.reduce((a,d)=>a+d.dfs,0)/_dfsL.length;
+  const _focus = _dfsL.slice().sort((a,b)=>a.dfs-b.dfs)[0];
+  const _bal   = computeBalanceIndex();
+  doms.innerHTML = `
+    <div class="prog-card" style="grid-column:1/-1; padding:14px; margin-bottom:10px; background:var(--card); border:1px solid var(--line); border-radius:12px">
+      <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:8px">Domain balance</div>
+      <canvas id="dfs-radar-canvas" style="width:100%;height:260px"></canvas>
+      <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--line); font-size:12px; color:var(--muted)">
+        Balance: <strong style="color:var(--ink)">${_bal.score}</strong> — ${_bal.label}
+      </div>
+    </div>
+    ${(_focus && _focus.dfs < _mean - 0.5) ? `
+    <div class="prog-card" style="grid-column:1/-1; padding:12px 14px; margin-bottom:10px; background:#FFFBEB; border:1px solid #F59E0B; border-radius:12px; font-size:13px; color:#92400E; line-height:1.4">
+      🎯 <strong>Focus domain: ${escapeHtml(_focus.label)}</strong> (${_focus.dfs.toFixed(1)} / 10) — currently behind the others; a short session here helps balance.
+    </div>` : ``}
+  `;
   DOMAINS.forEach(d=>{
     // Science-backed level (Fischer + vocab norms)
     const dlv  = computeDomainLevel(d.key);
@@ -7519,7 +7536,11 @@ function renderProgressView(){
           </div>
           ${dreyfusLine}
         </div>
-        <span style="font-size:13px; font-weight:800; color:${lvXp.color}; background:${lvXp.bg}; padding:5px 12px; border-radius:8px; white-space:nowrap; flex:0 0 auto">Level ${lvXp.score}</span>
+        <span style="display:flex; flex-direction:column; align-items:flex-end; gap:2px; white-space:nowrap; flex:0 0 auto">
+          <span style="font-size:15px; font-weight:800; color:${lvXp.color}; background:${lvXp.bg}; padding:4px 12px; border-radius:8px">${computeDFS(d.key).toFixed(1)} / 10</span>
+          <span style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:${lvXp.color}; background:${lvXp.bg}88; padding:1px 8px; border-radius:6px">${stageLabelForDFS(computeDFS(d.key))}</span>
+          <span style="font-size:10px; color:var(--muted)">~${domainDevAgeLabel(computeDFS(d.key))}</span>
+        </span>
         <span id="${detailId}_arrow" style="color:var(--muted); font-size:12px; flex:0 0 auto">▾</span>
       </div>
       <div id="${detailId}" style="display:none; margin-top:2px; padding:14px 14px 10px; border:1px solid var(--line); border-top:none; border-radius:0 0 10px 10px; background:${dlv.bg}22">
@@ -7561,6 +7582,8 @@ function renderProgressView(){
     try { if (typeof renderRevalidateBlock === "function") renderRevalidateBlock(d.key, row.querySelector("#v7Reval_"+d.key)); } catch(e){ console.warn("v7 revalidate render failed", e); }
     try { if (typeof renderMasteredLibrary === "function") renderMasteredLibrary(d.key, row.querySelector("#v6Mastered_"+d.key)); } catch(e){ console.warn("v6 mastered library render failed", e); }
   });
+  // v10 — domain-balance radar (canvas was written above, before the loop).
+  try { if (typeof renderDFSRadar === "function") renderDFSRadar('dfs-radar-canvas'); } catch(e){ console.warn("renderDFSRadar failed", e); }
 
   // Recent — newest first, with per-row delete (✕). data-hist-del carries the
   // TRUE index into state.history (active child's working set).
@@ -8118,6 +8141,177 @@ const SKILLS_CUSTOM_SEED = [
     t:"Helps with dressing", age:"~2y", what:"Pushes arms/legs through, removes socks", why:"Self-care sequence + autonomy.", how:"Offer a head-start; she finishes.", next:"Dress independently", src:"Montessori practical life" },
   { id:"so-ind-tidy", dom:"social", branch:"independence", difficulty:4, prereqs:["so-ind-self-feed"], keystone:false,
     t:"Puts toys away with a reminder", age:"~2–3y", what:"Participates in tidy-up", why:"Responsibility + sequencing + belonging.", how:"Sing a tidy-up song together.", next:"Tidy without reminder", src:"Montessori grace & courtesy" },
+
+  /* ── v9b ladder rungs (fill ~2.5y gaps) ── (dom uses the real keys gross/social) */
+  { id:"gm-rhythm-drum-tap", dom:"gross", branch:"rhythm", difficulty:4, prereqs:["gm-rhythm-clap"], keystone:false,
+    t:"Taps a drum with the music", age:"~26–30m",
+    what:"Taps an open-hand beat on a drum or tin while music plays",
+    why:"Bridges hand-clapping to whole-body beat; Dalcroze eurhythmics ~2.5y",
+    how:"Sit together with a tin or drum; tap along to a slow favourite song",
+    next:"Marches in time to music", src:"Dalcroze / early childhood music education" },
+  { id:"soc-emotion-book-match", dom:"social", branch:"emotion", difficulty:4, prereqs:["so-emo-point-face"], keystone:false,
+    t:"Matches emotion face to a story situation", age:"~26–30m",
+    what:"Points to a character's face in a picture book and names the emotion matching the story event",
+    why:"Key ~2.5y milestone bridging receptive labels to causal reasoning (Wellman 2014)",
+    how:"During story time, pause and ask 'How does she feel?' at a clear emotional moment",
+    next:"Explains why someone feels an emotion", src:"Wellman et al., Theory of Mind development" },
+
+  /* ── v10 expert-level rungs (d=7–10) — Pre-K → Expert (5–14y) ── */
+  // GROSS · locomotion / coordination — d7→d10 (anchor: gm-coord-bounce d6)
+  { id:"gm-locomotion-bike-twowheel", dom:"gross", branch:"locomotion", difficulty:7, prereqs:["gm-coord-bounce"], keystone:false,
+    t:"Rides a two-wheel bike independently", age:"5–7y",
+    what:"Balances, pedals, steers and stops a pedal bike with no training wheels or adult support for 20+ metres",
+    why:"Integrates dynamic balance, bilateral leg drive and visual-motor steering; CDC lists independent two-wheel cycling among 5–6y gross-motor milestones.",
+    how:"Start on a balance bike or pedals-off, let her glide and steady herself, then re-fit pedals on a gentle grassy slope.",
+    next:"Dribble and pass in a team ball sport", src:"CDC milestones / pediatric PT" },
+  { id:"gm-coordination-dribble-pass", dom:"gross", branch:"coordination", difficulty:8, prereqs:["gm-locomotion-bike-twowheel"], keystone:false,
+    t:"Dribbles and passes in a team ball sport", age:"7–10y",
+    what:"Controls a ball while moving (dribble foot/hand) and makes an accurate pass to a moving teammate during a game",
+    why:"Requires simultaneous locomotion, object control and social anticipation; Gallahue's specialized movement phase emerges ~7y.",
+    how:"Play 2-v-2 in the garden — she must dribble around a cone then pass to you before a 'defender' reaches her.",
+    next:"Sustains 20+ minutes of aerobic activity", src:"Gallahue motor development / CDC" },
+  { id:"gm-strength-aerobic-20min", dom:"gross", branch:"strength", difficulty:9, prereqs:["gm-coordination-dribble-pass"], keystone:false,
+    t:"Sustains 20+ minutes of continuous aerobic activity", age:"10–13y",
+    what:"Runs, swims or cycles continuously for 20+ minutes maintaining steady pace and breathing without stopping",
+    why:"Reflects cardiovascular endurance and pacing self-regulation; CDC recommends 60 min daily MVPA for school-age children.",
+    how:"Build up with a weekly 'long run/ride' together, adding 2–3 minutes each week and talking through pacing.",
+    next:"Executes complex sport technique under pressure", src:"CDC physical activity guidelines" },
+  { id:"gm-coordination-technique-pressure", dom:"gross", branch:"coordination", difficulty:10, prereqs:["gm-strength-aerobic-20min"], keystone:false,
+    t:"Executes a complex sport technique under game pressure", age:"13–14y",
+    what:"Performs a refined skill (e.g. tennis serve, layup, dive) accurately while defended or timed in competition",
+    why:"Top of Gallahue's specialized phase — automated technique freed for tactical decision-making under stress.",
+    how:"Drill the technique to automaticity, then add a defender, clock or scoreboard so she must perform it under load.",
+    next:"Coaches or refines technique for peers", src:"Gallahue / sport-specific coaching" },
+
+  // FINE · pre_writing / tool_use — d7→d10 (anchor: fm-tool-cut-line d6)
+  { id:"fm-prewriting-alphabet-legible", dom:"fine", branch:"pre_writing", difficulty:7, prereqs:["fm-tool-cut-line"], keystone:false,
+    t:"Writes all alphabet letters legibly", age:"5–7y",
+    what:"Forms all upper- and lower-case letters from memory, correctly oriented and readable, sized to the line",
+    why:"Mature tripod grasp + visual-motor integration; legible letter formation is a Kindergarten/Year-1 handwriting milestone (Handwriting Without Tears, CDC).",
+    how:"Practise a few letters a day with a fat pencil on lined paper, tracing then copying then writing from memory.",
+    next:"Writes cursive or typed paragraphs", src:"CDC / OT handwriting frameworks" },
+  { id:"fm-prewriting-cursive-paragraph", dom:"fine", branch:"pre_writing", difficulty:8, prereqs:["fm-prewriting-alphabet-legible"], keystone:false,
+    t:"Writes cursive or typed paragraphs", age:"7–10y",
+    what:"Produces a connected cursive paragraph, or touch-types a paragraph, with consistent spacing and few errors",
+    why:"Fluent transcription frees working memory for composition (Berninger 'not-so-simple view of writing').",
+    how:"Set short daily journal entries in cursive, or a typing game building toward home-row touch typing.",
+    next:"Plays a simple melody on an instrument", src:"Berninger writing development / OT" },
+  { id:"fm-tool-instrument-melody", dom:"fine", branch:"tool_use", difficulty:9, prereqs:["fm-prewriting-cursive-paragraph"], keystone:false,
+    t:"Plays a simple melody on an instrument", age:"10–13y",
+    what:"Plays a recognisable 8+ note melody on piano/recorder/guitar with correct fingering and timing",
+    why:"Demands fine independent finger control, bilateral coordination and audio-motor feedback; supports executive function (Hannon/Trainor).",
+    how:"Weekly short practice on a real instrument, learning one short tune phrase by phrase, hands separately then together.",
+    next:"Completes a sustained craft or art piece", src:"Music education / OT fine-motor" },
+  { id:"fm-tool-sustained-craft", dom:"fine", branch:"tool_use", difficulty:10, prereqs:["fm-tool-instrument-melody"], keystone:false,
+    t:"Completes a sustained multi-session craft or art piece", age:"13–14y",
+    what:"Plans and finishes a precise multi-step project (sewing, model, detailed drawing) across several sessions",
+    why:"Combines expert tool control with planning, persistence and quality self-monitoring (Gesell adolescent mastery).",
+    how:"Pick a real project she chooses, break it into sessions, and let her manage materials and finishing quality.",
+    next:"Teaches the craft technique to someone else", src:"Gesell / OT mastery" },
+
+  // SENSORY · auditory / proprioceptive / tactile — d7→d10 (anchor: se-aud-loud-soft d5)
+  { id:"se-auditory-read-in-noise", dom:"sensory", branch:"auditory", difficulty:7, prereqs:["se-aud-loud-soft"], keystone:false,
+    t:"Reads focused in a noisy environment", age:"5–7y",
+    what:"Sustains attention to a book/task for 10+ minutes while background noise (TV, chatter) is present",
+    why:"Auditory figure-ground filtering and attentional control; central auditory processing matures through early school years.",
+    how:"Gradually add mild background noise during reading and praise her staying with the page.",
+    next:"Identifies subtle musical pitch differences", src:"Central auditory processing / OT sensory integration" },
+  { id:"se-auditory-pitch-discriminate", dom:"sensory", branch:"auditory", difficulty:8, prereqs:["se-auditory-read-in-noise"], keystone:false,
+    t:"Identifies subtle musical pitch differences", age:"7–10y",
+    what:"Tells whether a second note is higher, lower or the same, and hears when a note is slightly out of tune",
+    why:"Fine auditory frequency discrimination linked to phonological and musical skill (Kraus, Northwestern).",
+    how:"Play two notes on a phone keyboard and ask 'higher or lower?', then 'in tune or wrong?'.",
+    next:"Uses proprioceptive feedback to refine a movement", src:"Kraus auditory neuroscience / music education" },
+  { id:"se-proprioceptive-feedback-sport", dom:"sensory", branch:"proprioceptive", difficulty:9, prereqs:["se-auditory-pitch-discriminate"], keystone:false,
+    t:"Uses proprioceptive feedback to refine a movement", age:"10–13y",
+    what:"Feels and self-corrects body position in a sport/dance move (e.g. adjusts posture or limb angle without looking)",
+    why:"Mature proprioceptive-kinesthetic feedback loop enables skilled self-coaching (Ayres sensory integration).",
+    how:"After a dance/sport move, ask 'where was your arm?' and have her repeat it adjusting by feel, not mirror.",
+    next:"Discriminates fine texture/taste at expert level", src:"Ayres sensory integration / motor learning" },
+  { id:"se-tactile-expert-discriminate", dom:"sensory", branch:"tactile", difficulty:10, prereqs:["se-proprioceptive-feedback-sport"], keystone:false,
+    t:"Discriminates fine texture, taste and aroma (sommelier-level)", age:"13–14y",
+    what:"Detects and names subtle differences in texture, flavour and smell, ranking samples blind",
+    why:"Expert perceptual discrimination from accumulated sensory experience and vocabulary (psychophysics of expertise).",
+    how:"Blind 'taste lab' — compare two chocolates/juices and have her describe and rank the differences.",
+    next:"Trains another's palate / sensory vocabulary", src:"Sensory psychophysics / culinary education" },
+
+  // COGNITIVE · numbers / executive — d7→d10 (anchor: co-num-count-10 d6)
+  { id:"co-numbers-two-step-word", dom:"cognitive", branch:"numbers", difficulty:7, prereqs:["co-num-count-10"], keystone:false,
+    t:"Solves a 2-step word problem", age:"5–7y",
+    what:"Reads/hears a word problem needing two operations and reaches the correct answer, showing the steps",
+    why:"Requires concrete operational reasoning and working memory to hold an intermediate result (Piaget).",
+    how:"Pose real-life problems: 'You have 5 sweets, get 3 more, give 2 away — how many?' and let her work it out.",
+    next:"Works with fractions and basic percentages", src:"Piaget concrete operations / NCTM" },
+  { id:"co-numbers-fractions-percent", dom:"cognitive", branch:"numbers", difficulty:8, prereqs:["co-numbers-two-step-word"], keystone:false,
+    t:"Works with fractions and basic percentages", age:"7–10y",
+    what:"Compares, adds simple fractions and finds simple percentages (e.g. 50%, 25%) of a quantity",
+    why:"Proportional reasoning is a hallmark of late concrete / early formal operations (Piaget).",
+    how:"Use cooking and money: halve a recipe, find 50% off a price, share a pizza into quarters.",
+    next:"Writes a logical persuasive paragraph", src:"Piaget / NCTM" },
+  { id:"co-executive-persuasive-paragraph", dom:"cognitive", branch:"executive", difficulty:9, prereqs:["co-numbers-fractions-percent"], keystone:false,
+    t:"Writes a logical, persuasive paragraph", age:"10–13y",
+    what:"States a claim, supports it with 2+ ordered reasons/evidence and a conclusion that follows logically",
+    why:"Requires planning, logical sequencing and audience awareness — executive function + emerging formal reasoning (Piaget/Diamond).",
+    how:"Pick a real question ('should we get a pet?'), plan reasons together, then she drafts a structured argument.",
+    next:"Formulates and tests a scientific hypothesis", src:"Piaget formal operations / Diamond EF" },
+  { id:"co-executive-hypothesis-test", dom:"cognitive", branch:"executive", difficulty:10, prereqs:["co-executive-persuasive-paragraph"], keystone:false,
+    t:"Formulates and tests a scientific hypothesis", age:"13–14y",
+    what:"States a testable hypothesis, designs a fair test controlling variables, gathers data and draws a conclusion",
+    why:"Hypothetico-deductive reasoning is the defining marker of Piaget's formal operational stage.",
+    how:"Run a kitchen/garden experiment — e.g. which conditions grow a bean fastest — controlling one variable at a time.",
+    next:"Designs a multi-variable investigation", src:"Piaget formal operations / scientific method" },
+
+  // VOCAB · expressive / pragmatics / receptive — d7→d10 (anchor: la-exp-4word d5)
+  { id:"la-exp-narrate-bme", dom:"vocab", branch:"expressive", difficulty:7, prereqs:["la-exp-4word"], keystone:false,
+    t:"Narrates a story with beginning, middle and end", age:"5–7y",
+    what:"Tells an original or retold story with clear sequence, characters and a resolution",
+    why:"Narrative macrostructure is a strong predictor of later literacy (Vygotsky; narrative development research).",
+    how:"Use a wordless picture book and ask her to tell the whole story, prompting 'what happened first/next/last?'.",
+    next:"Writes a structured 5-sentence paragraph", src:"Vygotsky / narrative development" },
+  { id:"la-exp-five-sentence-paragraph", dom:"vocab", branch:"expressive", difficulty:8, prereqs:["la-exp-narrate-bme"], keystone:false,
+    t:"Writes a structured 5-sentence paragraph", age:"7–10y",
+    what:"Writes a paragraph with a topic sentence, three supporting details and a closing sentence",
+    why:"Organising ideas into written structure marks the move from oral to written language competence (Berninger).",
+    how:"Plan the topic + three details aloud, then have her write each as a sentence with a wrap-up line.",
+    next:"Gives a 2-minute prepared talk", src:"Berninger / writing instruction" },
+  { id:"la-prag-prepared-talk", dom:"vocab", branch:"pragmatics", difficulty:9, prereqs:["la-exp-five-sentence-paragraph"], keystone:false,
+    t:"Gives a 2-minute prepared talk", age:"10–13y",
+    what:"Delivers a planned 2-minute spoken presentation with clear structure, eye contact and audience awareness",
+    why:"Integrates expressive language, pragmatics and self-regulation for a real audience (Vygotsky social speech).",
+    how:"Help her pick a topic, make 3 cue-card points, rehearse to family and give the talk timed.",
+    next:"Reads and summarises a 10-page chapter", src:"Vygotsky / oral-language pedagogy" },
+  { id:"la-rec-summarise-chapter", dom:"vocab", branch:"receptive", difficulty:10, prereqs:["la-prag-prepared-talk"], keystone:false,
+    t:"Reads and summarises a 10-page chapter", age:"13–14y",
+    what:"Reads a 10-page chapter and produces a concise accurate summary capturing main ideas and key detail",
+    why:"Reading comprehension + synthesis at this depth reflects mature receptive language and metacognition.",
+    how:"After a chapter, ask for a 5-sentence summary, then 'what was the most important idea and why?'.",
+    next:"Critically analyses and compares texts", src:"Reading comprehension research / metacognition" },
+
+  // SOCIAL · regulation / prosocial / independence — d7→d10 (anchor: so-reg-strategy d6)
+  { id:"so-reg-wait-turn-competitive", dom:"social", branch:"regulation", difficulty:7, prereqs:["so-reg-strategy"], keystone:false,
+    t:"Waits her turn in a competitive game unprompted", age:"5–7y",
+    what:"Waits for her turn during a competitive board/playground game without reminders, even when eager or losing",
+    why:"Self-regulation and impulse control in emotionally charged social settings (CASEL self-management; Diamond EF).",
+    how:"Play turn-taking games where losing is possible and praise calm waiting and good sportsmanship.",
+    next:"Leads a small group to complete a task", src:"CASEL self-management / Diamond EF" },
+  { id:"so-prosocial-lead-group", dom:"social", branch:"prosocial", difficulty:8, prereqs:["so-reg-wait-turn-competitive"], keystone:false,
+    t:"Leads a small group to complete a task", age:"7–10y",
+    what:"Organises 2–3 peers, assigns roles and keeps the group on track to finish a shared task",
+    why:"Requires social skills, relationship management and perspective-taking (CASEL relationship skills).",
+    how:"Give her a small group project (build a fort, plan a game) and let her coordinate who does what.",
+    next:"Resolves a peer conflict through negotiation", src:"CASEL relationship skills / Vygotsky" },
+  { id:"so-prosocial-resolve-conflict", dom:"social", branch:"prosocial", difficulty:9, prereqs:["so-prosocial-lead-group"], keystone:false,
+    t:"Resolves a peer conflict through negotiation", age:"10–13y",
+    what:"Talks through a disagreement, voices her view, hears the other's and reaches a fair compromise without adult mediation",
+    why:"Integrates perspective-taking, emotion regulation and responsible decision-making (CASEL; Selman's perspective-taking stages).",
+    how:"When a conflict arises, coach from the side: 'what do you each want, what's a fair deal?' then step back.",
+    next:"Sets and tracks a multi-week personal goal", src:"CASEL / Selman perspective-taking" },
+  { id:"so-ind-multiweek-goal", dom:"social", branch:"independence", difficulty:10, prereqs:["so-prosocial-resolve-conflict"], keystone:false,
+    t:"Sets and tracks a multi-week personal goal", age:"13–14y",
+    what:"Defines a personal goal, breaks it into steps, monitors progress over several weeks and adjusts to reach it",
+    why:"Self-directed goal-setting and monitoring is advanced self-management and metacognition (CASEL; Zimmerman self-regulated learning).",
+    how:"Help her choose a real goal (learn a song, save money), set milestones and review progress weekly.",
+    next:"Mentors a peer in goal-setting", src:"CASEL self-management / Zimmerman SRL" },
 ];
 SKILLS.push(...SKILLS_CUSTOM_SEED);
 
@@ -9618,6 +9812,111 @@ function domainXp(domKey){
   return _v31Cache.domXp[domKey] = sum;
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v10 — Domain Fluency Score (DFS) + domain-balance radar
+   DFS = power-mean of mastered-skill difficulties (Σd² / Σd), 0–10 scale,
+   so a few hard skills weigh more than many easy ones.
+   ═════════════════════════════════════════════════════════════════════════ */
+const DOMAIN_STAGES = {2:'Infant',4:'Toddler',6:'Preschool',8:'School',10:'Expert'};
+
+function stageLabelForDFS(dfs) {
+  const keys = [2,4,6,8,10];
+  for (let i = keys.length-1; i >= 0; i--)
+    if (dfs >= keys[i]-1) return DOMAIN_STAGES[keys[i]];
+  return 'Discovering';
+}
+
+function computeDFS(domKey) {
+  const all = [...SKILLS,...(SKILLS_CUSTOM_SEED||[]),...(state.skillsCustom||[])];
+  const mastered = all.filter(s => s.dom===domKey && isSkillMastered(s.id));
+  if (!mastered.length) return 0;
+  const d2 = mastered.reduce((a,s)=>a+Math.pow(s.difficulty||3,2),0);
+  const d  = mastered.reduce((a,s)=>a+(s.difficulty||3),0);
+  return Math.round(d2/d*10)/10;
+}
+
+/* Balance Index — 0–100 from the spread (σ) of DFS across DOMAINS.
+   Low spread → well-rounded; high spread → specialised. */
+function computeBalanceIndex() {
+  const scores = DOMAINS.map(d => computeDFS(d.key));
+  const mean   = scores.reduce((a,b)=>a+b,0) / scores.length;
+  const sigma  = Math.sqrt(scores.reduce((a,v)=>a+Math.pow(v-mean,2),0)/scores.length);
+  const idx    = Math.round(100*(1-sigma/5));
+  if (idx >= 80) return { score:idx, label:'Well-rounded' };
+  if (idx >= 55) return { score:idx, label:'Emerging specialist' };
+  return { score:idx, label:'Highly specialised' };
+}
+
+/* Map a DFS value (0–10) to a developmental age-range label. */
+function domainDevAgeLabel(dfs) {
+  const d = dfs;
+  if (d <= 1) return '0–3m';
+  if (d <= 2) return '3–8m';
+  if (d <= 3) return '8–15m';
+  if (d <= 4) return '15–24m';
+  if (d <= 5) return '24–42m';
+  if (d <= 6) return '42–60m';
+  if (d <= 7) return '5–7y';
+  if (d <= 8) return '7–10y';
+  if (d <= 9) return '10–13y';
+  return '13–14y';
+}
+
+/* Domain-balance radar over all DOMAINS (Chart.js 4.4.1, lazy-loaded from cdnjs
+   ONLY when this renders — no global blocking import). Named renderDFSRadar to
+   avoid colliding with the existing SVG sub-domain renderDomainRadar(domKey,…). */
+function renderDFSRadar(canvasId) {
+  if (typeof Chart === "undefined") {
+    if (!document.getElementById("_chartjs_cdn")) {
+      const sc = document.createElement("script");
+      sc.id = "_chartjs_cdn";
+      sc.src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js";
+      sc.onload = () => renderDFSRadar(canvasId);
+      document.head.appendChild(sc);
+    }
+    return; // re-invoked by onload
+  }
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const isDark = document.documentElement.classList.contains("dark")
+              || document.body.classList.contains("dark")
+              || document.body.classList.contains("theme-dark")
+              || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const gridColor  = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
+  const angleColor = isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.15)";
+  const tickColor  = isDark ? "#9CA3AF" : "#5C6680";
+  const labelColor = isDark ? "#E5E7EB" : "#1F2430";
+  const fill       = isDark ? "rgba(96,165,250,0.25)" : "rgba(59,130,246,0.20)";
+  const line       = isDark ? "#60A5FA" : "#3B82F6";
+  if (window._dfsRadar) { try { window._dfsRadar.destroy(); } catch(e){} window._dfsRadar = null; }
+  window._dfsRadar = new Chart(canvas.getContext("2d"), {
+    type: "radar",
+    data: {
+      labels: DOMAINS.map(d => (d.emoji || "") + " " + d.label),
+      datasets: [{
+        label: "Domain Fluency",
+        data: DOMAINS.map(d => computeDFS(d.key)),
+        fill: true, backgroundColor: fill, borderColor: line, borderWidth: 2,
+        pointBackgroundColor: line, pointBorderColor: line, pointRadius: 3,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.r.toFixed(1)} / 10 · ${stageLabelForDFS(ctx.parsed.r)}` } },
+      },
+      scales: { r: {
+        min: 0, max: 10, beginAtZero: true,
+        grid: { color: gridColor }, angleLines: { color: angleColor },
+        pointLabels: { color: labelColor, font: { size: 12 } },
+        ticks: { stepSize: 2, color: tickColor, backdropColor: "transparent",
+                 callback: (value) => DOMAIN_STAGES[value] || "" },
+      }},
+    },
+  });
+}
+
 /* XP → developmental level (1-5). 500 XP per level, capped at L5.
    Design decision: 500 XP / level matches typical per-domain XP density
    given the keystone×1.5 + tierMultiplier doubling formula (a child with
@@ -10066,6 +10365,47 @@ function _difficultyOf(s){
   } catch(e){ console.warn("v9 skill-tree migration failed", e); }
 })();
 
+/* ── v9b — additive prereq wiring for order-inversions + near-duplicates +
+   the 2 new rungs. Idempotent (skips a link that already exists); warns on a
+   missing id. Runs after migrateSkillTreeV9 so branch/difficulty/prereqs are
+   present; `hasCircular` is a hoisted function so the post-wire check is safe. */
+(function wireSkillTreeLinksV9b(){
+  try {
+    const byId = id => SKILLS.find(s => s.id === id);
+    const addPrereq = (toId, fromId) => {
+      const t = byId(toId), f = byId(fromId);
+      if (!t || !f){ console.warn("v9b wire: missing id", toId, fromId); return; }
+      t.prereqs = Array.isArray(t.prereqs) ? t.prereqs : [];
+      if (!t.prereqs.includes(fromId)) t.prereqs.push(fromId);
+    };
+    const setWhat = (id, what) => { const s = byId(id); if (s) s.what = what; };
+
+    // Fix 4 — order inversions (easier → harder.prereqs)
+    addPrereq("fm-stack-6", "fm-stack-3");                  // 4A
+    addPrereq("fm-crayon",  "fm-scribble");                 // 4B
+    addPrereq("fm-lines-v", "fm-scribble");                 // 4B
+    addPrereq("gm-coord-bounce", "gm-catch");               // 4C (already present)
+    ["co-sort-color","co-same-diff","co-missing","co-num-one-more","co-imitate-simple"]
+      .forEach(id => addPrereq(id, "co-cause-effect"));     // 4D — cognitive entry point
+
+    // Fix 5 — sequence near-duplicates + disambiguate their `what` text
+    addPrereq("la-rec-2step", "co-instr-2");                // 5A (cross-domain)
+    setWhat("co-instr-2",   "Familiar household routine; both steps given at once");
+    setWhat("la-rec-2step", "Novel, non-routine 2-step instruction for the first time");
+    addPrereq("la-gram-questions-form", "la-why");          // 5B
+    setWhat("la-why",                 "Single-query 'Why?' or 'Why not?' without full structure");
+    setWhat("la-gram-questions-form", "Full grammatical question: 'Why does the dog bark?'");
+    addPrereq("co-class-category", "co-sort-color");        // 5C
+
+    // Fix 6 — new ladder rungs slot into their branches
+    addPrereq("gm-rhythm-march", "gm-rhythm-drum-tap");     // 6A
+    addPrereq("so-emo-cause",    "soc-emotion-book-match"); // 6B
+
+    const cyc = SKILLS.filter(s => hasCircular(s.id)).map(s => s.id);
+    if (cyc.length) console.warn("v9b wire: circular prereqs introduced", cyc);
+  } catch(e){ console.warn("v9b skill-tree wiring failed", e); }
+})();
+
 /* ── v9 ZPD engine (reuses deriveStatus + branch/difficulty) ──────────────── */
 function isSkillMastered(skillId){
   const st = (typeof deriveStatus === "function") ? deriveStatus(skillId) : null;
@@ -10089,65 +10429,262 @@ function zdpScore(skill){
   if (diff < 0.5) return 3;                                          // consolidation
   return 1;
 }
-/* All skills for a domain, grouped by branch: every mastered (for context) +
-   the top-2 unlocked ZPD candidates per branch, sorted by difficulty. */
+/* ── v9b — ZPD floor config (tune in one place) ──────────────────────────── */
+const ZPD_HORIZON_MONTHS  = 18;   // preferred developmental-age lookahead
+const ZPD_EXTENDED_MONTHS = 36;   // fallback lookahead when the pool is thin
+const DOMAIN_FLOOR        = 20;   // minimum unmastered skills surfaced per domain
+
+/* Parse a skill's free-text age band → integer months (midpoint). Console-callable.
+   "24–30m"→27 · "~3y"→36 · "3–4y"→42 · "30m+"→33 · "4–5y"→54 · "~24m"→24 ·
+   "12–18m"→15 · "2–3y"→30 · "18m"→18. Fallback: (difficulty||5)*6.            */
+function skillAgeMidpointMonths(skill){
+  const a = ((skill && skill.age) || "").toString().toLowerCase().replace(/[~\s]/g, "");
+  if (a){
+    const isY = a.includes("y");
+    const toM = n => isY ? n * 12 : n;
+    let m = a.match(/(\d+(?:\.\d+)?)[–—-](\d+(?:\.\d+)?)/);          // range "a–b"
+    if (m) return Math.round(toM((parseFloat(m[1]) + parseFloat(m[2])) / 2));
+    if (a.includes("+")){                                           // open-ended "30m+" / "2+"
+      m = a.match(/(\d+(?:\.\d+)?)/);
+      if (m) return Math.round(toM(parseFloat(m[1])) + (isY ? 6 : 3));
+    }
+    m = a.match(/(\d+(?:\.\d+)?)/);                                  // single value
+    if (m) return Math.round(toM(parseFloat(m[1])));
+  }
+  return ((skill && skill.difficulty) || 5) * 6;
+}
+
+/* ── v10 — recalibrate skill difficulty onto a 14-year (168-month) scale ────
+   Bands per the master spec. NOTE: because `SKILLS`/`SKILLS_CUSTOM_SEED` are
+   const literals rebuilt every load (and migrateSkillTreeV9 re-derives
+   difficulty from udi on each load), this MUST run every load to have a
+   lasting effect — so it recalibrates in-memory on every load and only
+   persists the flag + saves ONCE (no per-load cloud-sync spam). It runs after
+   migrateSkillTreeV9 (call site is later in the file) so it is the final word
+   on difficulty.                                                               */
+function ageMidpointToNewDifficulty(months) {
+  if (months <= 3)   return 1;
+  if (months <= 8)   return 2;
+  if (months <= 15)  return 3;
+  if (months <= 24)  return 4;
+  if (months <= 42)  return 5;
+  if (months <= 60)  return 6;
+  if (months <= 84)  return 7;
+  if (months <= 120) return 8;
+  if (months <= 156) return 9;
+  return 10;
+}
+
+function migrateSkillDifficultyV10() {
+  const all = [...SKILLS,...(SKILLS_CUSTOM_SEED||[]),...(state.skillsCustom||[])];
+  let updated = 0;
+  all.forEach(s => {
+    const mid  = skillAgeMidpointMonths(s);
+    const newD = ageMidpointToNewDifficulty(mid);
+    if (Math.abs((s.difficulty||3) - newD) >= 1) { s.difficulty = newD; updated++; }
+  });
+  if (!state.skillDifficultyV10) {
+    state.skillDifficultyV10 = true;
+    saveState(state);
+    console.log('[V10] Recalibrated', updated, 'skill difficulties to 14y scale');
+  }
+}
+
+/* Active child's developmental age (months): mean age of MASTERED skills;
+   else actual age from currentChild().dob; else 24. Capped at 84 (7y).        */
+function childDevAgeMonths(){
+  const mastered = SKILLS.filter(s => isSkillMastered(s.id));
+  if (mastered.length){
+    const mean = mastered.reduce((a, s) => a + skillAgeMidpointMonths(s), 0) / mastered.length;
+    return Math.min(84, Math.round(mean));
+  }
+  const c = (typeof currentChild === "function") ? currentChild() : null;
+  if (c && c.dob){
+    const days = (Date.now() - new Date(c.dob).getTime()) / 86400000;
+    if (!isNaN(days) && days > 0) return Math.min(84, Math.round(days / 30.44));
+  }
+  return 24;
+}
+
+/* Circular-prereq detector (console-callable; used by self-checks). */
+function hasCircular(id, seen){
+  seen = seen || [];
+  if (seen.includes(id)) return true;
+  const s = SKILLS.find(x => x.id === id);
+  return (s && s.prereqs || []).some(p => hasCircular(p, [...seen, id]));
+}
+
+/* Dynamic domain floor: always surface ~DOMAIN_FLOOR unmastered skills, gated
+   by the child's developmental-age horizon. Reactive — recomputed on every
+   render, so mastering a skill instantly opens the next candidate.
+   (SKILLS already includes SKILLS_CUSTOM_SEED via the load-time push, so we do
+   NOT spread the seed again here — that would double-count.)                   */
 function getActiveSkillsForDomain(domKey){
   const all = [...SKILLS, ...((typeof state !== "undefined" && state.skillsCustom) || [])];
   const domSkills = all.filter(s => s.dom === domKey);
   domSkills.forEach(s => { if (!s.branch) s.branch = _branchOf(s); if (typeof s.difficulty !== "number") s.difficulty = _difficultyOf(s); });
-  const branches = [...new Set(domSkills.map(s => s.branch).filter(Boolean))];
-  const active = [];
-  branches.forEach(branch => {
-    const branchSkills = domSkills.filter(s => s.branch === branch);
-    const mastered = branchSkills.filter(s => isSkillMastered(s.id));
-    const candidates = branchSkills
-      .filter(s => !isSkillMastered(s.id) && isUnlocked(s))
-      .map(s => ({ ...s, _zpd: zdpScore(s) }))
-      .sort((a,b) => b._zpd - a._zpd)
-      .slice(0, 4);
-    active.push(...mastered, ...candidates);
-  });
-  return active.sort((a,b) => (a.difficulty||5) - (b.difficulty||5));
+  const devAge = childDevAgeMonths();
+
+  const mastered = domSkills.filter(s => isSkillMastered(s.id));
+
+  // Phase 1 — unlocked + within preferred ZPD horizon.
+  const phase1 = domSkills
+    .filter(s => !isSkillMastered(s.id) && isUnlocked(s)
+              && skillAgeMidpointMonths(s) <= devAge + ZPD_HORIZON_MONTHS)
+    .map(s => ({ ...s, _zpd: zdpScore(s), _phase: 1 }))
+    .sort((a,b) => b._zpd - a._zpd || (a.difficulty||5) - (b.difficulty||5));
+
+  // Phase 2 — extend the horizon if Phase 1 is below the floor.
+  let candidates = phase1;
+  if (candidates.length < DOMAIN_FLOOR){
+    const p1 = new Set(phase1.map(s => s.id));
+    const phase2 = domSkills
+      .filter(s => !isSkillMastered(s.id) && isUnlocked(s) && !p1.has(s.id)
+                && skillAgeMidpointMonths(s) <= devAge + ZPD_EXTENDED_MONTHS)
+      .map(s => ({ ...s, _zpd: zdpScore(s), _phase: 2 }))
+      .sort((a,b) => (a.difficulty||5) - (b.difficulty||5));
+    candidates = [...phase1, ...phase2].slice(0, DOMAIN_FLOOR);
+  }
+
+  // Phase 3 — still short: add "almost-unlocked" skills (locked, missing exactly
+  // one prereq that is itself unlocked) within the extended horizon.
+  if (candidates.length < DOMAIN_FLOOR){
+    const used = new Set(candidates.map(s => s.id));
+    const almost = domSkills
+      .filter(s => !isSkillMastered(s.id) && !isUnlocked(s) && !used.has(s.id)
+                && skillAgeMidpointMonths(s) <= devAge + ZPD_EXTENDED_MONTHS)
+      .filter(s => {
+        const missing = (s.prereqs || []).filter(p => !isSkillMastered(p));
+        return missing.length === 1 && isUnlocked(all.find(x => x.id === missing[0]) || {});
+      })
+      .map(s => ({ ...s, _phase: 3 }))
+      .sort((a,b) => (a.difficulty||5) - (b.difficulty||5));
+    candidates = [...candidates, ...almost.slice(0, DOMAIN_FLOOR - candidates.length)];
+  }
+
+  const sorted = candidates.sort((a,b) => (a.difficulty||5) - (b.difficulty||5));
+  return [...mastered, ...sorted];
 }
 
 /* ── v9 AI tutor brief (branch/ZPD-based; coexists with exportTutorBrief) ──── */
 function generateTutorBrief(){
   const child = (typeof currentChild === "function" && currentChild()) || { name: (typeof state!=="undefined" && state.currentChild) || "—", dob:null };
+  const childName = child.name || "your child";
+
+  // Full skill universe — used for cross-domain prereq lookups.
+  const ALL_SKILLS = [
+    ...SKILLS,
+    ...((typeof SKILLS_CUSTOM_SEED !== "undefined" && SKILLS_CUSTOM_SEED) || []),
+    ...((typeof state !== "undefined" && state.skillsCustom) || [])
+  ];
+  const skillById = {};
+  ALL_SKILLS.forEach(s => { if (s && s.id != null) skillById[s.id] = s; });
+  const domLabelByKey = {};
+  DOMAINS.forEach(d => { domLabelByKey[d.key] = d.label; });
+
+  // ── DFS per domain ──────────────────────────────────────────────────────
   const domains = DOMAINS.map(d => {
-    const domSkills = SKILLS.filter(s => s.dom === d.key);
+    const dfs       = computeDFS(d.key);
+    const domSkills = ALL_SKILLS.filter(s => s.dom === d.key);
     const mastered  = domSkills.filter(s => isSkillMastered(s.id));
     const active    = getActiveSkillsForDomain(d.key).filter(s => !isSkillMastered(s.id));
     const locked    = domSkills.filter(s => !isSkillMastered(s.id) && !isUnlocked(s));
-    const avgDiff   = mastered.length ? mastered.reduce((a,b)=>a+(b.difficulty||3),0)/mastered.length : 0;
     return {
       domain: d.key, label: d.label,
+      dfs: +dfs.toFixed(1),
+      fluency: dfs.toFixed(1) + " / 10 (" + stageLabelForDFS(dfs) + ")",
+      stage: stageLabelForDFS(dfs),
       mastered_count: mastered.length,
-      avg_difficulty: +avgDiff.toFixed(1),
-      current_level: Math.round(avgDiff),
-      next_skills: active.slice(0,3).map(s => ({ id:s.id, title:s.t, branch:s.branch, difficulty:s.difficulty, how:s.how, prereqs_met: isUnlocked(s) })),
+      next_skills: active.slice(0,3).map(s => ({
+        id: s.id, title: s.t, branch: s.branch, difficulty: s.difficulty,
+        keystone: !!s.keystone, how: s.how, prereqs_met: isUnlocked(s)
+      })),
       locked_count: locked.length
     };
   });
+
+  // ── IMBALANCE DETECTION ───────────────────────────────────────────────────
+  const dfsList = DOMAINS.map(d => ({ key:d.key, label:d.label, dfs:computeDFS(d.key) }));
+  const mean = dfsList.reduce((a,d)=>a+d.dfs,0)/dfsList.length;
+  const lagging = dfsList.filter(d => d.dfs < mean - 2.0).sort((a,b)=>a.dfs-b.dfs);
+
+  const insights = [];
+  if (lagging.length > 0){
+    const top = lagging[0];
+    insights.push(
+      top.label + " is notably behind " + childName + "'s other domains (DFS " +
+      top.dfs.toFixed(1) + " vs avg " + mean.toFixed(1) +
+      "). A short focused session here would have the highest impact this week."
+    );
+    const topActive = getActiveSkillsForDomain(top.key).filter(s => !isSkillMastered(s.id));
+    const keystone  = topActive.find(s => s.keystone === true);
+    if (keystone){
+      insights.push("Mastering '" + keystone.t + "' will unlock multiple downstream skills.");
+    }
+  }
+
+  // ── CROSS-DOMAIN ("dual-benefit") ACTIVITIES ──────────────────────────────
+  const dualBenefit = [];
+  for (const d of DOMAINS){
+    if (dualBenefit.length >= 2) break;
+    const active = getActiveSkillsForDomain(d.key).filter(s => !isSkillMastered(s.id));
+    for (const s of active){
+      if (dualBenefit.length >= 2) break;
+      const crossDom = (s.prereqs || [])
+        .map(pid => skillById[pid])
+        .find(ps => ps && ps.dom && ps.dom !== s.dom);
+      if (crossDom){
+        dualBenefit.push({
+          skill_id: s.id, title: s.t, domain: s.dom,
+          domain_label: domLabelByKey[s.dom] || s.dom,
+          bridges_domain: crossDom.dom,
+          bridges_domain_label: domLabelByKey[crossDom.dom] || crossDom.dom,
+          via_skill: crossDom.t
+        });
+      }
+    }
+  }
+  dualBenefit.slice(0,2).forEach(db => {
+    insights.push(
+      "'" + db.title + "' (" + db.domain_label + ") is a dual-benefit activity — it builds on '" +
+      db.via_skill + "' from " + db.bridges_domain_label +
+      ", so a single session strengthens two domains at once."
+    );
+  });
+
   const langs = (child.languages && child.languages.length) ? child.languages : ["en","fr"];
   const brief = {
     child: { name: child.name, dob: child.dob || null, languages: langs },
     date: new Date().toISOString().slice(0,10),
+    domain_fluency_summary: dfsList.map(d => ({
+      domain: d.key, label: d.label,
+      dfs: +d.dfs.toFixed(1), stage: stageLabelForDFS(d.dfs)
+    })),
+    average_dfs: +mean.toFixed(1),
+    insights,
+    lagging_domains: lagging.map(d => ({ domain:d.key, label:d.label, dfs:+d.dfs.toFixed(1) })),
+    dual_benefit_activities: dualBenefit,
     domains,
     tutor_instructions:
 `You are an adaptive child development tutor.
 Use this brief to suggest 1–2 activities for today's session.
 
+Domain Fluency Score (DFS) is a 0–10 measure of how deeply ${child.name || "the child"} has consolidated each domain (higher = more advanced stage). Use it to balance the session.
+
 Rules:
 1. Target the next_skills listed (ZPD — just one step harder than current level).
-2. Use the how field for activity ideas; keep activities playful and household-friendly.
-3. Activities should weave together 2+ domains when possible for efficiency.
-4. Adapt language: use ${langs.join(" and ")} vocabulary.
-5. For each suggestion provide: title, materials needed (household only), step-by-step instructions (3–5 steps), target skill IDs, estimated duration.
-6. Never suggest skills where prereqs_met is false.
-7. Frame everything positively — celebrate current level, name the next milestone.
+2. Prioritise any domains in lagging_domains — they are behind the child's average DFS and yield the highest impact.
+3. If a keystone next_skill is listed, favour it: mastering it unlocks multiple downstream skills.
+4. Prefer dual_benefit_activities when possible — they strengthen two domains in one session.
+5. Use the how field for activity ideas; keep activities playful and household-friendly.
+6. Adapt language: use ${langs.join(" and ")} vocabulary.
+7. For each suggestion provide: title, materials needed (household only), step-by-step instructions (3–5 steps), target skill IDs, estimated duration.
+8. Never suggest skills where prereqs_met is false.
+9. Frame everything positively — celebrate the current DFS stage, name the next milestone.
 
 Output format: JSON array of activity objects, no prose.`
   };
+
   const json = JSON.stringify(brief, null, 2);
   if (navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(json).then(
@@ -10990,20 +11527,23 @@ function renderSkillTree(){
   const doms = DOMAINS.filter(d => !fd || d.key === fd);
   let html = "";
   doms.forEach(d => {
-    const all = SKILLS.filter(s => s.dom === d.key);
-    if (!all.length) return;
+    // Active pool = mastered (chips) + phased candidates (Phase 1/2 cards,
+    // Phase 3 locked rows). Far-beyond-horizon skills are NOT in this list, so
+    // they never render as locked rows.
     const active = getActiveSkillsForDomain(d.key);
-    const activeIds = new Set(active.filter(s => !isSkillMastered(s.id)).map(s => s.id));
+    if (!active.length) return;
     html += `<div style="margin:14px 0 4px; font-size:15px; font-weight:800; color:var(--ink)">${d.emoji} ${escapeHtml(d.label)}</div>`;
     branchesFor(d.key).forEach(branch => {
-      const bSkills = all.filter(s => s.branch === branch).sort((a,b)=>(a.difficulty||5)-(b.difficulty||5));
-      if (!bSkills.length) return;
-      const mastered = bSkills.filter(s => isSkillMastered(s.id));
-      const unmastered = bSkills.filter(s => !isSkillMastered(s.id));
+      const inBranch = active.filter(s => s.branch === branch);
+      if (!inBranch.length) return;
+      const mastered  = inBranch.filter(s => isSkillMastered(s.id));
+      const candidates = inBranch.filter(s => !isSkillMastered(s.id))
+        .sort((a,b) => (a.difficulty||5) - (b.difficulty||5));   // Fix 3.2: difficulty ASC
+      const totalInBranch = SKILLS.filter(s => s.dom === d.key && s.branch === branch).length;
       html += `<div style="margin:6px 0; border:1px solid var(--line); border-radius:12px; overflow:hidden">
         <div style="padding:8px 12px; background:#F8FAFC; font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:8px">
           <span>${escapeHtml(branchLabel(branch))}</span>
-          <span style="font-size:11px; color:var(--muted)">${mastered.length}/${bSkills.length} mastered</span>
+          <span style="font-size:11px; color:var(--muted)">${mastered.length}/${totalInBranch} mastered</span>
         </div>`;
       if (mastered.length){
         html += `<details style="padding:6px 12px; background:#F0FDF4">
@@ -11012,18 +11552,9 @@ function renderSkillTree(){
             ${mastered.map(s => `<span style="background:#DCFCE7; color:#14532D; border:1px solid #86EFAC; border-radius:999px; padding:3px 9px; font-size:12px">✓ ${escapeHtml(s.t)}</span>`).join("")}
           </div></details>`;
       }
-      unmastered.forEach(s => {
-        const status = skillStatus(s.id);
-        if (isUnlocked(s)){
-          const isAct = activeIds.has(s.id);
-          html += `<div class="skill-row" data-skillid="${escapeHtml(s.id)}" style="display:flex; gap:10px; padding:10px 12px; border-top:1px solid var(--line); cursor:pointer; align-items:center; ${isAct ? 'background:#FFFBEB; border-left:3px solid #F59E0B;' : ''}">
-            <div style="flex:1; min-width:0">
-              <div style="font-weight:700; font-size:14px">${escapeHtml(s.t)} ${isAct ? '<span style="font-size:10px; background:#FEF3C7; color:#854D0E; padding:1px 6px; border-radius:4px; font-weight:700">Ready to try</span>' : ''}</div>
-              <div style="font-size:11px; color:var(--muted)">${escapeHtml(s.age || "")} · difficulty ${s.difficulty}</div>
-            </div>
-            <button class="small" data-skillcycle="${escapeHtml(s.id)}" style="font-size:11px; white-space:nowrap">${escapeHtml(STATUS_LABEL[status] || status)}</button>
-          </div>`;
-        } else {
+      candidates.forEach(s => {
+        if (s._phase === 3){
+          // Almost-unlocked (locked, missing exactly one unlocked prereq).
           const missing = (s.prereqs || []).filter(p => !isSkillMastered(p))
             .map(p => { const ps = SKILLS.find(x => x.id === p); return ps ? ps.t : p; });
           html += `<div style="display:flex; gap:10px; padding:10px 12px; border-top:1px solid var(--line); align-items:center; opacity:.6; background:#F9FAFB">
@@ -11031,6 +11562,20 @@ function renderSkillTree(){
               <div style="font-weight:600; font-size:13px; color:var(--muted)">🔒 ${escapeHtml(s.t)}</div>
               <div style="font-size:11px; color:var(--muted)">Unlock by mastering: ${escapeHtml(missing.join(", ")) || "—"}</div>
             </div>
+          </div>`;
+        } else {
+          // Phase 1 = "Ready to try" (amber); Phase 2 = "🔜 upcoming" (muted).
+          const status = skillStatus(s.id);
+          const upcoming = s._phase === 2;
+          const tag = upcoming
+            ? '<span style="font-size:10px; background:#E5E7EB; color:#374151; padding:1px 6px; border-radius:4px; font-weight:700">🔜 upcoming</span>'
+            : '<span style="font-size:10px; background:#FEF3C7; color:#854D0E; padding:1px 6px; border-radius:4px; font-weight:700">Ready to try</span>';
+          html += `<div class="skill-row" data-skillid="${escapeHtml(s.id)}" style="display:flex; gap:10px; padding:10px 12px; border-top:1px solid var(--line); cursor:pointer; align-items:center; ${upcoming ? 'opacity:.8;' : 'background:#FFFBEB; border-left:3px solid #F59E0B;'}">
+            <div style="flex:1; min-width:0">
+              <div style="font-weight:700; font-size:14px">${escapeHtml(s.t)} ${tag}</div>
+              <div style="font-size:11px; color:var(--muted)">${escapeHtml(s.age || "")} · difficulty ${s.difficulty}</div>
+            </div>
+            <button class="small" data-skillcycle="${escapeHtml(s.id)}" style="font-size:11px; white-space:nowrap">${escapeHtml(STATUS_LABEL[status] || status)}</button>
           </div>`;
         }
       });
@@ -11270,7 +11815,8 @@ function drawSkillCatalogue(){
   let html = "";
   let masteredCount = 0;
 
-  SKILLS.forEach(s => {
+  // Fix 3.3 — List view renders difficulty ascending (primary sort).
+  [...SKILLS].sort((a,b) => (a.difficulty||5) - (b.difficulty||5)).forEach(s => {
     // Improvement 3: hidden-skill filtering. Default: hidden===true skills
     // are excluded when _catShowHidden is false. Missing `hidden` property
     // is treated as `false` (visible).
@@ -13793,6 +14339,10 @@ migrateToChildNamespaceV7();
     saveState(state);
   } catch(e){ console.warn("ghost child-data cleanse v8 failed", e); }
 })();
+
+// v10 — recalibrate skill difficulty to the 14y scale (runs after the skill-tree
+// + child-namespace migrations so it has the final word on s.difficulty).
+try { migrateSkillDifficultyV10(); } catch(e){ console.warn("v10 difficulty migration failed", e); }
 
 function ageInDays(dob){
   if (!dob) return null; // unknown birth date (e.g. Jordan until set in Settings)
