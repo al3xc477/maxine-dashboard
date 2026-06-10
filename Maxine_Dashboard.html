@@ -1684,6 +1684,11 @@
       <div id="louTopTip" style="font-size:14px; line-height:1.55"></div>
     </div>
 
+    <div class="card" style="margin-bottom:14px">
+      <h2>📈 Last 7 days</h2>
+      <div id="louCharts" style="display:flex; gap:16px; overflow-x:auto; padding-bottom:4px"></div>
+    </div>
+
     <div class="card">
       <h2>📊 Recent log (last 20 events)</h2>
       <div id="louLog" style="font-size:13px; max-height:50vh; overflow:auto"></div>
@@ -7550,23 +7555,62 @@ function renderProgressView(){
     try { if (typeof renderMasteredLibrary === "function") renderMasteredLibrary(d.key, row.querySelector("#v6Mastered_"+d.key)); } catch(e){ console.warn("v6 mastered library render failed", e); }
   });
 
-  // Recent
-  const recent = [...(state.history||[])].slice(-20).reverse();
-  rec.innerHTML = recent.length ? recent.map(h=>{
+  // Recent — newest first, with per-row delete (✕). data-hist-del carries the
+  // TRUE index into state.history (active child's working set).
+  const recent = (state.history||[]).map((h, hi) => ({ h, hi })).slice(-20).reverse();
+  rec.innerHTML = recent.length ? recent.map(({ h, hi })=>{
     const ai = (h.actId || "").split("-");
     const wk = ai[0], dom = ai[1], idx = ai[2];
     const theme = THEMES.find(t=>t.w==wk);
     const dInfo = DOMAINS.find(x=>x.key===dom);
     const a = theme && dInfo ? (theme[dom]||[])[idx] : null;
+    const right = (_progPendingDel === hi)
+      ? `<div style="display:flex; align-items:center; gap:4px; white-space:nowrap">
+           <span style="font-size:11px; color:#991B1B">Delete?</span>
+           <button data-hist-del-yes="${hi}" class="small danger" style="padding:6px 10px; min-height:0; font-size:12px">Yes</button>
+           <button data-hist-del-no="${hi}" class="small" style="padding:6px 10px; min-height:0; font-size:12px">Cancel</button>
+         </div>`
+      : `<button data-hist-del="${hi}" aria-label="Delete entry" title="Delete" style="flex:0 0 auto; background:none; border:none; color:#9CA3AF; font-size:15px; line-height:1; cursor:pointer; min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center">✕</button>`;
     return `
-      <div style="padding:8px 0; border-bottom:1px solid var(--line); font-size:13px">
-        <div style="font-weight:600">${a ? escapeHtml(a.t) : "Activity"}
-          <span class="act-status-badge s-${h.fb}">${prettyStatus(h.fb)}</span></div>
-        <div style="color:var(--muted); font-size:12px">${dInfo?dInfo.emoji+" "+dInfo.label:""} · ${theme?"W"+theme.w+" "+escapeHtml(theme.title):""} · ${escapeHtml(h.user||"—")} · ${new Date(h.ts).toLocaleString("en-GB")}</div>
+      <div style="display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line); font-size:13px">
+        <div style="flex:1; min-width:0; padding:8px 0">
+          <div style="font-weight:600">${a ? escapeHtml(a.t) : "Activity"}
+            <span class="act-status-badge s-${h.fb}">${prettyStatus(h.fb)}</span></div>
+          <div style="color:var(--muted); font-size:12px">${dInfo?dInfo.emoji+" "+dInfo.label:""} · ${theme?"W"+theme.w+" "+escapeHtml(theme.title):""} · ${escapeHtml(h.user||"—")} · ${new Date(h.ts).toLocaleString("en-GB")}</div>
+        </div>
+        ${right}
       </div>
     `;
   }).join("") : '<div style="color:var(--muted); font-size:13px">No activity logged yet.</div>';
 }
+
+/* Toddler activity-log delete (Progress "Recent" list → state.history). Same
+   1-hour inline-confirm rule as the newborn log. */
+let _progPendingDel = null;
+function deleteHistoryEntry(idx){
+  _progPendingDel = null;
+  if (!Array.isArray(state.history)) return;
+  if (idx < 0 || idx >= state.history.length) return;
+  state.history.splice(idx, 1);
+  saveState(state);
+  if (typeof syncPushDebounced === "function") syncPushDebounced();
+  renderProgressView();
+}
+document.addEventListener("click", (e)=>{
+  const del = e.target.closest("[data-hist-del]");
+  if (del){
+    const idx = parseInt(del.dataset.histDel, 10);
+    const h = (state.history || [])[idx];
+    if (!h) return;
+    if (h.ts < Date.now() - 3600000){ _progPendingDel = idx; renderProgressView(); }
+    else { deleteHistoryEntry(idx); }
+    return;
+  }
+  const yes = e.target.closest("[data-hist-del-yes]");
+  if (yes){ deleteHistoryEntry(parseInt(yes.dataset.histDelYes, 10)); return; }
+  const no = e.target.closest("[data-hist-del-no]");
+  if (no){ _progPendingDel = null; renderProgressView(); return; }
+});
 
 /* Toggle domain detail panel (expand/collapse on click) */
 function toggleDomDetail(key){
@@ -10775,6 +10819,14 @@ function drawSkillCatalogue(){
     </div>`;
   }
 
+  // Newborn-mode note: the catalogue is shown in full (no age/UDI filter) so
+  // parents can log any early milestone for Lou / Jordan.
+  const _nbChild = (typeof currentChild === "function") ? currentChild() : null;
+  if (_nbChild && _nbChild.mode === "newborn"){
+    html = `<div style="padding:10px 14px; background:#FFF7FB; border-bottom:1px solid var(--line); font-size:13px; color:#9D174D">
+      👶 Showing all skills — log any milestone you observe for ${escapeHtml(_nbChild.name || "")}.</div>` + html;
+  }
+
   list.innerHTML = html || '<div style="padding:20px; text-align:center; color:var(--muted)">No skills match the filters.</div>';
 }
 
@@ -13363,8 +13415,9 @@ function applyChildMode(){
   // driven by the child's `mode` field — applies to Lou and Jordan.
   const _c = (typeof currentChild === "function") ? currentChild() : null;
   const isLou = _c ? (_c.mode === "newborn") : (state.currentChild === "Lou");
-  // Tabs to hide in newborn mode (toddler-only)
-  ["catalogue","vocabulary","meals","overview"].forEach(name => {
+  // Tabs to hide in newborn mode (toddler-only). Skills/catalogue stays VISIBLE
+  // for newborns so parents can log early milestones (full catalogue, no filter).
+  ["vocabulary","meals","overview"].forEach(name => {
     const btn = document.querySelector(`.nav-btn[data-view="${name}"]`);
     if (btn) btn.style.display = isLou ? "none" : "";
   });
@@ -13377,8 +13430,9 @@ function applyChildMode(){
   if (mainView) mainView.style.display = (isLou && onDashboard) ? "none" : (onDashboard ? "" : "none");
   if (themeBanner) themeBanner.style.display = (isLou && onDashboard) ? "none" : (onDashboard ? "flex" : "none");
   if (focusCard) focusCard.style.display = (isLou && onDashboard) ? "none" : (onDashboard ? "" : "none");
-  // If Lou is on a hidden tab, force back to dashboard
-  if (isLou && ["catalogue","vocabulary","meals","overview"].includes(getActiveView())){
+  // If a newborn child is on a still-hidden tab, force back to dashboard
+  // (catalogue is intentionally NOT in this list — it stays available).
+  if (isLou && ["vocabulary","meals","overview"].includes(getActiveView())){
     if (typeof showView === "function") showView("dashboard");
   }
   if (isLou && louHome) renderLouHome();
@@ -13423,8 +13477,87 @@ function fmtAgo(ts){
   return `${h}h ${r}m ago`;
 }
 
+/* ── Newborn rolling 7-day charts (inline SVG, no libraries) ─────────────────
+   Day buckets use UTC day keys (toISOString slice) to match todayKey() so a
+   chart's "today" column equals the summary "today" counts above.            */
+function _last7Buckets(){
+  const days = [];
+  for (let i = 6; i >= 0; i--){
+    const d = new Date(Date.now() - i*86400000);
+    days.push({ label: d.toLocaleDateString("en", {weekday:"short"}), date: d.toISOString().slice(0,10), count:0, totalMinutes:0 });
+  }
+  return days;
+}
+function rollup7Days(events, predicate, mode){
+  const days = _last7Buckets();
+  const byDate = {}; days.forEach(d => byDate[d.date] = d);
+  (events||[]).forEach(e => {
+    if (!e || !predicate(e)) return;
+    const b = byDate[new Date(e.ts).toISOString().slice(0,10)];
+    if (!b) return;
+    b.count += 1;
+    if (mode === "duration") b.totalMinutes += (e.duration || 0);
+  });
+  return days;
+}
+/* Sleep minutes per day — pair each sleep-start with the next sleep-end and
+   attribute the minutes to the start day's bucket (mirrors renderLouHome). */
+function rollup7DaysSleep(events){
+  const days = _last7Buckets();
+  const byDate = {}; days.forEach(d => byDate[d.date] = d);
+  let lastStart = null;
+  (events||[]).slice().sort((a,b)=>a.ts-b.ts).forEach(e => {
+    if (!e) return;
+    if (e.type === "sleep-start") lastStart = e.ts;
+    else if (e.type === "sleep-end" && lastStart != null){
+      const b = byDate[new Date(lastStart).toISOString().slice(0,10)];
+      if (b) b.totalMinutes += Math.max(0, Math.floor((e.ts - lastStart)/60000));
+      lastStart = null;
+    }
+  });
+  return days;
+}
+function renderBarChart(data, valueKey, color, unit){
+  const barW = 28, gap = 12, H = 80;
+  const maxVal = Math.max(...data.map(d => d[valueKey] || 0), 1);
+  const bars = data.map((d, i) => {
+    const val = d[valueKey] || 0;
+    const barH = Math.round((val / maxVal) * 60);
+    const x = i * (barW + gap);
+    const y = 60 - barH;
+    return `
+      <rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${color}" rx="4" opacity="0.85"/>
+      <text x="${x + barW/2}" y="76" text-anchor="middle" font-size="9" fill="#5C6680">${escapeHtml(d.label)}</text>
+      <text x="${x + barW/2}" y="${y - 3}" text-anchor="middle" font-size="9" fill="${color}">${val || ""}</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${(barW+gap)*7} ${H}" style="width:100%; max-width:300px; display:block">${bars}</svg>
+    <div style="font-size:11px; color:#5C6680; text-align:right; margin-top:2px">Last 7 days · ${escapeHtml(unit)}</div>`;
+}
+function renderLouCharts(events){
+  const wrap = document.getElementById("louCharts");
+  if (!wrap) return;
+  const charts = [
+    { emoji:"🍼", name:"Feeds",   data: rollup7Days(events, e=>e.type && e.type.startsWith("feed-"),   "count"),    key:"count",        color:"#2E5BFF", unit:"feeds/day",   statUnit:"feeds" },
+    { emoji:"😴", name:"Sleep",   data: rollup7DaysSleep(events),                                                    key:"totalMinutes", color:"#16A34A", unit:"min/day",     statUnit:"min" },
+    { emoji:"🩲", name:"Diapers", data: rollup7Days(events, e=>e.type && e.type.startsWith("diaper-"), "count"),    key:"count",        color:"#F59E0B", unit:"diapers/day", statUnit:"diapers" },
+    { emoji:"🤸", name:"Tummy",   data: rollup7Days(events, e=>e.type==="tummy", "duration"),                       key:"totalMinutes", color:"#FB923C", unit:"min/day",     statUnit:"min" },
+    { emoji:"🫂", name:"Skin",    data: rollup7Days(events, e=>e.type==="skin",  "duration"),                       key:"totalMinutes", color:"#EC4899", unit:"min/day",     statUnit:"min" },
+  ];
+  wrap.innerHTML = charts.map(c => {
+    const total = c.data.reduce((s,d)=> s + (d[c.key]||0), 0);
+    const avgStr = (Math.round((total/7)*10)/10).toString().replace(".", ",");
+    const todayVal = c.data[c.data.length-1][c.key] || 0;
+    return `<div style="flex:0 0 auto; min-width:200px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; box-shadow:var(--shadow)">
+      <div style="font-weight:700; font-size:13px; margin-bottom:8px">${c.emoji} ${c.name}</div>
+      ${renderBarChart(c.data, c.key, c.color, c.unit)}
+      <div style="font-size:11px; color:var(--muted); margin-top:4px">Avg ${avgStr} ${c.statUnit}/day · Today: ${todayVal}</div>
+    </div>`;
+  }).join("");
+}
+
 function renderLouHome(){
   const events = (state.lou && state.lou.events) || [];
+  renderLouCharts(events);   // rolling 7-day trend charts (re-renders on every log + delete)
   const day = todayKey();
   const today = events.filter(e => new Date(e.ts).toISOString().slice(0,10) === day);
 
@@ -13506,18 +13639,58 @@ function renderLouHome(){
     <div style="font-size:11px; color:var(--muted); font-style:italic; margin-top:6px">📚 ${escapeHtml(tip.src)}</div>
   ` : "Switch to Progress for full advice.";
 
-  // Recent log
-  const recent = [...events].slice(-20).reverse();
-  document.getElementById("louLog").innerHTML = recent.length ? recent.map(e => {
+  // Recent log — newest first, with per-row delete (✕). The data-lou-del index
+  // is the TRUE index into state.lou.events so deletes hit the right entry.
+  const indexed = events.map((e, i) => ({ e, i }));
+  const recent = indexed.slice(-20).reverse();
+  document.getElementById("louLog").innerHTML = recent.length ? recent.map(({ e, i }) => {
     const labels = { "feed-breast":"🤱 Breast feed", "feed-bottle":"🍼 Bottle", "sleep-start":"💤 Sleep started", "sleep-end":"☀️ Sleep ended", "diaper-wet":"💧 Wet diaper", "diaper-dirty":"💩 Dirty diaper", "diaper-both":"💧💩 Diaper (both)", "tummy":"🤸 Tummy time", "skin":"🤱 Skin-to-skin" };
+    const right = (_louPendingDel === i)
+      ? `<div style="display:flex; align-items:center; gap:4px; white-space:nowrap">
+           <span style="font-size:11px; color:#991B1B">Delete?</span>
+           <button data-lou-del-yes="${i}" class="small danger" style="padding:6px 10px; min-height:0; font-size:12px">Yes</button>
+           <button data-lou-del-no="${i}" class="small" style="padding:6px 10px; min-height:0; font-size:12px">Cancel</button>
+         </div>`
+      : `<button data-lou-del="${i}" aria-label="Delete entry" title="Delete" style="flex:0 0 auto; background:none; border:none; color:#9CA3AF; font-size:15px; line-height:1; cursor:pointer; min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center">✕</button>`;
     return `
-      <div style="padding:6px 0; border-bottom:1px solid var(--line)">
-        <div style="font-weight:600">${labels[e.type] || e.type} ${e.duration ? `· ${e.duration} min` : ""}</div>
-        <div style="font-size:11px; color:var(--muted)">${escapeHtml(e.user||"")} · ${new Date(e.ts).toLocaleString("en-GB")}</div>
+      <div style="display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line)">
+        <div style="flex:1; min-width:0; padding:6px 0">
+          <div style="font-weight:600">${labels[e.type] || e.type} ${e.duration ? `· ${e.duration} min` : ""}</div>
+          <div style="font-size:11px; color:var(--muted)">${escapeHtml(e.user||"")} · ${new Date(e.ts).toLocaleString("en-GB")}</div>
+        </div>
+        ${right}
       </div>
     `;
   }).join("") : '<div style="color:var(--muted)">No events yet.</div>';
 }
+
+/* Newborn-event delete. Operates on the ACTIVE child's store (state.lou is the
+   active child's namespace via the working-set swap). Entries older than 1 hour
+   require an inline confirm; recent ones (likely mis-taps) delete immediately. */
+let _louPendingDel = null;
+function deleteNewbornEvent(idx){
+  _louPendingDel = null;
+  if (!state.lou || !Array.isArray(state.lou.events)) return;
+  if (idx < 0 || idx >= state.lou.events.length) return;
+  state.lou.events.splice(idx, 1);
+  saveState(state);
+  renderLouHome();
+}
+document.addEventListener("click", (e)=>{
+  const del = e.target.closest("[data-lou-del]");
+  if (del){
+    const idx = parseInt(del.dataset.louDel, 10);
+    const ev = (state.lou && state.lou.events || [])[idx];
+    if (!ev) return;
+    if (ev.ts < Date.now() - 3600000){ _louPendingDel = idx; renderLouHome(); }
+    else { deleteNewbornEvent(idx); }
+    return;
+  }
+  const yes = e.target.closest("[data-lou-del-yes]");
+  if (yes){ deleteNewbornEvent(parseInt(yes.dataset.louDelYes, 10)); return; }
+  const no = e.target.closest("[data-lou-del-no]");
+  if (no){ _louPendingDel = null; renderLouHome(); return; }
+});
 
 // Lou action handlers
 document.addEventListener("click", (e)=>{
