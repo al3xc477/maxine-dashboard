@@ -1066,9 +1066,10 @@
     </div>
     <div class="row" style="align-items:center; flex-wrap:wrap">
       <span class="pill pill-blue" id="weekPill">Week –</span>
-      <div class="user-picker" id="childPicker" style="background:#FCE7F3">
+      <div class="user-picker" id="childPicker" style="background:#FCE7F3; flex-wrap:wrap">
         <button class="upbtn" data-child="Maxine">👧 Maxine</button>
         <button class="upbtn" data-child="Lou">👶 Lou</button>
+        <button class="upbtn" data-child="Jordan">🧒 Jordan</button>
       </div>
       <div class="user-picker" id="userPicker">
         <button class="upbtn" data-user="Alex">👨 Alex</button>
@@ -1830,17 +1831,8 @@
 
     <!-- Screen 1 — Language picker -->
     <div id="bingoScreen1" style="display:none">
-      <div class="sub" style="color:var(--muted); font-size:14px; margin-bottom:18px">Maxine, which language are we practising today?</div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
-        <button class="primary" data-bingo-lang="en" style="min-height:64px; font-size:18px; flex-direction:column; line-height:1.2">
-          <span style="font-size:30px; line-height:1; display:block; margin-bottom:4px">🇬🇧</span>
-          <span>English</span>
-        </button>
-        <button class="primary" data-bingo-lang="fr" style="min-height:64px; font-size:18px; background:#9D174D">
-          <span style="font-size:30px; line-height:1; display:block; margin-bottom:4px">🇫🇷</span>
-          <span>Français</span>
-        </button>
-      </div>
+      <div class="sub" id="bingoLangPrompt" style="color:var(--muted); font-size:14px; margin-bottom:18px">Which language are we practising today?</div>
+      <div id="bingoLangGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px"></div>
       <div class="sub" style="color:var(--muted); font-size:11px; margin-top:14px; text-align:center">Your last choice is remembered. Maman uses 🇫🇷, Papa/Sidney use 🇬🇧 (Kuhl, UW I-LABS).</div>
     </div>
 
@@ -1923,6 +1915,23 @@
 <div class="modal" id="setModal">
   <div class="panel" style="max-width:540px">
     <h3>Theme & settings</h3>
+
+    <!-- ── CHILDREN ── -->
+    <div style="background:#FFF7FB; border:1px solid #FBCFE8; border-radius:14px; padding:14px; margin-bottom:12px">
+      <div style="font-size:14px; font-weight:800; color:#9D174D; margin-bottom:8px">👨‍👩‍👧‍👦 Children</div>
+      <div id="settingsChildren" style="display:flex; flex-direction:column; gap:10px"></div>
+    </div>
+
+    <!-- ── OBSERVERS ── -->
+    <div style="background:#F0F9FF; border:1px solid #BAE6FD; border-radius:14px; padding:14px; margin-bottom:12px">
+      <div style="font-size:14px; font-weight:800; color:#0369A1; margin-bottom:8px">👥 Observers / parents</div>
+      <div style="font-size:12px; color:#0C4A6E; margin-bottom:8px">Who logs observations — appears in the "By" picker.</div>
+      <div id="settingsObservers" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px"></div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap">
+        <input id="newObserverInput" placeholder="Add observer…" style="flex:1; min-width:140px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; font-size:13px" />
+        <button class="small primary" id="addObserverBtn" style="font-size:13px">+ Add</button>
+      </div>
+    </div>
 
     <!-- ── SYNC & BACKUP ── -->
 
@@ -3395,6 +3404,88 @@ const VOCAB_EXTENDED = [
   ]}
 ];
 
+/* ── Portuguese vocabulary (Jordan: en + pt) ────────────────────────────────
+   PT is provided as a single authoritative en→pt dictionary keyed by the `en`
+   field that BOTH banks (VOCAB_BANK + VOCAB_EXTENDED) already share, rather than
+   inlining a `pt:` field into ~230 object literals. `vocabIn(word, lang)`
+   resolves the right translation for the active child's secondary language and
+   is used by every vocab render surface + the Bingo pickers. Covers every word
+   in both banks; falls back to FR then EN if a translation is ever missing. */
+const VOCAB_PT = {
+  // Animals
+  cat:"gato", dog:"cão", bird:"pássaro", fish:"peixe", horse:"cavalo", cow:"vaca",
+  pig:"porco", duck:"pato", elephant:"elefante", lion:"leão", bear:"urso",
+  rabbit:"coelho", frog:"rã", butterfly:"borboleta", sheep:"ovelha", chicken:"galinha",
+  // Clothing
+  shoes:"sapatos", socks:"meias", hat:"chapéu", coat:"casaco", shirt:"camisa",
+  pants:"calças", dress:"vestido", gloves:"luvas", scarf:"cachecol", boots:"botas", pyjamas:"pijama",
+  // Food
+  apple:"maçã", banana:"banana", bread:"pão", milk:"leite", egg:"ovo", cheese:"queijo",
+  soup:"sopa", rice:"arroz", orange:"laranja", strawberry:"morango", yoghurt:"iogurte",
+  yogurt:"iogurte", pasta:"massa", cookie:"bolacha", water:"água", juice:"sumo", fruit:"fruta",
+  // Home & objects
+  bed:"cama", chair:"cadeira", table:"mesa", door:"porta", window:"janela", bath:"banho",
+  cup:"copo", plate:"prato", spoon:"colher", fork:"garfo", book:"livro", toy:"brinquedo",
+  ball:"bola", phone:"telefone", lamp:"candeeiro", doll:"boneca", blocks:"blocos", crayon:"lápis de cera",
+  // Nature
+  sun:"sol", moon:"lua", star:"estrela", tree:"árvore", flower:"flor", rain:"chuva",
+  snow:"neve", cloud:"nuvem", sea:"mar", mountain:"montanha", river:"rio", grass:"relva",
+  stone:"pedra", leaf:"folha", sky:"céu",
+  // Colours
+  red:"vermelho", blue:"azul", green:"verde", yellow:"amarelo", purple:"roxo", pink:"rosa",
+  white:"branco", black:"preto", brown:"castanho", grey:"cinzento",
+  // Numbers
+  one:"um", two:"dois", three:"três", four:"quatro", five:"cinco",
+  // Actions
+  run:"correr", jump:"saltar", eat:"comer", sleep:"dormir", sit:"sentar", stand:"estar de pé",
+  walk:"andar", give:"dar", take:"pegar", open:"abrir", close:"fechar", wash:"lavar",
+  help:"ajudar", play:"brincar", sing:"cantar", draw:"desenhar", drink:"beber", read:"ler",
+  dance:"dançar", brush:"escovar", wake:"acordar",
+  // Feelings
+  happy:"feliz", sad:"triste", angry:"zangado", scared:"assustado", surprised:"surpreso",
+  tired:"cansado", hungry:"esfomeado", thirsty:"com sede", cold:"frio", hot:"quente",
+  proud:"orgulhoso", love:"amor", calm:"calmo",
+  // Transport
+  car:"carro", bus:"autocarro", bike:"bicicleta", train:"comboio", plane:"avião",
+  boat:"barco", truck:"camião",
+  // Body
+  eye:"olho", nose:"nariz", mouth:"boca", ear:"orelha", hand:"mão", foot:"pé", hair:"cabelo",
+  tummy:"barriga", knee:"joelho", finger:"dedo", toe:"dedo do pé", teeth:"dentes",
+  // Family
+  mama:"mamã", papa:"papá", baby:"bebé", sister:"irmã", brother:"irmão", grandma:"avó", grandpa:"avô",
+  // Daily routine
+  hug:"abraço", kiss:"beijo", story:"história", nap:"sesta",
+  // Polite words
+  please:"por favor", "thank you":"obrigado", sorry:"desculpa", hello:"olá", goodbye:"adeus",
+  yes:"sim", no:"não",
+  // Spatial
+  up:"cima", down:"baixo", "in":"dentro", out:"fora", big:"grande", small:"pequeno", more:"mais"
+};
+function ptOf(en){ return (en && VOCAB_PT[en]) || ""; }
+
+/* Display metadata per language code — used by the Bingo language pickers and
+   any language chip/label. */
+const LANG_META = {
+  en: { flag:"🇬🇧", label:"English",    short:"EN", bg:"#2E5BFF" },
+  fr: { flag:"🇫🇷", label:"Français",   short:"FR", bg:"#9D174D" },
+  pt: { flag:"🇵🇹", label:"Português",  short:"PT", bg:"#16A34A" },
+};
+function langMeta(code){ return LANG_META[code] || { flag:"🏳️", label:code, short:(code||"").toUpperCase(), bg:"#5C6680" }; }
+
+/* Secondary-language translation for a vocab word (object {en,fr,emoji} OR a
+   legacy [en,fr,…] array). `lang` defaults to the active child's secondary
+   language. Falls back FR → EN so a surface never renders blank. */
+function vocabIn(word, lang){
+  if (!word) return "";
+  lang = lang || (getActiveChildLanguages()[1] || "fr");
+  const en = Array.isArray(word) ? word[0] : word.en;
+  const fr = Array.isArray(word) ? word[1] : word.fr;
+  if (lang === "en") return en || "";
+  if (lang === "pt") return ptOf(en) || fr || en || "";
+  // default / "fr" and any object that carries the field directly
+  return (word[lang]) || fr || en || "";
+}
+
 /* v7 vocab helpers — all reads + writes go through state.vocabMaster via the
    existing vmKey normaliser ("thank you" → "thank_you_en"), so the new views
    stay in lock-step with the legacy tracker + Bingo without any migration.   */
@@ -3552,6 +3643,13 @@ function loadState(){
 }
 function saveState(s){
   s._savedAt = new Date().toISOString();
+  // v7: capture the active child's working set into its namespace before
+  // serialising, so code paths that REASSIGN a per-child key (rather than
+  // mutate it in place) are persisted to the correct child. Guarded so it is
+  // inert until the child-namespace migration has run.
+  if (s._migratedChildNsV7 && s.childData && typeof flushChildWorkingSet === "function"){
+    try { flushChildWorkingSet(childId(s.currentChild) || "maxine"); } catch(e){}
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
   // Invalidate v3.1 derived caches — state has changed.
   if (typeof _v31Bump === "function") _v31Bump();
@@ -3819,8 +3917,9 @@ function renderVocab(t){
   list.forEach(([en, fr, em])=>{
     const c = document.createElement("div");
     c.className = "vocab-cell";
-    c.innerHTML = `<div class="em">${em}</div><div class="en">${escapeHtml(en)}</div><div class="fr">${escapeHtml(fr)}</div>`;
-    c.addEventListener("click", ()=> speakWord(fr, "fr-FR") || speakWord(en, "en-GB"));
+    const sec = vocabIn([en, fr, em]);
+    c.innerHTML = `<div class="em">${em}</div><div class="en">${escapeHtml(en)}</div><div class="fr">${escapeHtml(sec)}</div>`;
+    c.addEventListener("click", ()=> speakWord(sec, (getActiveChildLanguages()[1]==="pt"?"pt-PT":"fr-FR")) || speakWord(en, "en-GB"));
     vocabGrid.appendChild(c);
     enhanceWithPhoto(c, en, fr, 44);
   });
@@ -3851,7 +3950,7 @@ function openVocabModal(){
       c.innerHTML = `
         <div class="em">${em}</div>
         <div class="en">${enMastered ? "✅ " : ""}${escapeHtml(en)}</div>
-        <div class="fr">${frMastered ? "✅ " : ""}${escapeHtml(fr)}</div>
+        <div class="fr">${frMastered ? "✅ " : ""}${escapeHtml(vocabIn([en, fr, em]))}</div>
         <div style="display:flex; gap:4px; margin-top:6px; justify-content:center">
           <button class="small" data-vmast="en" data-vw="${t.w}" data-vi="${i}" style="font-size:10px; padding:3px 6px; min-height:24px; background:${enMastered?'#16A34A':'#F1F4FA'}; color:${enMastered?'#fff':'var(--muted)'}">🇬🇧 ${enMastered?'✓':'?'}</button>
           <button class="small" data-vmast="fr" data-vw="${t.w}" data-vi="${i}" style="font-size:10px; padding:3px 6px; min-height:24px; background:${frMastered?'#16A34A':'#F1F4FA'}; color:${frMastered?'#fff':'var(--muted)'}">🇫🇷 ${frMastered?'✓':'?'}</button>
@@ -4001,10 +4100,15 @@ function openBingoModal(){
   if (!themeW) themeW = (pickTheme() || {}).w || THEMES[0].w;
   _bingo.themeW = themeW;
 
-  // Resolve language — last choice if available, otherwise show picker
+  // Render the language buttons for the ACTIVE child's languages.
+  _bingoRenderLangButtons();
+
+  // Resolve language — last choice if it is one of this child's languages,
+  // otherwise show the picker.
+  const childLangs = getActiveChildLanguages();
   let savedLang = null;
   try { savedLang = localStorage.getItem("bingo-lang"); } catch(e){}
-  if (savedLang === "en" || savedLang === "fr"){
+  if (savedLang && childLangs.includes(savedLang)){
     _bingo.lang = savedLang;
     _bingoShowScreen(2);
   } else {
@@ -4036,6 +4140,25 @@ function _bingoSelectLang(lang){
   _bingoShowScreen(2);
 }
 
+/* Build the language buttons on Bingo screen 1 from the active child's
+   languages (Maxine/Lou → EN/FR, Jordan → EN/PT). */
+function _bingoRenderLangButtons(){
+  const grid = document.getElementById("bingoLangGrid");
+  if (!grid) return;
+  const langs = getActiveChildLanguages();
+  const child = (typeof currentChild === "function") ? currentChild() : null;
+  const prompt = document.getElementById("bingoLangPrompt");
+  if (prompt) prompt.textContent = `${(child && child.name) || "Which"}, which language are we practising today?`;
+  grid.style.gridTemplateColumns = `repeat(${Math.max(1, Math.min(langs.length, 3))}, 1fr)`;
+  grid.innerHTML = langs.map(code => {
+    const m = langMeta(code);
+    return `<button class="primary" data-bingo-lang="${code}" style="min-height:64px; font-size:18px; flex-direction:column; line-height:1.2; background:${m.bg}">
+      <span style="font-size:30px; line-height:1; display:block; margin-bottom:4px">${m.flag}</span>
+      <span>${escapeHtml(m.label)}</span>
+    </button>`;
+  }).join("");
+}
+
 function _bingoRenderCard(){
   const grid = document.getElementById("bingoGrid");
   const langChip = document.getElementById("bingoLangChip");
@@ -4044,7 +4167,7 @@ function _bingoRenderCard(){
   if (!grid) return;
 
   const theme = THEMES.find(t => t.w === _bingo.themeW) || THEMES[0];
-  if (langChip) langChip.textContent = _bingo.lang === "fr" ? "🇫🇷 Français" : "🇬🇧 English";
+  if (langChip){ const lm = langMeta(_bingo.lang); langChip.textContent = `${lm.flag} ${lm.label}`; }
   if (themeChip) themeChip.textContent = `${theme.emoji} W${theme.w} · ${theme.title}`;
 
   const count = _bingoCellCount();
@@ -4055,10 +4178,8 @@ function _bingoRenderCard(){
   _bingo.drawn.forEach((w, idx) => {
     const [en, fr, em] = w;
     const emojiSafe = (em || "🔤");
-    const word = _bingo.lang === "fr" ? (fr || en) : en;
-    const knownEn = (state.vocabMaster||{})[`${en}_en`];
-    const knownFr = (state.vocabMaster||{})[`${en}_fr`];
-    const alreadyKnown = _bingo.lang === "fr" ? knownFr : knownEn;
+    const word = (_bingo.lang === "en") ? en : (vocabIn(w, _bingo.lang) || en);
+    const alreadyKnown = (state.vocabMaster||{})[`${en}_${_bingo.lang}`];
 
     const cell = document.createElement("div");
     cell.className = "bingo-modal-cell" + (alreadyKnown ? " known" : "");
@@ -4155,8 +4276,9 @@ function _bingoSetTheme(w){
 function _bingoRenderSummary(){
   const line = document.getElementById("bingoSummaryLine");
   const wordsEl = document.getElementById("bingoSummaryWords");
-  const langLabel = _bingo.lang === "fr" ? "French" : "English";
-  if (line) line.textContent = `Maxine touched ${_bingo.tappedKeys.size} ${langLabel} word${_bingo.tappedKeys.size === 1 ? "" : "s"} this session.`;
+  const langLabel = langMeta(_bingo.lang).label;
+  const childName = ((typeof currentChild === "function" && currentChild()) || {}).name || "Your child";
+  if (line) line.textContent = `${childName} touched ${_bingo.tappedKeys.size} ${langLabel} word${_bingo.tappedKeys.size === 1 ? "" : "s"} this session.`;
   if (!wordsEl) return;
   if (!_bingo.tappedKeys.size){
     wordsEl.innerHTML = `<div class="sub" style="color:var(--muted); text-align:center; font-size:13px">No words tapped yet — give it another go!</div>`;
@@ -4169,11 +4291,12 @@ function _bingoRenderSummary(){
     const word = _bingo.drawn.find(w => w[0] === en);
     if (!word) return "";
     const [enW, frW, em] = word;
+    const secW = vocabIn(word, _bingo.lang === "en" ? (getActiveChildLanguages()[1] || "fr") : _bingo.lang);
     // "new" if no observation existed for this word_lang pair before today
     return `<div style="display:flex; gap:8px; align-items:center; padding:6px 8px; border-bottom:1px dashed var(--line); font-size:13px">
       <span style="font-size:22px">${em || "🔤"}</span>
-      <span style="flex:1"><strong>${escapeHtml(enW)}</strong> <span style="color:var(--muted)">· ${escapeHtml(frW || "")}</span></span>
-      <span style="font-size:10px; background:#DCFCE7; color:#14532D; padding:2px 6px; border-radius:4px; font-weight:700">✓ ${_bingo.lang === "fr" ? "🇫🇷" : "🇬🇧"}</span>
+      <span style="flex:1"><strong>${escapeHtml(enW)}</strong> <span style="color:var(--muted)">· ${escapeHtml(secW || "")}</span></span>
+      <span style="font-size:10px; background:#DCFCE7; color:#14532D; padding:2px 6px; border-radius:4px; font-weight:700">✓ ${langMeta(_bingo.lang).flag}</span>
     </div>`;
   }).filter(Boolean).join("");
   wordsEl.innerHTML = lines;
@@ -5707,7 +5830,133 @@ function openSettings(){
   }
   // v6 — populate + wire mastery / backfill / coaching settings on every open.
   try { _renderV6Settings(); _wireV6Settings(); } catch(err){ console.warn("v6 settings wiring failed", err); }
+  // v7 — Children + Observers editors.
+  try { _renderChildrenSettings(); _renderObserverSettings(); _wireChildObserverSettings(); } catch(err){ console.warn("child/observer settings failed", err); }
   setModal.classList.add("open");
+}
+
+/* v7 — render the per-child editor (name / DOB / languages / colour / mode). */
+const CHILD_ORDER = ["Maxine", "Lou", "Jordan"];
+function _childOrderedNames(){
+  const names = Object.keys(state.children || {});
+  return names.slice().sort((a, b) => {
+    const ia = CHILD_ORDER.indexOf(a), ib = CHILD_ORDER.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+}
+function _renderChildrenSettings(){
+  const wrap = document.getElementById("settingsChildren");
+  if (!wrap) return;
+  wrap.innerHTML = _childOrderedNames().map(name => {
+    const c = state.children[name] || {};
+    const langs = (c.languages || []).join(", ");
+    const color = c.color || "#2E5BFF";
+    const dob = c.dob || "";
+    const modeT = c.mode === "toddler" ? "selected" : "";
+    const modeN = c.mode === "newborn" ? "selected" : "";
+    return `<div class="set-child-row" data-childkey="${escapeHtml(name)}" style="border:1px solid var(--line); border-radius:10px; padding:10px; background:#fff">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
+        <span style="font-size:20px">${c.emoji || "🧒"}</span>
+        <input class="set-child-name" value="${escapeHtml(c.name || name)}" style="flex:1; min-width:0; padding:7px 9px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-weight:700" />
+        <input class="set-child-color" type="color" value="${escapeHtml(color)}" title="Colour" style="width:40px; height:36px; padding:2px; border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer" />
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <label style="flex:1; min-width:130px; font-size:11px; color:var(--muted); font-weight:700">Birth date
+          <input class="set-child-dob" type="date" value="${escapeHtml(dob)}" style="display:block; width:100%; margin-top:3px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-weight:400; color:var(--ink)" />
+        </label>
+        <label style="flex:1; min-width:130px; font-size:11px; color:var(--muted); font-weight:700">Languages (e.g. en, fr)
+          <input class="set-child-langs" value="${escapeHtml(langs)}" placeholder="en, fr" style="display:block; width:100%; margin-top:3px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-weight:400" />
+        </label>
+        <label style="flex:0 0 120px; font-size:11px; color:var(--muted); font-weight:700">Mode
+          <select class="set-child-mode" style="display:block; width:100%; margin-top:3px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-weight:400">
+            <option value="toddler" ${modeT}>Toddler</option>
+            <option value="newborn" ${modeN}>Newborn</option>
+          </select>
+        </label>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function _renderObserverSettings(){
+  const wrap = document.getElementById("settingsObservers");
+  if (!wrap) return;
+  wrap.innerHTML = (state.observers || []).map(name =>
+    `<span style="display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--line); border-radius:999px; padding:5px 10px; font-size:13px; font-weight:600">
+      ${observerEmoji(name)} ${escapeHtml(name)}
+      <button class="set-observer-del" data-observer="${escapeHtml(name)}" title="Remove" style="background:none; border:none; color:#991B1B; font-size:14px; line-height:1; cursor:pointer; padding:0 0 0 2px; min-height:0">✕</button>
+    </span>`
+  ).join("") || `<span style="font-size:12px; color:var(--muted); font-style:italic">No observers — add one below.</span>`;
+}
+
+/* Wire the Children + Observers editors once (event-delegated, idempotent). */
+function _wireChildObserverSettings(){
+  const childWrap = document.getElementById("settingsChildren");
+  if (childWrap && !childWrap._wired){
+    childWrap._wired = true;
+    childWrap.addEventListener("change", (e) => {
+      const row = e.target.closest(".set-child-row"); if (!row) return;
+      const key = row.dataset.childkey;
+      const c = state.children[key]; if (!c) return;
+      if (e.target.classList.contains("set-child-color")) c.color = e.target.value;
+      else if (e.target.classList.contains("set-child-dob")) c.dob = e.target.value || null;
+      else if (e.target.classList.contains("set-child-mode")) c.mode = e.target.value;
+      else if (e.target.classList.contains("set-child-langs")){
+        c.languages = e.target.value.split(/[,\s]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+        if (!c.languages.length) c.languages = ["en"];
+      } else if (e.target.classList.contains("set-child-name")){
+        const newName = e.target.value.trim();
+        if (newName && newName !== key){ _renameChild(key, newName); }
+        else { c.name = newName || key; }
+      }
+      saveState(state);
+      renderChildPicker(); updateChildHeader(); applyChildMode();
+      if (typeof renderParentalAdvice === "function") renderParentalAdvice();
+      _renderChildrenSettings();
+      showToast("✓ Saved.");
+    });
+  }
+
+  const obsWrap = document.getElementById("settingsObservers");
+  if (obsWrap && !obsWrap._wired){
+    obsWrap._wired = true;
+    obsWrap.addEventListener("click", (e) => {
+      const del = e.target.closest(".set-observer-del"); if (!del) return;
+      const name = del.dataset.observer;
+      state.observers = (state.observers || []).filter(o => o !== name);
+      if (state.currentUser === name) state.currentUser = state.observers[0] || "—";
+      saveState(state);
+      _renderObserverSettings(); renderUserPicker();
+    });
+  }
+  const addBtn = document.getElementById("addObserverBtn");
+  if (addBtn && !addBtn._wired){
+    addBtn._wired = true;
+    const doAdd = () => {
+      const input = document.getElementById("newObserverInput");
+      const name = (input.value || "").trim();
+      if (!name) return;
+      state.observers = state.observers || [];
+      if (!state.observers.includes(name)) state.observers.push(name);
+      input.value = "";
+      saveState(state);
+      _renderObserverSettings(); renderUserPicker();
+    };
+    addBtn.addEventListener("click", doAdd);
+    const input = document.getElementById("newObserverInput");
+    if (input) input.addEventListener("keydown", (e) => { if (e.key === "Enter"){ e.preventDefault(); doAdd(); } });
+  }
+}
+
+/* Rename a child: re-key state.children (keeps the stable `id`, so childData
+   and all per-child data are untouched), and update currentChild if needed. */
+function _renameChild(oldName, newName){
+  if (!state.children[oldName] || state.children[newName]) return; // avoid clobbering
+  const obj = state.children[oldName];
+  obj.name = newName;
+  state.children[newName] = obj;
+  delete state.children[oldName];
+  if (state.currentChild === oldName) state.currentChild = newName;
 }
 
 /* v6 — populate settings inputs from state on every Settings open. */
@@ -6713,9 +6962,27 @@ state.activityStatus = state.activityStatus || {};
 state.feedback = state.feedback || [];
 state.focus = state.focus || { text: "", domains: [] };
 
-/* User picker */
+/* Observers / parents — the "By" attribution list. Editable in Settings. */
+if (!Array.isArray(state.observers) || !state.observers.length){
+  state.observers = ["Alex", "Claire", "Sidney", "Mendes"];
+}
+// One-shot: ensure Mendes is present for existing installs (respects later
+// deletion via Settings, since it only runs once).
+if (!state._seededMendesV7){
+  if (!state.observers.includes("Mendes")) state.observers.push("Mendes");
+  state._seededMendesV7 = true;
+}
+const OBSERVER_EMOJI = { Alex:"👨", Claire:"👩", Sidney:"🧑", Mendes:"🧑‍🍼" };
+function observerEmoji(name){ return OBSERVER_EMOJI[name] || "👤"; }
+
+/* User picker — rendered from state.observers so Settings can add/remove. */
 function renderUserPicker(){
-  document.querySelectorAll("#userPicker .upbtn").forEach(b=>{
+  const picker = document.getElementById("userPicker");
+  if (!picker) return;
+  picker.innerHTML = (state.observers || []).map(name =>
+    `<button class="upbtn" data-user="${escapeHtml(name)}">${observerEmoji(name)} ${escapeHtml(name)}</button>`
+  ).join("");
+  picker.querySelectorAll(".upbtn").forEach(b=>{
     b.classList.toggle("active", b.dataset.user === state.currentUser);
   });
 }
@@ -8927,13 +9194,30 @@ function getActiveDomainKeys(){
   } catch(e){ return DOMAINS.map(d => d.key); }
 }
 
-function addObservation({ skillId, status, by, source, notes }){
-  if (!skillId || !status) return;
+/* Map an observation `result` (success/partial/fail) onto the v6 status ladder
+   and vice-versa, so callers can pass either field. */
+const RESULT_TO_STATUS = {
+  success:"mastered", mastered:"mastered", pass:"mastered", automatic:"automatic",
+  partial:"working_on_it", working_on_it:"working_on_it", emerging:"working_on_it",
+  fail:"regressed", regressed:"regressed"
+};
+const STATUS_TO_RESULT = {
+  mastered:"success", automatic:"success", working_on_it:"partial",
+  regressed:"fail", unknown:null
+};
+
+function addObservation({ skillId, status, result, by, where, source, notes }){
+  if (!skillId) return;
+  // Accept either `status` or `result`; derive the missing one.
+  if (!status && result) status = RESULT_TO_STATUS[result] || "working_on_it";
+  if (!status) return;
+  if (!result) result = STATUS_TO_RESULT[status] || null;
   state.observations = state.observations || [];
   const ts = Date.now();
   state.observations.push({
-    skillId, status,
+    skillId, status, result,
     by: by || state.currentUser || "—",
+    where: where || "home",
     source: source || "manual",
     ts,
     notes: notes || ""
@@ -11687,14 +11971,23 @@ function renderVocabularyBingo(){
     const cur = pickTheme();
     sel.value = String(cur.w);
   }
-  // Language toggle
-  document.querySelectorAll("#bingoLang .upbtn").forEach(b=>{
-    b.onclick = ()=>{
-      bingoLang = b.dataset.lang;
-      document.querySelectorAll("#bingoLang .upbtn").forEach(x=>x.classList.toggle("active", x.dataset.lang===bingoLang));
-      renderVocabularyBingo();
-    };
-  });
+  // Language toggle — buttons reflect the active child's languages.
+  const langWrap = document.getElementById("bingoLang");
+  if (langWrap){
+    const langs = getActiveChildLanguages();
+    if (!langs.includes(bingoLang)) bingoLang = langs[0] || "en";
+    langWrap.innerHTML = langs.map(code => {
+      const m = langMeta(code);
+      return `<button class="upbtn${code===bingoLang?" active":""}" data-lang="${code}">${m.flag} ${m.short}</button>`;
+    }).join("");
+    langWrap.querySelectorAll(".upbtn").forEach(b=>{
+      b.onclick = ()=>{
+        bingoLang = b.dataset.lang;
+        langWrap.querySelectorAll(".upbtn").forEach(x=>x.classList.toggle("active", x.dataset.lang===bingoLang));
+        renderVocabularyBingo();
+      };
+    });
+  }
   const themeW = parseInt(sel.value, 10);
   const words = vocabFor(themeW);
   if (!words.length){
@@ -11751,8 +12044,9 @@ function renderVocabularyBingo(){
     }
     const [en, fr, em] = slot.w;
     const stamped = isVocabMastered(slot.themeW, slot.idx, bingoLang);
-    const text = bingoLang === "en" ? en : fr;
-    const sub = bingoLang === "en" ? fr : en;
+    const sec = vocabIn(slot.w, (getActiveChildLanguages()[1] || "fr"));
+    const text = bingoLang === "en" ? en : (sec || fr);
+    const sub = bingoLang === "en" ? (sec || fr) : en;
     const isOtherTheme = slot.themeW !== themeW;
     const cell = document.createElement("div");
     cell.className = `bingo-cell ${stamped ? "stamped" : ""}`;
@@ -11847,7 +12141,7 @@ function renderVocabActiveV7(){
         <div class="v7-vt-em">${w.emoji || "🔤"}</div>
         <div class="v7-vt-words">
           <div class="v7-vt-en">${enKey} ${meta}</div>
-          <div class="v7-vt-fr">${escapeHtml(w.fr || "")}</div>
+          <div class="v7-vt-fr">${escapeHtml(vocabIn(w) || w.fr || "")}</div>
         </div>
         <div class="v7-vt-btns">${enBtn}${frBtn}</div>
       </div>`;
@@ -11897,7 +12191,7 @@ function renderVocabMasteredV7(){
     const tiles = cat.words.map(w => `<div class="v7-vm-tile" title="Mastered ${new Date(w.mastered_at).toLocaleDateString("en-GB")}">
       <span class="v7-vm-em">${w.emoji || "🔤"}</span>
       <span class="v7-vm-en">${escapeHtml(w.en)}</span>
-      <span class="v7-vm-fr">${escapeHtml(w.fr || "")}</span>
+      <span class="v7-vm-fr">${escapeHtml(vocabIn(w) || w.fr || "")}</span>
       <button class="v7-vm-restore" data-v7vm-restore="${escapeHtml(w.en)}" title="Restore to active">↩️</button>
     </div>`).join("");
     return `<div class="v7-vm-cat">
@@ -12018,7 +12312,7 @@ function renderVocabTracker(){
         <div class="vt-em">${emoji}</div>
         <div class="vt-words">
           <div class="vt-en">${enKey}${isCustom ? ' <span style="font-size:10px; background:#FEF3C7; color:#92400E; border-radius:4px; padding:1px 5px; margin-left:4px; font-weight:700">✏️ custom</span>' : ''}</div>
-          <div class="vt-fr">${escapeHtml(w.fr||"")}${genderBadge(w.g)}</div>
+          <div class="vt-fr">${escapeHtml(vocabIn(w) || w.fr || "")}${genderBadge(w.g)}</div>
         </div>
         <div class="vt-btns">
           <button class="vt-btn ${enOn?"on":"off"}" data-vmword="${enKey}" data-vmlang="en">🇬🇧 ${enOn?"✓ Known":"+ Learn"}</button>
@@ -12758,18 +13052,155 @@ on("spotifyClearBtn", "click", ()=>{
    10 RESEARCH-BACKED FEATURES
    ========================================================= */
 
-// === Children registry (Maxine + Lou) ===
+// === Children registry (Maxine + Lou + Jordan) ===
 state.currentChild = state.currentChild || "Maxine";
 state.children = state.children || {
-  Maxine: { name:"Maxine", emoji:"👧", dob:"2024-03-09" },
-  Lou:    { name:"Lou",    emoji:"👶", dob:"2026-06-15" }, // expected
+  Maxine: { id:"maxine", name:"Maxine", emoji:"👧", dob:"2024-03-09", languages:["en","fr"], color:"#2E5BFF", mode:"toddler" },
+  Lou:    { id:"lou",    name:"Lou",    emoji:"👶", dob:"2026-06-15", languages:["en","fr"], color:"#16A34A", mode:"newborn" }, // expected
 };
 
+/* ═════════════════════════════════════════════════════════════════════════
+   v7 — Multi-child data isolation (working-set swap)
+   ─────────────────────────────────────────────────────────────────────────
+   The flat top-level state keys below are treated as the ACTIVE child's
+   "working set". state.childData[id] holds each child's namespace. On a child
+   switch we flush the current working set back into its namespace and load the
+   target child's namespace onto the flat keys. All existing code that reads /
+   writes state.observations, state.skillStatus, … keeps working unchanged and
+   is automatically isolated per child.
+
+   Migration is ADDITIVE and read-copy: Maxine adopts the existing flat data
+   (shared references — never destructive); Lou keeps her existing newborn
+   events (state.lou); Jordan starts empty.
+   ═════════════════════════════════════════════════════════════════════════ */
+const PER_CHILD_KEYS = [
+  "observations","skillStatus","vocabMaster","vocabMastered","vocabCustom",
+  "coachingPicks","pendingGenerations","reverifyQueue","backfillQueue",
+  "skillFlags","skillsCustom","feedback","history","spotlightHistory",
+  "suppressedConfirmations","domainLevel","domainStreak","wellness","coregLog",
+  "gratitude","bedtimeChecklist","praiseTally","basics","rituals","quickLog",
+  "activityStatus","_gcSceneShownAt","lou"
+];
+// Keys whose empty default is an array (everything else defaults to an object,
+// except the special cases handled in defaultForKey).
+const _PCK_ARRAY = new Set([
+  "observations","vocabCustom","pendingGenerations","reverifyQueue","backfillQueue",
+  "skillsCustom","feedback","history","spotlightHistory","coregLog","gratitude"
+]);
+function defaultForKey(k){
+  if (k === "lou")          return { events:[], sleepStart:null };
+  if (k === "domainLevel")  return { gross:1, fine:1, sensory:1, cognitive:1, vocab:1, social:1 };
+  if (k === "domainStreak") return { gross:0, fine:0, sensory:0, cognitive:0, vocab:0, social:0 };
+  return _PCK_ARRAY.has(k) ? [] : {};
+}
+
+/* Normalise the children registry: add id/languages/color/mode to any existing
+   child (preserving user-edited name/dob/emoji) and insert Jordan if absent. */
+function ensureChildSchema(){
+  state.children = state.children || {};
+  const DEFAULTS = {
+    Maxine: { id:"maxine", emoji:"👧", languages:["en","fr"], color:"#2E5BFF", mode:"toddler" },
+    Lou:    { id:"lou",    emoji:"👶", languages:["en","fr"], color:"#16A34A", mode:"newborn" },
+    Jordan: { id:"jordan", emoji:"🧒", dob:null, languages:["en","pt"], color:"#F59E0B", mode:"newborn" },
+  };
+  Object.entries(DEFAULTS).forEach(([name, d]) => {
+    const existing = state.children[name] || {};
+    // existing wins for fields it already has; defaults fill the gaps.
+    state.children[name] = Object.assign({ name }, d, existing);
+    ["id","languages","color","mode","emoji"].forEach(f => {
+      if (state.children[name][f] === undefined) state.children[name][f] = d[f];
+    });
+  });
+}
+
+function childId(name){
+  const c = state.children && state.children[name];
+  return (c && c.id) || (name || "").toLowerCase();
+}
+function getActiveChildId(){ return childId(state.currentChild) || "maxine"; }
+function getActiveChildLanguages(){
+  const c = (typeof currentChild === "function") ? currentChild() : null;
+  return (c && Array.isArray(c.languages) && c.languages.length) ? c.languages : ["en","fr"];
+}
+
+function flushChildWorkingSet(id){
+  if (!id) return;
+  state.childData = state.childData || {};
+  const ns = state.childData[id] = state.childData[id] || {};
+  PER_CHILD_KEYS.forEach(k => { if (state[k] !== undefined) ns[k] = state[k]; });
+}
+function loadChildWorkingSet(id){
+  if (!id) return;
+  state.childData = state.childData || {};
+  const ns = state.childData[id] = state.childData[id] || {};
+  PER_CHILD_KEYS.forEach(k => {
+    if (ns[k] === undefined) ns[k] = defaultForKey(k);
+    state[k] = ns[k];
+  });
+}
+
+function setActiveChildId(id){
+  const name = Object.keys(state.children || {}).find(n => childId(n) === id);
+  if (!name) return;
+  flushChildWorkingSet(getActiveChildId());
+  state.currentChild = name;
+  loadChildWorkingSet(id);
+  saveState(state);
+  if (typeof _v31Bump === "function") _v31Bump();
+  if (typeof renderChildPicker === "function") renderChildPicker();
+  if (typeof applyChildMode === "function") applyChildMode();
+  if (typeof renderParentalAdvice === "function") renderParentalAdvice();
+  if (typeof updateChildHeader === "function") updateChildHeader();
+  if (typeof showView === "function" && typeof getActiveView === "function") showView(getActiveView());
+}
+
+/* Thin accessors for new code + quality gates. getChildData reads the active
+   working set; setChildData writes both the working set and the namespace. */
+function getChildData(key){ return state[key]; }
+function setChildData(key, val){
+  state[key] = val;
+  const id = getActiveChildId();
+  state.childData = state.childData || {};
+  (state.childData[id] || (state.childData[id] = {}))[key] = val;
+}
+
+function migrateToChildNamespaceV7(){
+  ensureChildSchema();
+  state.childData = state.childData || {};
+  if (!state._migratedChildNsV7){
+    // One-shot: build each child's namespace from the existing flat data.
+    Object.values(state.children).forEach(c => {
+      const ns = state.childData[c.id] = state.childData[c.id] || {};
+      PER_CHILD_KEYS.forEach(k => {
+        if (ns[k] !== undefined) return;
+        if (c.id === "maxine" && k !== "lou"){
+          // Maxine adopts the existing flat developmental data (shared ref).
+          ns[k] = (state[k] !== undefined) ? state[k] : defaultForKey(k);
+        } else if (c.id === "lou" && k === "lou"){
+          // Lou keeps her existing newborn events.
+          ns[k] = state.lou || defaultForKey("lou");
+        } else {
+          ns[k] = defaultForKey(k);
+        }
+      });
+    });
+    state._migratedChildNsV7 = true;
+  }
+  // Always (re)bind the flat keys to the active child's namespace objects so
+  // that, after a reload deserialises flat + namespace as separate copies, the
+  // working set and the namespace share one reference again.
+  loadChildWorkingSet(getActiveChildId());
+  saveState(state);
+}
+migrateToChildNamespaceV7();
+
 function ageInDays(dob){
+  if (!dob) return null; // unknown birth date (e.g. Jordan until set in Settings)
   return Math.floor((Date.now() - new Date(dob).getTime()) / 86400000);
 }
 function ageBucket(dob){
   const d = ageInDays(dob);
+  if (d === null) return "expecting"; // unknown DOB → neutral newborn bucket
   if (d < 0) return "expecting"; // not yet born
   if (d < 28) return "0-4w";
   if (d < 90) return "4-12w";
@@ -12781,6 +13212,7 @@ function ageBucket(dob){
 }
 function ageDescription(dob){
   const d = ageInDays(dob);
+  if (d === null) return "age not set";
   if (d < 0) return `in ${Math.abs(d)} days`;
   if (d < 60) return `${d} days old`;
   if (d < 365) return `${Math.floor(d/30)} months old`;
@@ -12871,17 +13303,53 @@ function renderParentalAdvice(){
 }
 
 function renderChildPicker(){
-  document.querySelectorAll("#childPicker .upbtn").forEach(b => {
-    b.classList.toggle("active", b.dataset.child === state.currentChild);
+  const picker = document.getElementById("childPicker");
+  if (!picker) return;
+  // Rebuild from state.children so renames / added children stay in sync, and
+  // tint the active button with that child's own colour.
+  const names = (typeof _childOrderedNames === "function")
+    ? _childOrderedNames() : Object.keys(state.children || {});
+  picker.innerHTML = names.map(name => {
+    const c = state.children[name] || {};
+    return `<button class="upbtn" data-child="${escapeHtml(name)}">${c.emoji || "🧒"} ${escapeHtml(c.name || name)}</button>`;
+  }).join("");
+  picker.querySelectorAll(".upbtn").forEach(b => {
+    const isActive = b.dataset.child === state.currentChild;
+    b.classList.toggle("active", isActive);
+    const child = state.children && state.children[b.dataset.child];
+    if (isActive && child && child.color){
+      b.style.background = child.color;
+      b.style.color = "#fff";
+    } else {
+      b.style.background = "";
+      b.style.color = "";
+    }
   });
 }
+
+/* Reflect the active child in the page header (emoji + name + greeting). */
+function updateChildHeader(){
+  const child = (typeof currentChild === "function") ? currentChild() : null;
+  const name = (child && child.name) || state.currentChild || "Maxine";
+  const emoji = (child && child.emoji) || "👧";
+  const h1 = document.querySelector("header.app h1");
+  if (h1) h1.textContent = `${emoji} ${name} — Daily Activity Companion`;
+  const titleEl = document.querySelector("title");
+  if (titleEl) titleEl.textContent = `${name} — Daily Activity Companion`;
+}
+
 document.getElementById("childPicker").addEventListener("click", (e)=>{
   const b = e.target.closest(".upbtn"); if (!b) return;
-  state.currentChild = b.dataset.child; saveState(state);
-  renderChildPicker();
-  applyChildMode();
-  renderParentalAdvice();
-  if (document.getElementById("progressView").style.display !== "none") renderProgressView();
+  if (b.dataset.child === state.currentChild) return;
+  // setActiveChildId flushes the current working set, loads the target child's
+  // namespace, re-renders the picker / child mode / advice / header and the
+  // active view. Falls back to the legacy inline path if it is unavailable.
+  if (typeof setActiveChildId === "function"){
+    setActiveChildId(childId(b.dataset.child));
+  } else {
+    state.currentChild = b.dataset.child; saveState(state);
+    renderChildPicker(); applyChildMode(); renderParentalAdvice();
+  }
   showToast(`👶 Now showing ${state.currentChild}'s view.`);
 });
 
@@ -12891,8 +13359,11 @@ document.getElementById("childPicker").addEventListener("click", (e)=>{
 state.lou = state.lou || { events: [], sleepStart: null };
 
 function applyChildMode(){
-  const isLou = state.currentChild === "Lou";
-  // Tabs to hide for Lou (toddler-only)
+  // "Newborn mode" (simplified baby-tracking home, toddler tabs hidden) is
+  // driven by the child's `mode` field — applies to Lou and Jordan.
+  const _c = (typeof currentChild === "function") ? currentChild() : null;
+  const isLou = _c ? (_c.mode === "newborn") : (state.currentChild === "Lou");
+  // Tabs to hide in newborn mode (toddler-only)
   ["catalogue","vocabulary","meals","overview"].forEach(name => {
     const btn = document.querySelector(`.nav-btn[data-view="${name}"]`);
     if (btn) btn.style.display = isLou ? "none" : "";
@@ -13421,6 +13892,7 @@ on("spotifyClearBtn", "click", ()=>{
 renderHeader();
 renderUserPicker();
 renderChildPicker();
+updateChildHeader();
 renderFocus();
 renderTheme();
 applyChildMode();
