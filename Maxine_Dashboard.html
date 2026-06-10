@@ -3707,7 +3707,7 @@ state.masteryConfig      = Object.assign({
   reverifySchedule:     [30, 60, 120, 240],
   automaticAfterDays:   60,
   regressionWindowDays: 30,
-  targetDepth:          10,
+  targetDepth:          20,
   zpdRange:             [-0.3, 1.5],
   beginnerUdiCeiling:   2.0,
   autoBackfill:         true,
@@ -5978,7 +5978,7 @@ function _renderV6Settings(){
   if (get("cfgReverifySchedule")) get("cfgReverifySchedule").value = (cfg.reverifySchedule || [30, 60, 120, 240]).join(", ");
   if (get("cfgAutomaticAfter"))   get("cfgAutomaticAfter").value   = cfg.automaticAfterDays   || 60;
   if (get("cfgRegressionWindow")) get("cfgRegressionWindow").value = cfg.regressionWindowDays || 30;
-  if (get("cfgTargetDepth"))      get("cfgTargetDepth").value      = cfg.targetDepth          || 10;
+  if (get("cfgTargetDepth"))      get("cfgTargetDepth").value      = cfg.targetDepth          || 20;
   if (get("cfgZpdRange"))         get("cfgZpdRange").value         = (cfg.zpdRange || [-0.3, 1.5]).join(", ");
   if (get("cfgBeginnerUdi"))      get("cfgBeginnerUdi").value      = cfg.beginnerUdiCeiling   || 2.0;
   if (get("cfgAutoBackfill"))     get("cfgAutoBackfill").checked   = (cfg.autoBackfill !== false);
@@ -10104,7 +10104,7 @@ function getActiveSkillsForDomain(domKey){
       .filter(s => !isSkillMastered(s.id) && isUnlocked(s))
       .map(s => ({ ...s, _zpd: zdpScore(s) }))
       .sort((a,b) => b._zpd - a._zpd)
-      .slice(0, 2);
+      .slice(0, 4);
     active.push(...mastered, ...candidates);
   });
   return active.sort((a,b) => (a.difficulty||5) - (b.difficulty||5));
@@ -10528,7 +10528,7 @@ function renderDomainRadar(domKey, container){
 
 /* Backfill-chip text: "N/10 active" or "Backfill pending — Cowork generating". */
 function _backfillChipText(domKey){
-  const target = (state.masteryConfig && state.masteryConfig.targetDepth) || 10;
+  const target = (state.masteryConfig && state.masteryConfig.targetDepth) || 20;
   const avail = SKILLS_ALL.filter(s => s.dom === domKey && isAvailable(s)).length;
   const pending = (state.backfillQueue || []).some(q => q && q.domain === domKey && q.status !== "completed");
   if (avail >= target) return `${target}/${target} active`;
@@ -10540,7 +10540,7 @@ function _backfillChipText(domKey){
    Placeholders fill any gap so the user can see backfill progress.            */
 function renderActive10(domKey, container){
   if (!container) return;
-  const target = (state.masteryConfig && state.masteryConfig.targetDepth) || 10;
+  const target = (state.masteryConfig && state.masteryConfig.targetDepth) || 20;
   const available = SKILLS_ALL
     .filter(s => s.dom === domKey && isAvailable(s))
     .sort((a, b) => frontierScoreV6(b) - frontierScoreV6(a))
@@ -12304,7 +12304,7 @@ After editing, return JSON only:
 function backfillEngine(){
   if (!state.masteryConfig || state.masteryConfig.autoBackfill === false) return 0;
   state.backfillQueue = state.backfillQueue || [];
-  const target = state.masteryConfig.targetDepth || 10;
+  const target = state.masteryConfig.targetDepth || 20;
   const maxCat = state.masteryConfig.maxCatalogueSize || 500;
   const active = (typeof getActiveDomainKeys === "function") ? getActiveDomainKeys() : DOMAINS.map(d => d.key);
   let enqueued = 0;
@@ -13748,6 +13748,51 @@ function migrateToChildNamespaceV7(){
   saveState(state);
 }
 migrateToChildNamespaceV7();
+
+/* ── v8 — one-shot surgical de-dup of ghost child data ──────────────────────
+   Historical bug: some installs persisted COPIES of Maxine's developmental
+   data inside another child's namespace (e.g. childData.jordan.observations).
+   The current code never leaks (proven), but cannot self-heal already-persisted
+   contamination because the V7 one-shot is flagged done. This removes ONLY the
+   entries byte-identical to Maxine's canonical data from every other child —
+   so genuine, distinct milestones logged for Lou/Jordan are preserved, and
+   Maxine's namespace is never modified. Also raises the old default
+   targetDepth (10 → 20) for existing users. Idempotent (flag-guarded).        */
+(function cleanseGhostChildDataV8(){
+  if (state._cleansedGhostChildV8) return;
+  try {
+    const M = state.childData && state.childData.maxine;
+    if (M){
+      const oSig = o => `${o&&o.skillId}|${o&&o.ts}|${o&&o.by}|${o&&o.status}`;
+      const hSig = h => `${h&&h.actId}|${h&&h.ts}|${h&&h.user}|${h&&h.fb}`;
+      const mObs  = new Set((M.observations || []).map(oSig));
+      const mHist = new Set((M.history || []).map(hSig));
+      const mSt   = M.skillStatus || {};
+      Object.keys(state.childData).forEach(id => {
+        if (id === "maxine") return;
+        const ns = state.childData[id]; if (!ns) return;
+        if (Array.isArray(ns.observations)) ns.observations = ns.observations.filter(o => !mObs.has(oSig(o)));
+        if (Array.isArray(ns.history))      ns.history      = ns.history.filter(h => !mHist.has(hSig(h)));
+        if (ns.skillStatus && typeof ns.skillStatus === "object"){
+          Object.keys(ns.skillStatus).forEach(sid => {
+            const a = ns.skillStatus[sid], b = mSt[sid];
+            if (a && b && a.status === b.status && a.by === b.by && a.ts === b.ts) delete ns.skillStatus[sid];
+          });
+        }
+      });
+    }
+    // Raise the old default per-domain depth (10 → 20) without overriding a
+    // value the user deliberately customised to something other than 10.
+    if (state.masteryConfig && (state.masteryConfig.targetDepth == null || state.masteryConfig.targetDepth === 10)){
+      state.masteryConfig.targetDepth = 20;
+    }
+    state._cleansedGhostChildV8 = true;
+    // Re-bind the active child's flat working set to the cleaned namespace
+    // arrays (the .filter above produced new arrays).
+    if (typeof loadChildWorkingSet === "function") loadChildWorkingSet(getActiveChildId());
+    saveState(state);
+  } catch(e){ console.warn("ghost child-data cleanse v8 failed", e); }
+})();
 
 function ageInDays(dob){
   if (!dob) return null; // unknown birth date (e.g. Jordan until set in Settings)
