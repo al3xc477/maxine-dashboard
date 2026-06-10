@@ -1305,6 +1305,12 @@
         <button class="small" id="catResetBtn">↺ Reset all to New</button>
       </div>
       <div style="margin-top:12px; display:flex; gap:6px; flex-wrap:wrap; align-items:center">
+        <button class="small" id="skillLayoutTree">🌳 Tree view</button>
+        <button class="small primary" id="skillLayoutList">📋 List view</button>
+        <span style="flex:1 1 auto"></span>
+        <button class="small" id="genTutorBriefBtn">🎓 AI tutor brief</button>
+      </div>
+      <div id="skillListControls" style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; align-items:center">
         <button class="small primary" id="skillViewSmart">🎯 Smart view (ZPD)</button>
         <button class="small" id="skillViewAll">📋 All skills</button>
         <button class="small" id="skillFocusToggle">⭐ Focus</button>
@@ -1332,6 +1338,7 @@
     </div>
     <div class="card" style="padding:0">
       <div id="skillsList" style="display:flex; flex-direction:column"></div>
+      <div id="skillTree" style="display:none; padding:8px 12px 14px"></div>
     </div>
   </section>
 
@@ -7932,6 +7939,185 @@ const SKILLS_CUSTOM_SEED = [
     why:"Pre-walking strength + risk planning (Gerber RIE).",
     how:"Low stable furniture. Floor mat. Let her work it out.",
     next:"Cruises along furniture", src:"WHO MDS" },
+
+  /* ── v9 skill-tree expansion — fills each domain×branch to ≥5, laddered by
+        difficulty with prereq chains. branch + difficulty + prereqs explicit. ── */
+
+  // GROSS · coordination
+  { id:"gm-coord-aim", dom:"gross", branch:"coordination", difficulty:5, prereqs:["gm-throw"], keystone:false,
+    t:"Throws a ball at a large target", age:"~3y", what:"Releases toward a target, sometimes hits", why:"Eye–hand coordination + motor planning.", how:"Big box or hoop. Step closer until she succeeds.", next:"Aim at a smaller target", src:"CDC / OT" },
+  { id:"gm-coord-bounce", dom:"gross", branch:"coordination", difficulty:6, prereqs:["gm-catch"], keystone:false,
+    t:"Bounces and catches a large ball", age:"~4–5y", what:"Bounces ball and traps it on return", why:"Timing + bilateral coordination.", how:"Big light ball on a hard floor.", next:"Dribble a few bounces", src:"AAP" },
+
+  // GROSS · rhythm
+  { id:"gm-rhythm-clap", dom:"gross", branch:"rhythm", difficulty:4, prereqs:["gm-dance-rhythm"], keystone:false,
+    t:"Claps along to a steady beat", age:"~24m", what:"Hands meet roughly on the beat", why:"Auditory–motor synchrony (pre-musical).", how:"Clap to a simple song together.", next:"March in time", src:"Music therapy consensus" },
+  { id:"gm-rhythm-march", dom:"gross", branch:"rhythm", difficulty:5, prereqs:["gm-rhythm-clap"], keystone:false,
+    t:"Marches in time to music", age:"~3y", what:"Steps roughly on the beat", why:"Whole-body timing + bilateral.", how:"March band around the room.", next:"Keep beat on an instrument", src:"Music therapy consensus" },
+  { id:"gm-rhythm-instrument", dom:"gross", branch:"rhythm", difficulty:6, prereqs:["gm-rhythm-march"], keystone:false,
+    t:"Keeps a beat on a drum or shaker", age:"~4y", what:"Maintains a steady tempo", why:"Beat-keeping predicts phonological skill (Tierney/Kraus).", how:"Pot + spoon. Follow a song.", next:"Copy a rhythm pattern", src:"Kraus, Northwestern" },
+  { id:"gm-rhythm-pattern", dom:"gross", branch:"rhythm", difficulty:7, prereqs:["gm-rhythm-instrument"], keystone:false,
+    t:"Copies a simple clap/rhythm pattern", age:"~4–5y", what:"Reproduces a 3–4 beat pattern", why:"Auditory sequencing + working memory.", how:"Play a short pattern, she echoes.", next:"Longer patterns", src:"Music therapy / EF research" },
+
+  // FINE · grasp (earlier foundations)
+  { id:"fm-grasp-palmar", dom:"fine", branch:"grasp", difficulty:1, prereqs:[], keystone:false,
+    t:"Whole-hand (palmar) grasp", age:"~5–6m", what:"Rakes/holds objects with whole hand", why:"First voluntary grasp — precursor to pincer.", how:"Offer easy-to-hold rattles.", next:"Transfer hand to hand", src:"Erhardt DPA / OT" },
+  { id:"fm-grasp-transfer", dom:"fine", branch:"grasp", difficulty:2, prereqs:["fm-grasp-palmar"], keystone:false,
+    t:"Transfers object hand to hand", age:"~6–7m", what:"Passes a toy between hands", why:"Bilateral integration + midline crossing.", how:"Offer a toy to the holding hand.", next:"Raking grasp of small items", src:"OT" },
+  { id:"fm-grasp-raking", dom:"fine", branch:"grasp", difficulty:2, prereqs:["fm-grasp-transfer"], keystone:false,
+    t:"Rakes small objects toward self", age:"~7–8m", what:"Curls fingers to gather small items", why:"Pre-pincer finger isolation.", how:"Cereal pieces on a tray.", next:"Pincer grasp", src:"Erhardt DPA" },
+
+  // FINE · tool_use
+  { id:"fm-tool-scoop", dom:"fine", branch:"tool_use", difficulty:3, prereqs:["fm-pincer"], keystone:false,
+    t:"Scoops with a spoon (transfer task)", age:"~15–18m", what:"Scoops beans/water from one bowl to another", why:"Wrist control + tool manipulation (Montessori).", how:"Two bowls + a spoon. Dry beans first.", next:"Pour from a small jug", src:"Montessori practical life" },
+  { id:"fm-tool-tongs", dom:"fine", branch:"tool_use", difficulty:5, prereqs:["fm-lids"], keystone:false,
+    t:"Transfers objects with tongs", age:"~3y", what:"Squeezes tongs to pick up pompoms", why:"Open–close hand strength + precision.", how:"Kitchen tongs + pompoms into an ice tray.", next:"Tweezers for tiny items", src:"Montessori / OT" },
+  { id:"fm-tool-cut-line", dom:"fine", branch:"tool_use", difficulty:6, prereqs:["fm-scissors"], keystone:false,
+    t:"Cuts along a straight line", age:"~3–4y", what:"Scissors follow a drawn line", why:"Bilateral coordination + visual-motor control.", how:"Draw a thick line; she cuts along it.", next:"Cut simple curves/shapes", src:"OT" },
+
+  // FINE · bilateral
+  { id:"fm-bilateral-fold", dom:"fine", branch:"bilateral", difficulty:5, prereqs:["fm-thread"], keystone:false,
+    t:"Folds paper in half", age:"~3–4y", what:"Brings edges together and presses a crease", why:"Two-hand cooperation + midline.", how:"Fold paper animals together.", next:"Fold along a line, then quarters", src:"OT" },
+
+  // SENSORY · visual
+  { id:"se-visual-match-pic", dom:"sensory", branch:"visual", difficulty:4, prereqs:["se-basic-colors"], keystone:false,
+    t:"Matches identical pictures", age:"~2–3y", what:"Pairs two identical images", why:"Visual discrimination — pre-reading.", how:"Memory/snap cards, 4–6 pairs.", next:"Match similar (not identical) images", src:"Montessori / OT" },
+
+  // SENSORY · auditory
+  { id:"se-aud-locate", dom:"sensory", branch:"auditory", difficulty:1, prereqs:[], keystone:false,
+    t:"Turns to locate a sound", age:"~5–6m", what:"Orients head/eyes toward a sound source", why:"Auditory localization foundation.", how:"Shake a rattle to the side; wait for the turn.", next:"React to loud vs quiet", src:"OT sensory integration" },
+  { id:"se-aud-animal", dom:"sensory", branch:"auditory", difficulty:4, prereqs:["se-sound-react"], keystone:false,
+    t:"Matches an animal to its sound", age:"~2y", what:"Links 'moo' → cow, etc.", why:"Auditory–semantic association.", how:"Animal-sound games and books.", next:"Match paired sound shakers", src:"Speech therapy consensus" },
+  { id:"se-aud-loud-soft", dom:"sensory", branch:"auditory", difficulty:5, prereqs:["se-sound"], keystone:false,
+    t:"Sorts loud vs soft sounds", age:"~3y", what:"Categorises sounds by volume", why:"Auditory attribute discrimination.", how:"Make loud/soft sounds; she sorts.", next:"Sequence 3 sounds", src:"Montessori" },
+
+  // SENSORY · tactile
+  { id:"se-tactile-temp", dom:"sensory", branch:"tactile", difficulty:3, prereqs:["se-texture-2"], keystone:false,
+    t:"Discriminates warm vs cold", age:"~18–24m", what:"Sorts/labels warm and cold objects", why:"Thermal tactile discrimination + vocab.", how:"Two cups (warm/cool water).", next:"Name 3+ textures", src:"Montessori thermic" },
+  { id:"se-tactile-3", dom:"sensory", branch:"tactile", difficulty:5, prereqs:["se-mystery"], keystone:false,
+    t:"Names 3+ textures with eyes closed", age:"~3y", what:"Identifies textures by touch alone", why:"Stereognosis + descriptive vocab.", how:"Texture board, eyes closed.", next:"Match texture pairs blind", src:"Montessori" },
+
+  // SENSORY · vestibular
+  { id:"se-vest-swing", dom:"sensory", branch:"vestibular", difficulty:1, prereqs:[], keystone:false,
+    t:"Calms with gentle swinging/rocking", age:"~3–6m", what:"Regulates to slow vestibular input", why:"Vestibular system foundation for balance.", how:"Rock or sway gently; watch her settle.", next:"Tolerate tilt/position change", src:"OT sensory integration" },
+  { id:"se-vest-tilt", dom:"sensory", branch:"vestibular", difficulty:2, prereqs:["se-vest-swing"], keystone:false,
+    t:"Adjusts head/body when tilted", age:"~12m", what:"Righting response to tilting", why:"Postural reactions for balance.", how:"Gentle tilts on your lap.", next:"Tolerate spinning + recover", src:"OT" },
+  { id:"se-vest-spin", dom:"sensory", branch:"vestibular", difficulty:4, prereqs:["se-vest-tilt"], keystone:false,
+    t:"Spins then re-orients without distress", age:"~12–18m", what:"Recovers orientation after spinning", why:"Vestibular processing + balance recovery.", how:"Slow spins on an office chair, supervised.", next:"Walk a balance beam", src:"OT sensory integration" },
+  { id:"se-vest-beam", dom:"sensory", branch:"vestibular", difficulty:5, prereqs:["se-vest-spin"], keystone:false,
+    t:"Walks along a low beam or taped line", age:"~3y", what:"Heel-to-toe along a line, arms out", why:"Dynamic balance + vestibular integration.", how:"Tape a line on the floor.", next:"Beam with a turn", src:"OT" },
+  { id:"se-vest-spin-recover", dom:"sensory", branch:"vestibular", difficulty:6, prereqs:["se-vest-beam"], keystone:false,
+    t:"Spins and recovers balance to standing", age:"~4y", what:"Controlled spin → stable stop", why:"Advanced vestibular modulation.", how:"Spin game with a freeze.", next:"Balance challenges with eyes closed", src:"OT" },
+
+  // SENSORY · proprioceptive
+  { id:"se-prop-heavy-work", dom:"sensory", branch:"proprioceptive", difficulty:3, prereqs:[], keystone:false,
+    t:"Seeks and tolerates heavy work", age:"~2y", what:"Pushes/pulls/carries with enjoyment", why:"Proprioceptive input is regulating (OT).", how:"Push a laundry basket; carry books.", next:"Grade force gently vs strong", src:"OT sensory integration" },
+  { id:"se-prop-grade-force", dom:"sensory", branch:"proprioceptive", difficulty:4, prereqs:["se-prop-heavy-work"], keystone:false,
+    t:"Grades force — gentle vs strong", age:"~2–3y", what:"Adjusts pressure to the task", why:"Proprioceptive modulation (e.g. gentle with pets).", how:"Practice 'soft hands' with a balloon vs push a box.", next:"Know body position without looking", src:"OT" },
+  { id:"se-prop-body-position", dom:"sensory", branch:"proprioceptive", difficulty:5, prereqs:["se-prop-grade-force"], keystone:false,
+    t:"Knows body position without looking", age:"~3y", what:"Places limbs on request, eyes closed", why:"Body awareness (proprioception).", how:"'Hands on head' with eyes shut.", next:"Copy a body pose", src:"OT" },
+  { id:"se-prop-mimic-pose", dom:"sensory", branch:"proprioceptive", difficulty:5, prereqs:["se-prop-body-position"], keystone:false,
+    t:"Copies a body pose (mirror game)", age:"~3–4y", what:"Reproduces a modelled posture", why:"Motor planning + proprioceptive feedback.", how:"Statue/mirror game.", next:"Obstacle course", src:"OT" },
+  { id:"se-prop-obstacle", dom:"sensory", branch:"proprioceptive", difficulty:6, prereqs:["se-prop-mimic-pose"], keystone:false,
+    t:"Navigates an obstacle course", age:"~3–4y", what:"Crawls under/over/through with body control", why:"Motor planning + proprioception + sequencing.", how:"Cushions, tunnel, chairs.", next:"Remember a 4-step course", src:"OT" },
+
+  // COGNITIVE · numbers
+  { id:"co-num-one-more", dom:"cognitive", branch:"numbers", difficulty:4, prereqs:["co-count-3"], keystone:false,
+    t:"Understands 'one more'", age:"~2y", what:"Adds one when asked", why:"Early addition / cardinality (Dehaene).", how:"Snack time: 'one more grape?'", next:"Compare more vs less", src:"Dehaene Number Sense" },
+  { id:"co-num-compare", dom:"cognitive", branch:"numbers", difficulty:5, prereqs:["co-count-5"], keystone:false,
+    t:"Compares 'more vs less'", age:"~3y", what:"Picks the bigger of two small sets", why:"Magnitude comparison.", how:"Two plates of different counts.", next:"Count to 10", src:"Dehaene" },
+  { id:"co-num-count-10", dom:"cognitive", branch:"numbers", difficulty:6, prereqs:["co-num-compare"], keystone:false,
+    t:"Counts to 10 with 1:1 correspondence", age:"~3–4y", what:"Touches each of 10 objects once", why:"Stable counting sequence + cardinality.", how:"Count stairs, fingers, blocks daily.", next:"Recognise written numerals", src:"NCTM / Dehaene" },
+
+  // COGNITIVE · classification
+  { id:"co-class-category", dom:"cognitive", branch:"classification", difficulty:5, prereqs:["co-same-diff"], keystone:false,
+    t:"Sorts by category (food / animals)", age:"~3y", what:"Groups by conceptual class", why:"Semantic categorisation = reasoning (Piaget).", how:"Sort toy food vs toy animals.", next:"Sort by two attributes", src:"Piaget" },
+
+  // COGNITIVE · sequencing
+  { id:"co-seq-imitate-2step", dom:"cognitive", branch:"sequencing", difficulty:3, prereqs:["co-imitate-simple"], keystone:false,
+    t:"Imitates a 2-step action sequence", age:"~18m", what:"Copies two actions in the right order", why:"Sequential imitation + working memory (Meltzoff).", how:"Demonstrate 'stir, then drink'; she copies.", next:"Follow a 2-step instruction", src:"Meltzoff, UW" },
+  { id:"co-seq-daily", dom:"cognitive", branch:"sequencing", difficulty:5, prereqs:["co-instr-2"], keystone:false,
+    t:"Recounts a routine in order", age:"~3y", what:"'First we… then we…'", why:"Temporal sequencing + memory.", how:"Talk through the bedtime routine.", next:"Order picture cards", src:"CDC / narrative practice" },
+  { id:"co-seq-3step", dom:"cognitive", branch:"sequencing", difficulty:6, prereqs:["co-seq-daily"], keystone:false,
+    t:"Follows a 3-step instruction", age:"~3–4y", what:"Carries out 3 actions in order", why:"Working memory + sequencing.", how:"'Get your shoes, put them on, come here.'", next:"4-step instructions", src:"CDC" },
+  { id:"co-seq-order", dom:"cognitive", branch:"sequencing", difficulty:7, prereqs:["co-seq-3step"], keystone:false,
+    t:"Puts 3 picture cards in order", age:"~4y", what:"Sequences a simple story/process", why:"Logical ordering + narrative.", how:"Plant-growing or get-dressed card sets.", next:"Sequence 4–5 cards", src:"Teaching Strategies GOLD" },
+
+  // COGNITIVE · pretend
+  { id:"co-pretend-feed-doll", dom:"cognitive", branch:"pretend", difficulty:3, prereqs:[], keystone:false,
+    t:"Feeds or cares for a doll/toy", age:"~18m", what:"Simple nurturing pretend act", why:"First symbolic play (Piaget).", how:"Toy spoon + doll.", next:"Use an object to stand for another", src:"Piaget pre-operational" },
+  { id:"co-pretend-object", dom:"cognitive", branch:"pretend", difficulty:4, prereqs:["co-pretend-feed-doll"], keystone:false,
+    t:"Uses an object to stand for another", age:"~18–24m", what:"Banana becomes a phone", why:"Symbolic substitution.", how:"Model it, then let her invent.", next:"Multi-step pretend", src:"Piaget" },
+  { id:"co-pretend-role", dom:"cognitive", branch:"pretend", difficulty:5, prereqs:["co-pretend"], keystone:false,
+    t:"Takes on a role in play", age:"~3y", what:"'I'm the doctor / maman'", why:"Role-play builds theory of mind.", how:"Dress-up + props.", next:"Act out a story with characters", src:"Vygotsky / Piaget" },
+  { id:"co-pretend-scenario", dom:"cognitive", branch:"pretend", difficulty:6, prereqs:["co-pretend-role"], keystone:false,
+    t:"Acts out a multi-character story", age:"~4y", what:"Sustains a pretend scenario with roles", why:"Narrative + social cognition + planning.", how:"Set up a shop/kitchen scene.", next:"Negotiate roles with a peer", src:"Vygotsky socio-dramatic play" },
+
+  // VOCAB · receptive
+  { id:"la-rec-2step", dom:"vocab", branch:"receptive", difficulty:4, prereqs:["la-points-pic"], keystone:false,
+    t:"Understands a 2-step spoken request", age:"~2–3y", what:"'Get the cup and give it to papa'", why:"Receptive sequencing.", how:"Everyday two-part asks.", next:"Understand prepositions", src:"CDC" },
+  { id:"la-rec-prepositions", dom:"vocab", branch:"receptive", difficulty:5, prereqs:["la-rec-2step"], keystone:false,
+    t:"Understands in / on / under", age:"~3y", what:"Places object per spatial word", why:"Spatial language comprehension.", how:"'Put teddy under the table.'", next:"Understand behind/between", src:"CDC" },
+
+  // VOCAB · expressive
+  { id:"la-exp-name-pics", dom:"vocab", branch:"expressive", difficulty:3, prereqs:["la-points-pic"], keystone:false,
+    t:"Names common pictures/objects", age:"~18–24m", what:"Labels familiar items on request", why:"Expressive vocabulary growth.", how:"Name everything during book time.", next:"2-word combinations", src:"MacArthur-Bates CDI" },
+  { id:"la-exp-4word", dom:"vocab", branch:"expressive", difficulty:5, prereqs:["la-3word"], keystone:false,
+    t:"Uses 4+ word sentences", age:"~3y", what:"Longer, more complete utterances", why:"Mean length of utterance growth.", how:"Expand her sentences by one element.", next:"Compound sentences with 'and'", src:"Brown's stages" },
+
+  // VOCAB · grammar
+  { id:"la-gram-poss", dom:"vocab", branch:"grammar", difficulty:4, prereqs:["la-pronouns"], keystone:false,
+    t:"Uses possessives ('mummy's')", age:"~2–3y", what:"Marks possession with -'s", why:"Grammatical morpheme (Brown).", how:"Label belongings: 'papa's keys'.", next:"Plurals and past tense", src:"Roger Brown's stages" },
+  { id:"la-gram-questions-form", dom:"vocab", branch:"grammar", difficulty:6, prereqs:["lang_past_tense"], keystone:false,
+    t:"Forms questions with do/can/why", age:"~3–4y", what:"'Can I…?', 'Why does…?' structures", why:"Question inversion = grammar maturation.", how:"Model full question forms.", next:"Embedded clauses", src:"Brown's stages / CDC" },
+
+  // VOCAB · phonology
+  { id:"la-phon-babble", dom:"vocab", branch:"phonology", difficulty:2, prereqs:[], keystone:false,
+    t:"Canonical babbling (ba-ba, da-da)", age:"~6–9m", what:"Repeated consonant-vowel strings", why:"Speech-sound foundation.", how:"Echo her babble back like a conversation.", next:"First clear consonant sounds", src:"Oller babbling stages" },
+  { id:"la-phon-first-sounds", dom:"vocab", branch:"phonology", difficulty:3, prereqs:["la-phon-babble"], keystone:false,
+    t:"Produces first consonant sounds clearly", age:"~12–18m", what:"Clear p/b/m/d in words", why:"Phonological inventory growth.", how:"Sound-play games (animal noises).", next:"Clap syllables", src:"Speech therapy consensus" },
+  { id:"la-phon-syllable", dom:"vocab", branch:"phonology", difficulty:4, prereqs:["la-phon-first-sounds"], keystone:false,
+    t:"Claps syllables in words", age:"~2–3y", what:"Breaks 'ba-na-na' into beats", why:"Phonological awareness (pre-reading).", how:"Clap names and food words.", next:"Recognise rhymes", src:"Phonological awareness research" },
+  { id:"la-phon-rhyme", dom:"vocab", branch:"phonology", difficulty:5, prereqs:["la-phon-syllable"], keystone:false,
+    t:"Recognises rhyming words", age:"~3–4y", what:"Notices cat/hat rhyme", why:"Strong predictor of reading (Bryant/Bradley).", how:"Rhyming books and songs.", next:"Identify the initial sound", src:"Bryant & Bradley" },
+  { id:"la-phon-initial", dom:"vocab", branch:"phonology", difficulty:6, prereqs:["la-phon-rhyme"], keystone:false,
+    t:"Identifies the initial sound of a word", age:"~4–5y", what:"'Ball starts with /b/'", why:"Phonemic awareness — key reading precursor.", how:"'I spy something starting with…'", next:"Blend onset + rime", src:"NRP phonemic awareness" },
+
+  // SOCIAL · emotion
+  { id:"so-emo-mirror", dom:"social", branch:"emotion", difficulty:1, prereqs:[], keystone:false,
+    t:"Mirrors caregiver facial expressions", age:"~6–9m", what:"Copies smiles/surprise", why:"Affective attunement foundation (Tronick).", how:"Exaggerated faces, face-to-face.", next:"Point to named emotion faces", src:"Tronick still-face" },
+  { id:"so-emo-point-face", dom:"social", branch:"emotion", difficulty:3, prereqs:["so-emo-mirror"], keystone:false,
+    t:"Points to happy/sad face when named", age:"~18–24m", what:"Receptive emotion labels", why:"Emotion vocabulary precursor (Brackett).", how:"Emotion flashcards/books.", next:"Names 4 emotions", src:"Marc Brackett, Yale" },
+  { id:"so-emo-cause", dom:"social", branch:"emotion", difficulty:6, prereqs:["so-name-feeling"], keystone:false,
+    t:"Explains why someone feels an emotion", age:"~3–4y", what:"'He's sad because…'", why:"Emotion causal reasoning + ToM.", how:"Pause stories: 'why is she sad?'", next:"Predict how an action makes someone feel", src:"Brackett / Harris emotion understanding" },
+
+  // SOCIAL · regulation
+  { id:"so-reg-soothe", dom:"social", branch:"regulation", difficulty:1, prereqs:[], keystone:false,
+    t:"Accepts soothing when upset", age:"~3–6m", what:"Calms with caregiver support", why:"External regulation precedes self-regulation (Perry).", how:"Consistent, calm soothing.", next:"Use a comfort object", src:"Bruce Perry" },
+  { id:"so-reg-self-soothe", dom:"social", branch:"regulation", difficulty:3, prereqs:["so-reg-soothe"], keystone:false,
+    t:"Uses a comfort object to self-soothe", age:"~12–18m", what:"Seeks blanket/lovey to settle", why:"Transitional self-regulation (Winnicott).", how:"Allow a consistent comfort object.", next:"Wait briefly with support", src:"Winnicott" },
+  { id:"so-reg-wait", dom:"social", branch:"regulation", difficulty:4, prereqs:["so-reg-self-soothe"], keystone:false,
+    t:"Waits briefly with support", age:"~2–3y", what:"Tolerates a short wait", why:"Impulse control / delay (Diamond EF).", how:"'In a moment' + a visual timer.", next:"Use a calming strategy", src:"Diamond UBC executive function" },
+  { id:"so-reg-strategy", dom:"social", branch:"regulation", difficulty:6, prereqs:["so-coreg"], keystone:false,
+    t:"Uses a calming strategy (deep breath)", age:"~3–4y", what:"Tries a taught self-calming tool", why:"Emerging self-regulation (Siegel).", how:"Practice 'smell the flower, blow the candle' when calm.", next:"Self-regulates a big feeling alone", src:"Siegel-Bryson" },
+
+  // SOCIAL · empathy
+  { id:"so-emp-notice", dom:"social", branch:"empathy", difficulty:3, prereqs:[], keystone:false,
+    t:"Notices others' big feelings", age:"~18m", what:"Looks/reacts when someone is upset", why:"Affective empathy onset (Hoffman).", how:"Name it: 'X is sad.'", next:"Offer comfort", src:"Hoffman empathy stages" },
+  { id:"so-emp-comfort", dom:"social", branch:"empathy", difficulty:5, prereqs:["so-empathy"], keystone:false,
+    t:"Offers comfort to someone upset", age:"~2–3y", what:"Pats, hugs, brings a toy", why:"Prosocial empathy in action.", how:"Praise comforting attempts.", next:"Help solve the problem", src:"Hoffman / Warneken" },
+  { id:"so-emp-help", dom:"social", branch:"empathy", difficulty:5, prereqs:["so-emp-comfort"], keystone:false,
+    t:"Helps someone with a problem", age:"~3y", what:"Spontaneous instrumental helping", why:"Cooperative prosociality (Warneken & Tomasello).", how:"Let her 'help' with real tasks.", next:"Recognise differing perspectives", src:"Warneken & Tomasello" },
+  { id:"so-emp-perspective", dom:"social", branch:"empathy", difficulty:6, prereqs:["so-emp-help"], keystone:false,
+    t:"Recognises others want different things", age:"~3–4y", what:"Understands a different preference/desire", why:"Theory of mind (desire reasoning).", how:"'You like apples, papa likes bananas.'", next:"False-belief understanding", src:"Wellman ToM scale" },
+
+  // SOCIAL · independence
+  { id:"so-ind-self-feed", dom:"social", branch:"independence", difficulty:3, prereqs:["so-attach-secure"], keystone:false,
+    t:"Feeds self independently", age:"~15–18m", what:"Eats a meal with hands/spoon alone", why:"Autonomy + self-care (Erikson).", how:"Tolerate the mess; let her do it.", next:"Help with dressing", src:"Erikson autonomy / Montessori" },
+  { id:"so-ind-dress-help", dom:"social", branch:"independence", difficulty:4, prereqs:["so-ind-self-feed"], keystone:false,
+    t:"Helps with dressing", age:"~2y", what:"Pushes arms/legs through, removes socks", why:"Self-care sequence + autonomy.", how:"Offer a head-start; she finishes.", next:"Dress independently", src:"Montessori practical life" },
+  { id:"so-ind-tidy", dom:"social", branch:"independence", difficulty:4, prereqs:["so-ind-self-feed"], keystone:false,
+    t:"Puts toys away with a reminder", age:"~2–3y", what:"Participates in tidy-up", why:"Responsibility + sequencing + belonging.", how:"Sing a tidy-up song together.", next:"Tidy without reminder", src:"Montessori grace & courtesy" },
 ];
 SKILLS.push(...SKILLS_CUSTOM_SEED);
 
@@ -9765,6 +9951,245 @@ function _inferSubdomain(skill){
 })();
 
 /* ═════════════════════════════════════════════════════════════════════════
+   v9 — ADAPTIVE SKILL TREE (branch + difficulty + prereq backfill)
+   ─────────────────────────────────────────────────────────────────────────
+   Additive alias layer over the existing v5/v6 graph:
+     • branch     — coarse sub-domain ladder (maps from existing `subdomain`)
+     • difficulty — 1–10, from the existing UDI (udiOf, decimal 0–10)
+     • prereqs    — kept as-is; backfilled where empty so diff≥3 skills gate
+   Never removes/renames IDs. Idempotent.
+   ═════════════════════════════════════════════════════════════════════════ */
+const BRANCHES_BY_DOMAIN = {
+  gross:     ["locomotion","balance","strength","coordination","rhythm"],
+  fine:      ["grasp","tool_use","bilateral","pre_writing","self_care"],
+  sensory:   ["visual","auditory","tactile","vestibular","proprioceptive"],
+  cognitive: ["numbers","classification","sequencing","executive","pretend"],
+  vocab:     ["receptive","expressive","grammar","phonology","pragmatics"],
+  social:    ["emotion","regulation","empathy","prosocial","independence"],
+};
+const BRANCH_LABELS = {
+  locomotion:"Locomotion", balance:"Balance", strength:"Strength", coordination:"Coordination", rhythm:"Rhythm",
+  grasp:"Grasp", tool_use:"Tool use", bilateral:"Bilateral", pre_writing:"Pre-writing", self_care:"Self-care",
+  visual:"Visual", auditory:"Auditory", tactile:"Tactile", vestibular:"Vestibular", proprioceptive:"Proprioceptive",
+  numbers:"Numbers", classification:"Classification", sequencing:"Sequencing", executive:"Executive function", pretend:"Pretend play",
+  receptive:"Receptive", expressive:"Expressive", grammar:"Grammar", phonology:"Phonology", pragmatics:"Pragmatics",
+  emotion:"Emotion", regulation:"Self-regulation", empathy:"Empathy", prosocial:"Prosocial", independence:"Independence",
+};
+function branchesFor(domKey){ return BRANCHES_BY_DOMAIN[domKey] || []; }
+function branchLabel(b){ return BRANCH_LABELS[b] || (b ? b.replace(/_/g," ") : "Other"); }
+
+/* Explicit branch per existing skill id (authored from t/what/why). */
+const SKILL_BRANCH_MAP = {
+  // GROSS
+  "gm-walk":"locomotion","gm-run":"locomotion","gm-jump":"locomotion","gm-stairs-up":"locomotion",
+  "gm-walk-stairs-hand":"locomotion","gm-rolls":"locomotion","gm-crawls":"locomotion",
+  "gm-kick":"coordination","gm-throw":"coordination","gm-catch":"coordination",
+  "gm-balance-bike":"balance","gm-one-foot":"balance","gm-stand-unsup":"balance","gm-sits":"balance","gm-head-control":"balance",
+  "gm-climb":"strength","gm-carry-heavy":"strength","gm-squat-play":"strength","gm-push-pull":"strength","gm-pulls-to-stand":"strength",
+  "gm-dance-rhythm":"rhythm",
+  // FINE
+  "fm-pincer":"grasp","fm-point":"grasp",
+  "fm-scissors":"tool_use","fm-lids":"tool_use",
+  "fm-stack-6":"bilateral","fm-thread":"bilateral","fm-pages":"bilateral","fm-stack-3":"bilateral",
+  "fm-crayon":"pre_writing","fm-lines-h":"pre_writing","fm-lines-v":"pre_writing","fm-circle":"pre_writing","fm-scribble":"pre_writing",
+  "fm-spoon-fork":"self_care","fm-buttons-large":"self_care","fm-zip":"self_care","fm-velcro":"self_care","fm-spoon-basic":"self_care",
+  // SENSORY
+  "se-colors-3":"visual","se-shapes-3":"visual","se-pink-tower":"visual","se-basic-colors":"visual",
+  "se-sound":"auditory","se-sound-react":"auditory",
+  "se-mystery":"tactile","se-smell":"tactile","se-texture-2":"tactile",
+  // COGNITIVE
+  "co-count-3":"numbers","co-count-5":"numbers",
+  "co-sort-color":"classification","co-sort-size":"classification","co-same-diff":"classification","co-sort-shape":"classification",
+  "co-instr-2":"sequencing","co-imitate-simple":"sequencing",
+  "co-missing":"executive","co-puzzle-6":"executive","co-obj-perm":"executive","co-cause-effect":"executive","co-instr-1":"executive","co-1word-instr":"executive",
+  "co-pretend":"pretend",
+  // VOCAB / LANGUAGE
+  "la-2word":"expressive","la-3word":"expressive","la-body-5":"expressive",
+  "la-pronouns":"grammar","lang_plural_s":"grammar","lang_past_tense":"grammar",
+  "la-story-5min":"receptive","la-points-pic":"receptive","la-bilingual-aware":"receptive",
+  "la-why":"pragmatics","lang_question_what":"pragmatics","lang_question_where":"pragmatics","lang_narrative":"pragmatics","lang_bilingual_switch":"pragmatics",
+  // SOCIAL
+  "so-emotion-4":"emotion","so-name-feeling":"emotion",
+  "so-coreg":"regulation",
+  "so-empathy":"empathy",
+  "so-parallel":"prosocial","so-please-thanks":"prosocial","so-wave-bye":"prosocial","so-point-share":"prosocial","so-back-forth":"prosocial",
+  "so-separation":"independence","so-attach-secure":"independence",
+};
+/* Fallback: map an existing v6 subdomain → coarse branch (safety net for any
+   skill not in SKILL_BRANCH_MAP, e.g. runtime auto-seeded skills). */
+const SUBDOMAIN_TO_BRANCH = {
+  locomotion:"locomotion", balance_vestibular:"balance", ball_skills:"coordination", music_rhythm:"rhythm", heavy_work:"strength",
+  grasp:"grasp", tool_use:"tool_use", bimanual:"bilateral", visual_motor:"pre_writing", self_care:"self_care",
+  visual_discr:"visual", auditory:"auditory", tactile:"tactile", vestibular:"vestibular", proprioceptive:"proprioceptive",
+  number_quant:"numbers", classification:"classification", sequencing:"sequencing", working_memory:"executive", cause_effect:"executive", symbolic_pretend:"pretend",
+  receptive:"receptive", expressive:"expressive", grammar:"grammar", phonology:"phonology", pragmatics:"pragmatics",
+  emotion_recognition:"emotion", self_regulation:"regulation", coregulation:"regulation", empathy_tom:"empathy", prosocial:"prosocial", independence:"independence",
+};
+function _branchOf(s){
+  if (s.branch) return s.branch;
+  if (SKILL_BRANCH_MAP[s.id]) return SKILL_BRANCH_MAP[s.id];
+  if (s.subdomain && SUBDOMAIN_TO_BRANCH[s.subdomain]) return SUBDOMAIN_TO_BRANCH[s.subdomain];
+  const list = branchesFor(s.dom);
+  return list[0] || "other";
+}
+function _difficultyOf(s){
+  const u = (typeof udiOf === "function") ? udiOf(s) : (typeof s.udi === "number" ? s.udi : 3);
+  return Math.max(1, Math.min(10, Math.round(u)));
+}
+(function migrateSkillTreeV9(){
+  try {
+    SKILLS.forEach(s => {
+      if (!s.branch)     s.branch = _branchOf(s);
+      if (typeof s.difficulty !== "number") s.difficulty = _difficultyOf(s);
+      if (!Array.isArray(s.prereqs)) s.prereqs = [];
+    });
+    // Backfill prereqs for gated skills (difficulty ≥ 3) that have none:
+    // pick the nearest lower-difficulty skill in the same domain+branch.
+    SKILLS.forEach(s => {
+      if (s.difficulty < 3 || (s.prereqs && s.prereqs.length)) return;
+      const lower = SKILLS
+        .filter(x => x.id !== s.id && x.dom === s.dom && x.branch === s.branch && x.difficulty < s.difficulty)
+        .sort((a,b) => b.difficulty - a.difficulty);
+      if (lower.length) s.prereqs = [lower[0].id];
+    });
+    // Self-check (warn only — never block load).
+    const ids = new Set(SKILLS.map(s => s.id));
+    const orphans = SKILLS.flatMap(s => s.prereqs || []).filter(p => !ids.has(p));
+    if (orphans.length) console.warn("v9 skill-tree: orphan prereq ids", [...new Set(orphans)]);
+    const hasCycle = (id, seen) => {
+      if (seen.includes(id)) return true;
+      const sk = SKILLS.find(x => x.id === id);
+      return (sk && sk.prereqs || []).some(p => hasCycle(p, [...seen, id]));
+    };
+    const cycles = SKILLS.filter(s => hasCycle(s.id, [])).map(s => s.id);
+    if (cycles.length) console.warn("v9 skill-tree: circular prereqs", cycles);
+  } catch(e){ console.warn("v9 skill-tree migration failed", e); }
+})();
+
+/* ── v9 ZPD engine (reuses deriveStatus + branch/difficulty) ──────────────── */
+function isSkillMastered(skillId){
+  const st = (typeof deriveStatus === "function") ? deriveStatus(skillId) : null;
+  return st === "mastered" || st === "already_mastered" || st === "automatic";
+}
+function isUnlocked(skill){
+  if (!skill || !skill.prereqs || skill.prereqs.length === 0) return true;
+  return skill.prereqs.every(pid => isSkillMastered(pid));
+}
+function zdpScore(skill){
+  if (isSkillMastered(skill.id)) return 0;     // already done
+  if (!isUnlocked(skill)) return 0;            // prereqs not met
+  const masteredInBranch = SKILLS.filter(s =>
+    s.dom === skill.dom && s.branch === skill.branch && isSkillMastered(s.id));
+  const avgMastered = masteredInBranch.length
+    ? masteredInBranch.reduce((a,b) => a + (b.difficulty||3), 0) / masteredInBranch.length
+    : 0;
+  const diff = (skill.difficulty||5) - avgMastered;
+  if (diff >= 0.5 && diff <= 2.0) return 10 - Math.abs(diff - 1.0);  // sweet spot
+  if (diff > 2.0) return Math.max(0, 5 - diff);                       // too hard
+  if (diff < 0.5) return 3;                                          // consolidation
+  return 1;
+}
+/* All skills for a domain, grouped by branch: every mastered (for context) +
+   the top-2 unlocked ZPD candidates per branch, sorted by difficulty. */
+function getActiveSkillsForDomain(domKey){
+  const all = [...SKILLS, ...((typeof state !== "undefined" && state.skillsCustom) || [])];
+  const domSkills = all.filter(s => s.dom === domKey);
+  domSkills.forEach(s => { if (!s.branch) s.branch = _branchOf(s); if (typeof s.difficulty !== "number") s.difficulty = _difficultyOf(s); });
+  const branches = [...new Set(domSkills.map(s => s.branch).filter(Boolean))];
+  const active = [];
+  branches.forEach(branch => {
+    const branchSkills = domSkills.filter(s => s.branch === branch);
+    const mastered = branchSkills.filter(s => isSkillMastered(s.id));
+    const candidates = branchSkills
+      .filter(s => !isSkillMastered(s.id) && isUnlocked(s))
+      .map(s => ({ ...s, _zpd: zdpScore(s) }))
+      .sort((a,b) => b._zpd - a._zpd)
+      .slice(0, 2);
+    active.push(...mastered, ...candidates);
+  });
+  return active.sort((a,b) => (a.difficulty||5) - (b.difficulty||5));
+}
+
+/* ── v9 AI tutor brief (branch/ZPD-based; coexists with exportTutorBrief) ──── */
+function generateTutorBrief(){
+  const child = (typeof currentChild === "function" && currentChild()) || { name: (typeof state!=="undefined" && state.currentChild) || "—", dob:null };
+  const domains = DOMAINS.map(d => {
+    const domSkills = SKILLS.filter(s => s.dom === d.key);
+    const mastered  = domSkills.filter(s => isSkillMastered(s.id));
+    const active    = getActiveSkillsForDomain(d.key).filter(s => !isSkillMastered(s.id));
+    const locked    = domSkills.filter(s => !isSkillMastered(s.id) && !isUnlocked(s));
+    const avgDiff   = mastered.length ? mastered.reduce((a,b)=>a+(b.difficulty||3),0)/mastered.length : 0;
+    return {
+      domain: d.key, label: d.label,
+      mastered_count: mastered.length,
+      avg_difficulty: +avgDiff.toFixed(1),
+      current_level: Math.round(avgDiff),
+      next_skills: active.slice(0,3).map(s => ({ id:s.id, title:s.t, branch:s.branch, difficulty:s.difficulty, how:s.how, prereqs_met: isUnlocked(s) })),
+      locked_count: locked.length
+    };
+  });
+  const langs = (child.languages && child.languages.length) ? child.languages : ["en","fr"];
+  const brief = {
+    child: { name: child.name, dob: child.dob || null, languages: langs },
+    date: new Date().toISOString().slice(0,10),
+    domains,
+    tutor_instructions:
+`You are an adaptive child development tutor.
+Use this brief to suggest 1–2 activities for today's session.
+
+Rules:
+1. Target the next_skills listed (ZPD — just one step harder than current level).
+2. Use the how field for activity ideas; keep activities playful and household-friendly.
+3. Activities should weave together 2+ domains when possible for efficiency.
+4. Adapt language: use ${langs.join(" and ")} vocabulary.
+5. For each suggestion provide: title, materials needed (household only), step-by-step instructions (3–5 steps), target skill IDs, estimated duration.
+6. Never suggest skills where prereqs_met is false.
+7. Frame everything positively — celebrate current level, name the next milestone.
+
+Output format: JSON array of activity objects, no prose.`
+  };
+  const json = JSON.stringify(brief, null, 2);
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(json).then(
+      () => (typeof showToast==="function") && showToast("🎓 Tutor brief copied — paste into any AI chat"),
+      () => showTutorBriefModal(json)
+    );
+  } else {
+    showTutorBriefModal(json);
+  }
+}
+function showTutorBriefModal(text){
+  let m = document.getElementById("tutorBriefModal");
+  if (!m){
+    m = document.createElement("div");
+    m.id = "tutorBriefModal"; m.className = "modal"; m.style.zIndex = "1200";
+    m.innerHTML = `<div class="panel" style="max-width:680px; width:100%">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px">
+        <h3 style="margin:0">🎓 AI tutor brief</h3>
+        <button class="small ghost" id="tutorBriefClose" aria-label="Close">✕</button>
+      </div>
+      <div class="sub" style="color:var(--muted); font-size:12px; margin-bottom:8px">Copy this and paste it into any AI chat.</div>
+      <textarea id="tutorBriefText" readonly style="width:100%; height:50vh; font-family:monospace; font-size:11px; padding:10px; border:1px solid var(--line); border-radius:10px; resize:vertical"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="small primary" id="tutorBriefCopy">📋 Copy</button>
+        <button class="small ghost" id="tutorBriefClose2">Close</button>
+      </div></div>`;
+    document.body.appendChild(m);
+    const close = () => m.classList.remove("open");
+    m.addEventListener("click", e => { if (e.target === m) close(); });
+    m.querySelector("#tutorBriefClose").onclick  = close;
+    m.querySelector("#tutorBriefClose2").onclick = close;
+    m.querySelector("#tutorBriefCopy").onclick = () => {
+      const ta = m.querySelector("#tutorBriefText"); ta.select();
+      try { navigator.clipboard.writeText(ta.value); } catch(e){ try { document.execCommand("copy"); } catch(_){} }
+      if (typeof showToast === "function") showToast("📋 Copied");
+    };
+  }
+  m.querySelector("#tutorBriefText").value = text;
+  m.classList.add("open");
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
    v5 — ERA-EVOLUTIVE DOMAIN SCHEMA
    ═════════════════════════════════════════════════════════════════════════
    7 lifespan eras (the spec text says "6" but lists 7 entries — I use all 7
@@ -10544,15 +10969,93 @@ try { _catShowHidden = localStorage.getItem("maxine-show-hidden") === "true"; } 
 let _catFocusMode = false;
 try { _catFocusMode = localStorage.getItem("maxine-focus-mode") === "true"; } catch(e){}
 
+/* ── v9 Tree view: branch-grouped progression ladders ─────────────────────── */
+let catLayoutMode = "list"; // "list" | "tree"
+function refreshCatalogue(){ if (catLayoutMode === "tree") renderSkillTree(); else drawSkillCatalogue(); }
+function applyCatLayout(){
+  const tree = catLayoutMode === "tree";
+  const treeBtn = document.getElementById("skillLayoutTree");
+  const listBtn = document.getElementById("skillLayoutList");
+  if (treeBtn) treeBtn.className = "small" + (tree ? " primary" : "");
+  if (listBtn) listBtn.className = "small" + (!tree ? " primary" : "");
+  const sl = document.getElementById("skillsList");       if (sl) sl.style.display = tree ? "none" : "";
+  const st = document.getElementById("skillTree");        if (st) st.style.display = tree ? "" : "none";
+  const lc = document.getElementById("skillListControls");if (lc) lc.style.display = tree ? "none" : "";
+  refreshCatalogue();
+}
+function renderSkillTree(){
+  const host = document.getElementById("skillTree");
+  if (!host) return;
+  const fd = (document.getElementById("skillDomain") || {}).value || "";
+  const doms = DOMAINS.filter(d => !fd || d.key === fd);
+  let html = "";
+  doms.forEach(d => {
+    const all = SKILLS.filter(s => s.dom === d.key);
+    if (!all.length) return;
+    const active = getActiveSkillsForDomain(d.key);
+    const activeIds = new Set(active.filter(s => !isSkillMastered(s.id)).map(s => s.id));
+    html += `<div style="margin:14px 0 4px; font-size:15px; font-weight:800; color:var(--ink)">${d.emoji} ${escapeHtml(d.label)}</div>`;
+    branchesFor(d.key).forEach(branch => {
+      const bSkills = all.filter(s => s.branch === branch).sort((a,b)=>(a.difficulty||5)-(b.difficulty||5));
+      if (!bSkills.length) return;
+      const mastered = bSkills.filter(s => isSkillMastered(s.id));
+      const unmastered = bSkills.filter(s => !isSkillMastered(s.id));
+      html += `<div style="margin:6px 0; border:1px solid var(--line); border-radius:12px; overflow:hidden">
+        <div style="padding:8px 12px; background:#F8FAFC; font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:8px">
+          <span>${escapeHtml(branchLabel(branch))}</span>
+          <span style="font-size:11px; color:var(--muted)">${mastered.length}/${bSkills.length} mastered</span>
+        </div>`;
+      if (mastered.length){
+        html += `<details style="padding:6px 12px; background:#F0FDF4">
+          <summary style="cursor:pointer; font-size:12px; color:#166534; font-weight:700">Show ${mastered.length} mastered ▸</summary>
+          <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px">
+            ${mastered.map(s => `<span style="background:#DCFCE7; color:#14532D; border:1px solid #86EFAC; border-radius:999px; padding:3px 9px; font-size:12px">✓ ${escapeHtml(s.t)}</span>`).join("")}
+          </div></details>`;
+      }
+      unmastered.forEach(s => {
+        const status = skillStatus(s.id);
+        if (isUnlocked(s)){
+          const isAct = activeIds.has(s.id);
+          html += `<div class="skill-row" data-skillid="${escapeHtml(s.id)}" style="display:flex; gap:10px; padding:10px 12px; border-top:1px solid var(--line); cursor:pointer; align-items:center; ${isAct ? 'background:#FFFBEB; border-left:3px solid #F59E0B;' : ''}">
+            <div style="flex:1; min-width:0">
+              <div style="font-weight:700; font-size:14px">${escapeHtml(s.t)} ${isAct ? '<span style="font-size:10px; background:#FEF3C7; color:#854D0E; padding:1px 6px; border-radius:4px; font-weight:700">Ready to try</span>' : ''}</div>
+              <div style="font-size:11px; color:var(--muted)">${escapeHtml(s.age || "")} · difficulty ${s.difficulty}</div>
+            </div>
+            <button class="small" data-skillcycle="${escapeHtml(s.id)}" style="font-size:11px; white-space:nowrap">${escapeHtml(STATUS_LABEL[status] || status)}</button>
+          </div>`;
+        } else {
+          const missing = (s.prereqs || []).filter(p => !isSkillMastered(p))
+            .map(p => { const ps = SKILLS.find(x => x.id === p); return ps ? ps.t : p; });
+          html += `<div style="display:flex; gap:10px; padding:10px 12px; border-top:1px solid var(--line); align-items:center; opacity:.6; background:#F9FAFB">
+            <div style="flex:1; min-width:0">
+              <div style="font-weight:600; font-size:13px; color:var(--muted)">🔒 ${escapeHtml(s.t)}</div>
+              <div style="font-size:11px; color:var(--muted)">Unlock by mastering: ${escapeHtml(missing.join(", ")) || "—"}</div>
+            </div>
+          </div>`;
+        }
+      });
+      html += `</div>`;
+    });
+  });
+  host.innerHTML = html || '<div style="padding:20px; text-align:center; color:var(--muted)">No skills.</div>';
+}
+
 function renderSkillCatalogue(){
   // Populate domain filter once
   const dom = document.getElementById("skillDomain");
   if (dom && dom.options.length <= 1){
     DOMAINS.forEach(d => { const o = document.createElement("option"); o.value = d.key; o.textContent = `${d.emoji} ${d.label}`; dom.appendChild(o); });
-    dom.onchange = drawSkillCatalogue;
-    document.getElementById("skillStatus").onchange = drawSkillCatalogue;
-    document.getElementById("skillSearch").oninput = drawSkillCatalogue;
+    dom.onchange = refreshCatalogue;
+    document.getElementById("skillStatus").onchange = refreshCatalogue;
+    document.getElementById("skillSearch").oninput = refreshCatalogue;
   }
+  // Layout toggle (Tree | List) + tutor brief
+  const treeBtn = document.getElementById("skillLayoutTree");
+  const listBtn = document.getElementById("skillLayoutList");
+  if (treeBtn && !treeBtn._wired){ treeBtn._wired = true; treeBtn.onclick = ()=>{ catLayoutMode = "tree"; applyCatLayout(); }; }
+  if (listBtn && !listBtn._wired){ listBtn._wired = true; listBtn.onclick = ()=>{ catLayoutMode = "list"; applyCatLayout(); }; }
+  const tbBtn = document.getElementById("genTutorBriefBtn");
+  if (tbBtn && !tbBtn._wired){ tbBtn._wired = true; tbBtn.onclick = ()=>{ if (typeof generateTutorBrief === "function") generateTutorBrief(); }; }
   // Smart/all toggle
   const smartBtn = document.getElementById("skillViewSmart");
   const allBtn   = document.getElementById("skillViewAll");
@@ -10588,7 +11091,7 @@ function renderSkillCatalogue(){
     vGo._wired = true;
     vGo.onclick = () => { if (typeof showView === "function") showView("vocabulary"); };
   }
-  drawSkillCatalogue();
+  applyCatLayout();
 }
 
 function drawSkillCatalogue(){
@@ -10876,7 +11379,7 @@ document.addEventListener("click", (e)=>{
     e.stopPropagation();
     const id = btn.dataset.skillcycle;
     setSkillStatus(id, cycleSkillStatus(skillStatus(id)));
-    drawSkillCatalogue();
+    if (typeof refreshCatalogue === "function") refreshCatalogue(); else drawSkillCatalogue();
     return;
   }
   const row = e.target.closest(".skill-row");
