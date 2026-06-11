@@ -10637,6 +10637,33 @@ function skillAgeMidpointMonths(skill){
   return ((skill && skill.difficulty) || 5) * 6;
 }
 
+/* Lower bound of a skill's age band in months — used by drawSkillCatalogue to
+   enforce the Smart-view age horizon. Mirrors skillAgeMidpointMonths but returns
+   the FIRST (lower) value of a range. "~3–4m"→3 "24–30m"→24 "~3y"→36 "5–7y"→60 */
+function skillAgeMinMonths(s){
+  const a = ((s && s.age) || "").toString().toLowerCase().replace(/[~\s]/g, "");
+  if (!a) return ((s && s.difficulty) || 5) * 12;
+  const isY = a.includes("y");
+  const toM = n => isY ? Math.round(n * 12) : Math.round(n);
+  let m = a.match(/(\d+(?:\.\d+)?)[–—\-](\d+(?:\.\d+)?)/);            // range → lower bound
+  if (m) return toM(parseFloat(m[1]));
+  m = a.match(/^(\d+(?:\.\d+)?)/);                                    // single / open-ended
+  if (m) return toM(parseFloat(m[1]));
+  return ((s && s.difficulty) || 5) * 12;
+}
+
+/* Living-catalogue expansion tier = floor(ageMonths / 6). Tier 0 = 0–6m,
+   tier 1 = 6–12m, … capped at tier 27 (162m+). */
+function computeCatalogueTier(ageMonths){
+  return Math.min(27, Math.floor((ageMonths || 0) / 6));
+}
+/* Human-readable age band for a tier (used in a generated skill's `age` field). */
+function tierAgeBandLabel(tier){
+  const lo = tier * 6, hi = (tier + 1) * 6;
+  if (lo >= 36) return `${Math.round(lo/12)}–${Math.round(hi/12)}y`;
+  return `${lo}–${hi}m`;
+}
+
 /* ── v10 — recalibrate skill difficulty onto a 14-year (168-month) scale ────
    Bands per the master spec. NOTE: because `SKILLS`/`SKILLS_CUSTOM_SEED` are
    const literals rebuilt every load (and migrateSkillTreeV9 re-derives
@@ -12034,8 +12061,23 @@ function drawSkillCatalogue(){
   let html = "";
   let masteredCount = 0;
 
+  // Age horizon for Smart view — only show "new" skills within the child's
+  // near-future window (never below 36m). "All skills" stays unfiltered.
+  const _catChildAge   = (typeof getActiveChildId === "function" && typeof computeChildAgeMonths === "function")
+                          ? (computeChildAgeMonths(getActiveChildId()) || 0) : 0;
+  const _catAgeHorizon = Math.max(36, _catChildAge + 24);
+  let   futureHiddenCount = 0;
+
+  // Skill pool = static SKILLS + this child's bespoke (custom/AI-generated) skills,
+  // deduped by id. skillsCustom is per-child via the working-set swap.
+  const _catSkillPool = (() => {
+    const seen = new Set();
+    return [...SKILLS, ...(Array.isArray(state.skillsCustom) ? state.skillsCustom : [])]
+      .filter(s => { if (!s || !s.id || seen.has(s.id)) return false; seen.add(s.id); return true; });
+  })();
+
   // Fix 3.3 — List view renders difficulty ascending (primary sort).
-  [...SKILLS].sort((a,b) => (a.difficulty||5) - (b.difficulty||5)).forEach(s => {
+  _catSkillPool.sort((a,b) => (a.difficulty||5) - (b.difficulty||5)).forEach(s => {
     // Improvement 3: hidden-skill filtering. Default: hidden===true skills
     // are excluded when _catShowHidden is false. Missing `hidden` property
     // is treated as `false` (visible).
@@ -12052,6 +12094,12 @@ function drawSkillCatalogue(){
     const wStr = (s.what || s.desc || "").toLowerCase();
     if (ft && !tStr.includes(ft) && !wStr.includes(ft)) return;
 
+    // Smart view: hide "new" skills beyond the child's age horizon.
+    if (skillViewMode === "smart" && status === "new" && skillAgeMinMonths(s) > _catAgeHorizon){
+      futureHiddenCount++;
+      return;
+    }
+
     // Smart mode: hide mastered skills that are below recommended level
     if (skillViewMode === "smart" && status === "mastered"){
       masteredCount++;
@@ -12065,8 +12113,8 @@ function drawSkillCatalogue(){
     const hiddenClass  = s.hidden === true ? " skill-hidden" : "";
     const seededClass  = s._seeded === true ? " skill-seeded" : "";
     const isPriority   = (priorityByDomain[s.dom] && priorityByDomain[s.dom].has(s.id));
-    const seededBadge  = s._seeded === true
-      ? '<span class="skill-chip-seeded" title="Auto-suggested based on Maxine\'s progress">✨ suggested</span>' : "";
+    const seededBadge  = (s._seeded === true || s._generated === true)
+      ? `<span class="skill-chip-seeded" title="${s._generated ? "AI-generated for this child" : "Auto-suggested based on progress"}">✨ ${s._generated ? "generated" : "suggested"}</span>` : "";
     const priorityChip = isPriority
       ? '<span class="skill-chip-priority" title="High-value next skill — keystone × tier × frontier × prereqs ready">⭐ Priority</span>' : "";
     html += `
@@ -12087,12 +12135,22 @@ function drawSkillCatalogue(){
     </div>`;
   }
 
-  // Newborn-mode note: the catalogue is shown in full (no age/UDI filter) so
-  // parents can log any early milestone for Lou / Jordan.
+  // Smart view: note how many future skills are hidden by the age horizon.
+  if (skillViewMode === "smart" && futureHiddenCount > 0 && !ft){
+    const horizonY = (_catAgeHorizon / 12).toFixed(1).replace(/\.0$/, "");
+    html += `<div style="padding:10px 14px; font-size:12px; color:var(--muted); background:#F8FAFC; border-top:1px solid var(--line)">
+      🔮 ${futureHiddenCount} skill${futureHiddenCount === 1 ? "" : "s"} (${horizonY}y+) hidden in Smart view.
+      Switch to <strong>All skills</strong> to browse the full catalogue.
+    </div>`;
+  }
+
+  // Newborn-mode note — references the age cap (Smart view) rather than "all skills".
   const _nbChild = (typeof currentChild === "function") ? currentChild() : null;
   if (_nbChild && _nbChild.mode === "newborn"){
+    const capY = (_catAgeHorizon / 12).toFixed(1).replace(/\.0$/, "");
     html = `<div style="padding:10px 14px; background:#FFF7FB; border-bottom:1px solid var(--line); font-size:13px; color:#9D174D">
-      👶 Showing all skills — log any milestone you observe for ${escapeHtml(_nbChild.name || "")}.</div>` + html;
+      👶 Showing skills up to ${capY}y for ${escapeHtml(_nbChild.name || "")}.
+      Tap <strong>All skills</strong> to browse the full catalogue.</div>` + html;
   }
 
   list.innerHTML = html || '<div style="padding:20px; text-align:center; color:var(--muted)">No skills match the filters.</div>';
@@ -12143,7 +12201,12 @@ document.addEventListener("click", (e)=>{
   if (btn){
     e.stopPropagation();
     const id = btn.dataset.skillcycle;
-    setSkillStatus(id, cycleSkillStatus(skillStatus(id)));
+    const newStatus = cycleSkillStatus(skillStatus(id));
+    setSkillStatus(id, newStatus);
+    // Mastering a skill may push the child into a new tier → grow the catalogue.
+    if ((newStatus === "mastered" || newStatus === "already_mastered") && typeof expandCatalogueIfNeeded === "function"){
+      expandCatalogueIfNeeded(getActiveChildId());   // async, fire-and-forget
+    }
     if (typeof refreshCatalogue === "function") refreshCatalogue(); else drawSkillCatalogue();
     return;
   }
@@ -12154,7 +12217,8 @@ document.addEventListener("click", (e)=>{
 });
 
 function openSkillModal(id){
-  const s = SKILLS.find(x => x.id === id);
+  const _pool = [...SKILLS, ...(Array.isArray(state.skillsCustom) ? state.skillsCustom : [])];
+  const s = _pool.find(x => x.id === id);
   if (!s) return;
   const domInfo = DOMAINS.find(d => d.key === s.dom);
   const status = skillStatus(id);
@@ -14413,13 +14477,14 @@ const PER_CHILD_KEYS = [
   "skillFlags","skillsCustom","feedback","history","spotlightHistory",
   "suppressedConfirmations","domainLevel","domainStreak","wellness","coregLog",
   "gratitude","bedtimeChecklist","praiseTally","basics","rituals","quickLog",
-  "activityStatus","_gcSceneShownAt","lou","events"
+  "activityStatus","_gcSceneShownAt","lou","events","catalogueExpansionTiers"
 ];
 // Keys whose empty default is an array (everything else defaults to an object,
 // except the special cases handled in defaultForKey).
 const _PCK_ARRAY = new Set([
   "observations","vocabCustom","pendingGenerations","reverifyQueue","backfillQueue",
-  "skillsCustom","feedback","history","spotlightHistory","coregLog","gratitude","events"
+  "skillsCustom","feedback","history","spotlightHistory","coregLog","gratitude","events",
+  "catalogueExpansionTiers"
 ]);
 function defaultForKey(k){
   if (k === "lou")          return { events:[], sleepStart:null };
@@ -14488,6 +14553,12 @@ function loadChildWorkingSet(id){
         "[child-iso] " + id + " has " + ghosts + " Maxine-duplicate skillStatus entries (cross-child contamination)");
     }
   } catch(e){}
+  // Living catalogue: background tier expansion — async, deferred to a microtask
+  // so it never blocks the working-set load; fully guarded + silent (no API-key
+  // overlay) inside expandCatalogueIfNeeded.
+  if (typeof expandCatalogueIfNeeded === "function"){
+    Promise.resolve().then(() => expandCatalogueIfNeeded(id)).catch(() => {});
+  }
 }
 
 function setActiveChildId(id){
@@ -15875,6 +15946,165 @@ async function getOrFetchApiKey(){
   }
   getApiKeyCached = key.trim();
   return getApiKeyCached;
+}
+
+/* ── Living Catalogue: AI-generated tier expansion ──────────────────────────
+   Generates 10 bespoke skills per tier when a child crosses into a new tier.
+   Reconciliations vs the naive spec:
+     • Uses a SILENT key getter (_hzKeySilent) — NOT getOrFetchApiKey, which would
+       pop the #hz-setup overlay; this runs in the background on load/child-switch.
+     • Firebase path = `${base}/maxine-sync/${ns}/state/childData/${id}.json`
+       (the verified per-child node), NOT the spec's /{NAMESPACE}/childData/{id}.
+     • state.children is OBJECT-keyed; saveState takes the state arg.            */
+
+/* Silent API-key read — returns the cached/remote key or null, NEVER shows the
+   setup overlay (background callers must not interrupt the user). */
+async function _hzKeySilent(){
+  if (getApiKeyCached) return getApiKeyCached;
+  try {
+    const r = await fetch(hzApiKeyPath(), { method: "GET" });
+    if (r.ok){
+      const k = await r.json();
+      if (k && typeof k === "string" && k.trim()){ getApiKeyCached = k.trim(); return getApiKeyCached; }
+    }
+  } catch(e){}
+  return null;
+}
+
+const _catalogueExpandInProgress = new Set();   // childId → in-flight guard
+
+async function expandCatalogueIfNeeded(childId){
+  if (!childId || _catalogueExpandInProgress.has(childId)) return;
+  // CRITICAL isolation guard: expand reads/writes the FLAT working set
+  // (state.skillsCustom / state.catalogueExpansionTiers), which belongs to the
+  // ACTIVE child. A deferred microtask for a child the user has since switched
+  // away from would write that child's tiers into the now-active child's
+  // namespace (cross-child contamination). Only ever expand the active child.
+  if (typeof getActiveChildId === "function" && getActiveChildId() !== childId) return;
+
+  const ageMonths   = (typeof computeChildAgeMonths === "function") ? computeChildAgeMonths(childId) : 0;
+  const currentTier = computeCatalogueTier(ageMonths);
+  const nextTier    = Math.min(27, currentTier + 1);
+  const tiersToCheck = [...new Set([currentTier, nextTier])];
+
+  const alreadyDone = new Set(Array.isArray(state.catalogueExpansionTiers) ? state.catalogueExpansionTiers : []);
+  const tiersNeeded = tiersToCheck.filter(t => !alreadyDone.has(t));
+  if (tiersNeeded.length === 0) return;                       // nothing to do — no network
+
+  // Safety cap: never generate more than 60 bespoke skills per child.
+  const existingCustom = Array.isArray(state.skillsCustom) ? state.skillsCustom : [];
+  if (existingCustom.filter(s => s._generated && s._childId === childId).length >= 60) return;
+
+  const apiKey = await _hzKeySilent();
+  if (!apiKey) return;                                         // no key → silent no-op
+
+  _catalogueExpandInProgress.add(childId);
+  try {
+    for (const tier of tiersNeeded){
+      await _generateTierSkills(childId, tier, apiKey);
+    }
+  } catch(e){ console.warn("[CatExpand] failed:", e); }
+  finally { _catalogueExpandInProgress.delete(childId); }
+}
+
+async function _generateTierSkills(childId, tier, apiKey){
+  const child = Object.values(state.children || {}).find(c => c && c.id === childId);
+  if (!child) return;
+
+  const ageLabel  = tierAgeBandLabel(tier);
+  const lo = tier * 6, hi = (tier + 1) * 6;
+  const diffLevel = Math.max(1, Math.min(10, Math.round(lo / 17) + 1));
+
+  const existing = [...SKILLS, ...(Array.isArray(state.skillsCustom) ? state.skillsCustom : [])]
+    .filter(s => { const mid = (typeof skillAgeMidpointMonths === "function") ? skillAgeMidpointMonths(s) : 0; return mid >= lo && mid < hi; })
+    .map(s => s.t).filter(Boolean).slice(0, 30).join("\n- ");
+
+  const childLangs = (child.languages || ["en","fr"]).join(" and ");
+  const genderNote = child.gender === "M" ? "The child is a boy."
+                   : child.gender === "F" ? "The child is a girl."
+                   : "Use gender-neutral language.";
+
+  const prompt = `You are a child development expert designing skills for a developmental tracking app.
+
+Child profile:
+- Name: ${child.name}
+- Developmental band: ${ageLabel} (${lo}–${hi} months)
+- ${genderNote}
+- Languages spoken at home: ${childLangs}
+
+Generate exactly 10 NEW developmental skills for the ${ageLabel} band.
+
+Rules:
+1. Each skill must be distinct from the existing skills listed below.
+2. Each skill must be achievable and observable in a ${ageLabel} child.
+3. Cover all 6 domains: gross (gross motor), fine (fine motor), sensory, cognitive, vocab (language/speech), social (social-emotional).
+4. Keep titles concise (3–6 words). "what" = 1-sentence observable mastery criterion.
+5. Base on evidence: Montessori, RIE, AAP, WHO, CDC milestones.
+6. ${childLangs.includes("fr") ? "Include 1–2 bilingual EN/FR skills where natural." : ""}
+
+Existing skills in this band (do NOT duplicate):
+- ${existing || "(none yet)"}
+
+Return ONLY a valid JSON array. No markdown fences. No explanation. Example:
+[{"t":"Stacks two objects deliberately","dom":"fine","what":"Places one block on top of another without knocking it over"}]
+
+Valid dom values: gross, fine, sensory, cognitive, vocab, social`;
+
+  let generated = [];
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200, messages: [{ role: "user", content: prompt }] })
+    });
+    if (!resp.ok) throw new Error("API " + resp.status);
+    const data = await resp.json();
+    const raw = (data.content && data.content[0] && data.content[0].text) || "[]";
+    const cleaned = raw.replace(/^```(?:json)?/m, "").replace(/```$/m, "").trim();
+    const parsed = JSON.parse(cleaned);
+    if (!Array.isArray(parsed)) throw new Error("Not an array");
+    const validDoms = new Set(["gross","fine","sensory","cognitive","vocab","social"]);
+    generated = parsed
+      .filter(s => s && typeof s.t === "string" && validDoms.has(s.dom))
+      .map((s, i) => ({
+        id: `gen_${childId}_t${tier}_${i}`,
+        t: s.t.slice(0, 80),
+        dom: s.dom,
+        age: ageLabel,
+        difficulty: diffLevel,
+        what: (s.what || "").slice(0, 120),
+        _generated: true, _childId: childId, _tier: tier
+      }));
+  } catch(e){ console.warn(`[CatExpand] tier ${tier} parse failed:`, e); return; }
+
+  if (generated.length === 0) return;
+
+  const existingIds = new Set((state.skillsCustom || []).map(s => s.id));
+  const newSkills = generated.filter(s => !existingIds.has(s.id));
+  state.skillsCustom = [...(state.skillsCustom || []), ...newSkills];
+  state.catalogueExpansionTiers = [...new Set([...(state.catalogueExpansionTiers || []), tier])];
+
+  if (typeof flushChildWorkingSet === "function") flushChildWorkingSet(childId);
+  if (typeof saveState === "function") saveState(state);
+
+  // Fire-and-forget Firebase write — EXACT same per-child path V12 / syncPull use.
+  try {
+    const base = ((typeof _fbUrl === "string" && _fbUrl) ? _fbUrl : DEFAULT_FB_URL).replace(/\/$/, "");
+    const ns   = (typeof _fbNs === "string" && _fbNs) ? _fbNs : DEFAULT_FB_NS;
+    const url  = `${base}/maxine-sync/${ns}/state/childData/${childId}.json`;
+    const cd   = (state.childData && state.childData[childId]) || {};
+    cd.skillsCustom = state.skillsCustom;
+    cd.catalogueExpansionTiers = state.catalogueExpansionTiers;
+    fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cd) }).catch(() => {});
+  } catch(e){}
+
+  if (typeof refreshCatalogue === "function"){ try { refreshCatalogue(); } catch(e){} }
+  console.log(`[CatExpand] +${newSkills.length} skills for ${child.name} tier ${tier} (${ageLabel})`);
 }
 
 /* Wire the setup overlay's save button once. PUTs the entered key to RTDB. */
