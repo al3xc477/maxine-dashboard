@@ -1068,6 +1068,8 @@
 .hz-header-spacer{ flex:1; }
 .hz-close{ border:none; background:transparent; color:var(--muted); font-size:18px; line-height:1; cursor:pointer; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
 .hz-close:hover{ background:#F1F4FA; color:var(--ink); }
+.hz-reset-child-btn{ background:#fff0f0; color:#c0392b; border:1px solid #e74c3c; border-radius:6px; padding:4px 10px; font-size:0.8rem; cursor:pointer; margin-top:8px; }
+.hz-reset-child-btn:hover{ background:#ffe0e0; }
 #hz-events{ display:flex; flex-wrap:wrap; gap:6px; padding:8px 12px; flex:0 0 auto; }
 .hz-event{ background:#F1F4FA; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:600; white-space:nowrap; }
 #hz-thread{ flex:1; display:flex; flex-direction:column; gap:8px; overflow-y:auto; padding:8px 12px; }
@@ -5921,6 +5923,8 @@ function _childOrderedNames(){
 function _renderChildrenSettings(){
   const wrap = document.getElementById("settingsChildren");
   if (!wrap) return;
+  // Primary child (first in the registry) never gets a reset button.
+  const primaryId = (Object.values(state.children || {})[0] || {}).id;
   wrap.innerHTML = _childOrderedNames().map(name => {
     const c = state.children[name] || {};
     const langs = (c.languages || []).join(", ");
@@ -5931,6 +5935,9 @@ function _renderChildrenSettings(){
     const gF = c.gender === "F" ? "selected" : "";
     const gM = c.gender === "M" ? "selected" : "";
     const gN = c.gender === "N" ? "selected" : "";
+    const resetBtn = (c.id && c.id !== primaryId)
+      ? `<button class="hz-reset-child-btn" data-child-id="${escapeHtml(c.id)}" title="Wipe all skills, vocab and observations for this child">⚠ Reset ${escapeHtml(c.name || name)}'s data to zero</button>`
+      : "";
     return `<div class="set-child-row" data-childkey="${escapeHtml(name)}" style="border:1px solid var(--line); border-radius:10px; padding:10px; background:#fff">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
         <span style="font-size:20px">${c.emoji || "🧒"}</span>
@@ -5958,6 +5965,7 @@ function _renderChildrenSettings(){
           </select>
         </label>
       </div>
+      ${resetBtn}
     </div>`;
   }).join("");
 }
@@ -6006,6 +6014,38 @@ function _wireChildObserverSettings(){
       // leave the live inputs intact so in-progress edits aren't wiped.
       if (rekeyed) _renderChildrenSettings();
       showToast("✓ Saved.");
+    });
+
+    // Per-child "Reset progress" — manual escape hatch (works regardless of age,
+    // so a contaminated >6m child can always be wiped without a code change).
+    childWrap.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".hz-reset-child-btn"); if (!btn) return;
+      const cid = btn.dataset.childId;
+      const childObj = Object.values(state.children || {}).find(x => x && x.id === cid);
+      const childName = (childObj && childObj.name) || cid;
+      if (!confirm(`Reset ALL progress for ${childName}?\nThis deletes skills, vocabulary and observations.\nThis cannot be undone.`)) return;
+      // Clear in memory.
+      const cd = state.childData[cid] = state.childData[cid] || {};
+      cd.skillStatus = {}; cd.activityStatus = {}; cd.history = []; cd.observations = [];
+      cd.vocabMaster   = Array.isArray(cd.vocabMaster)   ? [] : {};
+      cd.vocabMastered = Array.isArray(cd.vocabMastered) ? [] : {};
+      cd.events        = Array.isArray(cd.events)        ? [] : {};
+      if (typeof saveState === "function") saveState(state);
+      // Clear in Firebase — EXACT same path V12 / syncPull use.
+      try {
+        const base = ((typeof _fbUrl === "string" && _fbUrl) ? _fbUrl : DEFAULT_FB_URL).replace(/\/$/, "");
+        const ns   = (typeof _fbNs === "string" && _fbNs) ? _fbNs : DEFAULT_FB_NS;
+        const url  = `${base}/maxine-sync/${ns}/state/childData/${cid}.json`;
+        const w = await fetch(url, { method:"PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(cd) });
+        alert(w.ok ? `${childName}'s data has been reset.` : `Memory cleared, but Firebase write returned HTTP ${w.status}.`);
+      } catch (err) {
+        alert(`Memory cleared, but Firebase write failed: ${err.message}`);
+      }
+      // Re-render if this is the active child; otherwise just refresh the editor.
+      if (typeof getActiveChildId === "function" && getActiveChildId() === cid){
+        if (typeof loadChildWorkingSet === "function") loadChildWorkingSet(cid);
+        if (typeof onActiveChildChange === "function") onActiveChildChange();
+      }
     });
   }
 
@@ -10959,9 +10999,13 @@ function chronoAgeMonths(child){
    ZPD filter shows 0-18m skills instead of Maxine's ~24-42m window.            */
 function computeChildAgeMonths(childId){
   const id = childId || (typeof getActiveChildId === "function" ? getActiveChildId() : null);
-  const c = (id && Object.values(state.children||{}).find(x => x && x.id === id)) ||
-            (typeof currentChild === "function" ? currentChild() : null);
-  return Math.max(0, chronoAgeMonths(c));
+  const child = (id && Object.values(state.children||{}).find(x => x && x.id === id)) ||
+                (typeof currentChild === "function" ? currentChild() : null);
+  if (!child || !child.dob) return 0;                         // missing DOB → newborn
+  const dob = new Date(child.dob);
+  if (isNaN(dob.getTime())) return 0;                         // invalid DOB → newborn
+  const diff = (Date.now() - dob.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+  return Math.max(0, Math.round(diff));                       // never negative / NaN
 }
 
 function activeEra(child){
@@ -14688,7 +14732,12 @@ async function cleanseContaminationV12(){
   for (const child of Object.values(state.children || {})){
     if (!child || child.id === primaryId) continue;
     const ageMonths = (typeof computeChildAgeMonths === "function") ? computeChildAgeMonths(child.id) : 99;
-    if (ageMonths >= 6) continue;                       // age is the ONLY criterion
+    // Age is the ONLY criterion. A child with no/invalid DOB is always treated as
+    // a newborn (belt-and-suspenders), so a missing DOB can never let contamination
+    // slip past the cleanse.
+    const hasDob = !!(child.dob && !isNaN(new Date(child.dob).getTime()));
+    const isNewborn = !hasDob || ageMonths < 6;
+    if (!isNewborn) continue;
 
     const cd  = state.childData[child.id] = state.childData[child.id] || {};
     const url = `${base}/maxine-sync/${ns}/state/childData/${child.id}.json`;
