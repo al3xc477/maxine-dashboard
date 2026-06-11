@@ -1303,7 +1303,7 @@
   <section id="tutorView" style="display:none">
     <div class="card v7-tutor-hero" style="margin-bottom:14px">
       <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap">
-        <h2 style="margin:0; font-size:20px">🎓 Maxine's Tutor</h2>
+        <h2 id="v7TutorTitle" style="margin:0; font-size:20px">🎓 Maxine's Tutor</h2>
         <div class="sub" id="v7TutorMeta" style="color:var(--muted); font-size:12px"></div>
       </div>
       <div id="v7TutorNarrative" class="v7-tutor-narr"></div>
@@ -1698,7 +1698,7 @@
   <!-- LOU HOME (newborn care, shown only when Lou is selected) -->
   <section id="louHome" style="display:none">
     <div class="card" style="margin-bottom:14px; background: linear-gradient(135deg, #FCE7F3, #FFF7ED)">
-      <h2 style="text-transform:none; font-size:18px; color:var(--ink); margin:0 0 4px">👶 Lou — newborn care</h2>
+      <h2 id="louHomeTitle" style="text-transform:none; font-size:18px; color:var(--ink); margin:0 0 4px">👶 Lou — newborn care</h2>
       <div class="sub" style="color:var(--muted); font-size:13px">No fixed schedule yet — newborns run on cycles of <strong>eat → wake → sleep</strong>, on demand. This view logs what just happened so caregivers stay in sync.</div>
     </div>
 
@@ -12429,6 +12429,13 @@ function renderTutorTab(){
   const horz = document.getElementById("v7TutorHorizons");
   if (!narr) return;
 
+  // Title — live per active child (was hardcoded "Maxine's Tutor" in the HTML).
+  const _ttl = document.getElementById("v7TutorTitle");
+  if (_ttl){
+    const _tc = (typeof currentChild === "function") ? currentChild() : null;
+    _ttl.textContent = `🎓 ${(_tc && _tc.name) || "Child"}'s Tutor`;
+  }
+
   // Meta line
   if (meta){
     const child = (typeof currentChild === "function" ? currentChild() : null);
@@ -15016,6 +15023,12 @@ function renderLouCharts(events){
 
 function renderLouHome(){
   const events = (state.lou && state.lou.events) || [];
+  // Title — live per active child (was hardcoded "Lou — newborn care" in the HTML).
+  const _lt = document.getElementById("louHomeTitle");
+  if (_lt){
+    const _lc = (typeof currentChild === "function") ? currentChild() : null;
+    _lt.textContent = `👶 ${(_lc && _lc.name) || "Baby"} — newborn care`;
+  }
   renderLouCharts(events);   // rolling 7-day trend charts (re-renders on every log + delete)
   const day = todayKey();
   const today = events.filter(e => new Date(e.ts).toISOString().slice(0,10) === day);
@@ -16164,6 +16177,13 @@ function initHorizonChat(){
     });
   }
 
+  // Close (×) button — previously UNWIRED, so the panel could not be closed.
+  // Same mechanism as the toggle: remove the .hz-open class (CSS hides the panel).
+  const closeBtn = panel ? panel.querySelector(".hz-close") : null;
+  if (closeBtn && panel){
+    closeBtn.addEventListener("click", () => { panel.classList.remove("hz-open"); });
+  }
+
   // Tab switching: tutor vs bug.
   const tabTutor = document.getElementById("hz-tab-tutor");
   const tabBug   = document.getElementById("hz-tab-bug");
@@ -16213,16 +16233,34 @@ function initHorizonChat(){
     const _origSAC = setActiveChildId;
     setActiveChildId = function(id){
       _origSAC(id);
-      // horizon: reload chat for the newly-active child (only if panel is open)
+      // horizon: update the header child name + reload chat for the newly-active
+      // child (chat reload only if the panel is open).
+      if (typeof _hzUpdateChildName === "function") _hzUpdateChildName();
       const p = document.getElementById("hz-panel");
       if (p && p.classList.contains("hz-open")) _hzReloadConversation();
       else hzHistory = [];
     };
   }
+
+  // Initial header name (the HTML ships a hardcoded "Maxine" placeholder).
+  if (typeof _hzUpdateChildName === "function") _hzUpdateChildName();
+}
+
+/* Update the chat-panel header child name from the live active child. The HTML
+   ships a hardcoded "Maxine" placeholder in <span class="hz-child-name">; this
+   keeps it in sync on init, child switch, and panel open. */
+function _hzUpdateChildName(){
+  try {
+    const el = document.querySelector(".hz-child-name");
+    if (!el) return;
+    const c = (typeof currentChild === "function") ? currentChild() : null;
+    el.textContent = (c && c.name) || (typeof state !== "undefined" && state.currentChild) || "—";
+  } catch(e){}
 }
 
 /* Run when the panel opens. */
 async function _hzOnPanelOpen(){
+  if (typeof _hzUpdateChildName === "function") _hzUpdateChildName();
   const obs = getObserverId();      // sets label; shows pick overlay if unknown
   if (!obs) return;
   const key = await getOrFetchApiKey();
