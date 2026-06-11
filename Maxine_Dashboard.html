@@ -722,6 +722,21 @@
   font-size:10px; font-weight:800;
   padding:1px 6px; border-radius:4px; margin-left:6px;
 }
+/* v10 frontier badges + row accents */
+.badge-frontier{ display:inline-flex; align-items:center; gap:3px; border-radius:999px; padding:1px 7px; font-size:10px; font-weight:700; white-space:nowrap; margin-left:6px; }
+.badge-mastered{ background:#DCFCE7; color:#14532D; }
+.badge-verify{ background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; animation:badge-pulse 2s infinite; }
+.badge-ready{ background:#DBEAFE; color:#1E3A8A; }
+.badge-stretch{ background:#FEF3C7; color:#78350F; }
+.badge-locked{ background:#F3F4F6; color:#6B7280; }
+.badge-below{ background:#F9FAFB; color:#9CA3AF; }
+@keyframes badge-pulse{ 0%,100%{opacity:1} 50%{opacity:0.6} }
+.skill-row-ready{ border-left:3px solid #3B82F6; }
+.skill-row-verify{ border-left:3px solid #F59E0B; }
+.skill-row-stretch{ border-left:3px solid #F97316; }
+.skill-row-locked{ opacity:0.55; }
+.skill-row-below{ opacity:0.45; }
+.prereq-missing-count{ font-size:10px; color:#9CA3AF; margin-left:4px; }
 
 /* Catalogue domain summary pill — XP / Level layout (Improvement C) */
 .cat-dom-pill{
@@ -1210,6 +1225,7 @@
       <h2 style="text-transform:none; font-size:18px; color:var(--ink); margin:0 0 4px">📊 Progress</h2>
       <div class="sub" style="color:var(--muted); font-size:13px">Mastery across the catalogue · auto-updates as you log activities</div>
     </div>
+    <div id="metaInsightCard"></div>
     <div class="prog-grid" id="progStats"></div>
     </div>
 
@@ -7490,6 +7506,30 @@ function renderProgressView(){
   const doms = document.getElementById("progDomains");
   const rec = document.getElementById("progRecent");
 
+  // v10: AI development-insight card (per-child meta-milestone inference).
+  const _miEl = document.getElementById("metaInsightCard");
+  if (_miEl){
+    const mm = state.metaMilestones;
+    if (mm && mm.summary){
+      const infAge = mm._inferredAt ? Math.floor((Date.now() - mm._inferredAt) / 3600000) + "h ago" : "";
+      _miEl.innerHTML = `<div style="background:linear-gradient(135deg,#EFF6FF,#F0FDF4);border:1px solid #BFDBFE;border-radius:16px;padding:16px;margin-bottom:16px">
+        <div style="font-size:14px;font-weight:800;color:#1E3A8A;margin-bottom:6px">🧠 AI Development Insight ${infAge?`<span style="font-size:11px;color:#6B7280;font-weight:400">(updated ${infAge})</span>`:""}</div>
+        <div style="font-size:13px;color:#374151;line-height:1.5;margin-bottom:10px">${escapeHtml(mm.summary)}</div>
+        ${mm.specialisation && mm.specialisation.path ? `<div style="background:#FEF3C7;border-radius:8px;padding:8px 10px;font-size:12px;color:#78350F;margin-bottom:8px">⭐ <strong>Specialisation signal:</strong> ${escapeHtml(mm.specialisation.path)} <em>(${escapeHtml(mm.specialisation.confidence||"")} confidence)</em></div>` : ""}
+        ${Array.isArray(mm.top_priorities) && mm.top_priorities.length ? `<div style="font-size:12px;color:#374151"><strong>Top priorities:</strong><ol style="margin:4px 0 0;padding-left:18px">${mm.top_priorities.map(p => `<li style="margin:2px 0">${escapeHtml(p)}</li>`).join("")}</ol></div>` : ""}
+        <button class="small" data-mm-refresh="1" style="margin-top:10px;font-size:11px">🔄 Refresh insight</button>
+      </div>`;
+    } else {
+      _miEl.innerHTML = `<div style="background:#F8FAFC;border:1px dashed var(--line);border-radius:12px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--muted)">
+        🧠 AI development insight will appear here once enough skills are logged. <button class="small" data-mm-refresh="1" style="font-size:11px;margin-left:6px">Generate now</button></div>`;
+    }
+    const _rb = _miEl.querySelector("[data-mm-refresh]");
+    if (_rb) _rb.onclick = () => {
+      const cid = (typeof getActiveChildId === "function") ? getActiveChildId() : null;
+      if (cid && typeof inferMetaMilestones === "function"){ _rb.textContent = "⏳ Thinking…"; inferMetaMilestones(cid); }
+    };
+  }
+
   // Totals
   let totalActs = 0, mastered = 0, practising = 0, tooHard = 0;
   THEMES.forEach(t => DOMAINS.forEach(d => (t[d.key]||[]).forEach((_, i) => {
@@ -8495,8 +8535,177 @@ const SKILLS_CUSTOM_SEED = [
     why:"Self-directed goal-setting and monitoring is advanced self-management and metacognition (CASEL; Zimmerman self-regulated learning).",
     how:"Help her choose a real goal (learn a song, save money), set milestones and review progress weekly.",
     next:"Mentors a peer in goal-setting", src:"CASEL self-management / Zimmerman SRL" },
+
+  /* ── v10 bridge micro-skills — close gaps in the reading / writing / math
+     literacy threads so CORE_PREREQ_CHAINS resolves to real, observable skills.
+     difficulty is auto-recalibrated from age by migrateSkillDifficultyV10. ── */
+  { id:"rd-letter-name", dom:"vocab", branch:"literacy", t:"Recognises most letters by name", age:"4–5y",
+    what:"Names the majority of upper/lowercase letters on sight", why:"Letter knowledge predicts later reading (NELP 2008).",
+    how:"Alphabet books, fridge magnets, name letters in the wild.", next:"Letter–sound correspondence", src:"NELP / Science of Reading" },
+  { id:"rd-letter-sound", dom:"vocab", branch:"literacy", t:"Letter–sound correspondence", age:"5–6y",
+    what:"Gives the common sound for most letters", why:"Alphabetic principle — the core of decoding.",
+    how:"Sandpaper letters, 'what sound does B make?'", next:"Blends sounds into CVC words", src:"Science of Reading" },
+  { id:"rd-decode-cvc", dom:"vocab", branch:"literacy", t:"Blends sounds to read CVC words", age:"5–6y",
+    what:"Decodes simple consonant-vowel-consonant words (cat, dog)", why:"First true reading — synthetic phonics.",
+    how:"Sound out then blend: /c/-/a/-/t/ → cat.", next:"Reads sight words", src:"Science of Reading" },
+  { id:"rd-sight-words", dom:"vocab", branch:"literacy", t:"Reads 20+ sight words reliably", age:"6–7y",
+    what:"Instantly recognises 20+ high-frequency words", why:"Frees cognitive load for comprehension.",
+    how:"Flash high-frequency words; read them in context.", next:"Reads simple sentences aloud", src:"Science of Reading" },
+  { id:"rd-read-sentences", dom:"vocab", branch:"literacy", t:"Reads simple sentences aloud", age:"6–7y",
+    what:"Reads a short sentence accurately and aloud", why:"Bridges word reading to connected text.",
+    how:"Decodable readers; track with a finger.", next:"Reads fluently", src:"Science of Reading" },
+  { id:"rd-fluency", dom:"vocab", branch:"literacy", t:"Reads fluently (~60+ wpm, age-appropriate text)", age:"7–8y",
+    what:"Reads connected text smoothly with expression", why:"Fluency is the bridge to comprehension (Scarborough).",
+    how:"Repeated reading; read-alouds; paired reading.", next:"Reads and summarises a chapter", src:"Scarborough Rope" },
+  { id:"wr-tripod-grip", dom:"fine", branch:"pre_writing", t:"Mature tripod / quadrupod pencil grip", age:"3–4y",
+    what:"Holds a pencil with thumb + two fingers, not a fist", why:"Efficient grip is the motor base for legible writing.",
+    how:"Short/broken crayons force the tripod; vertical surfaces.", next:"Copies letters from a model", src:"OT / Montessori" },
+  { id:"wr-letter-formation", dom:"fine", branch:"pre_writing", t:"Copies letters from a model", age:"4–5y",
+    what:"Reproduces letter shapes when shown a model", why:"Letter formation precedes independent writing.",
+    how:"Trace → copy → write from memory. Sand trays.", next:"Writes own name legibly", src:"Handwriting Without Tears" },
+  { id:"wr-name", dom:"fine", branch:"pre_writing", t:"Writes own name legibly", age:"4–5y",
+    what:"Writes their first name recognisably without a model", why:"High-meaning first independent writing.",
+    how:"Practise on labels, drawings, cards.", next:"Phonetic spelling", src:"Montessori / Science of Reading" },
+  { id:"wr-invented-spelling", dom:"vocab", branch:"literacy", t:"Phonetic / invented spelling", age:"5–6y",
+    what:"Spells words by the sounds they hear (KAT for cat)", why:"Shows the alphabetic principle applied to writing.",
+    how:"Encourage 'have a go' spelling; don't over-correct.", next:"Writes a sentence independently", src:"Science of Reading" },
+  { id:"wr-sentence", dom:"vocab", branch:"literacy", t:"Writes a 3–5 word sentence independently", age:"5–6y",
+    what:"Composes and writes a short sentence with a capital and full stop", why:"First independent composition.",
+    how:"Draw then label; sentence-a-day journal.", next:"Writes a 5-sentence paragraph", src:"Science of Reading" },
+  { id:"ma-subitize", dom:"cognitive", branch:"numeracy", t:"Subitizes 1–3 (instant small-set recognition)", age:"12–18m",
+    what:"Recognises 1, 2 or 3 objects without counting", why:"Perceptual number sense underpins counting (Gelman).",
+    how:"Dot cards, dice, fingers — 'how many?' fast.", next:"Rote counts to 5", src:"Gelman–Gallistel / NCTM" },
+  { id:"ma-cardinality", dom:"cognitive", branch:"numeracy", t:"Cardinality — last number counted = how many", age:"2.5–3y",
+    what:"After counting, answers 'how many?' with the last number", why:"The cardinal principle — knowing counting yields a quantity.",
+    how:"Count then ask 'so how many?'; emphasise the last word.", next:"Counts to 10 with 1:1", src:"Gelman–Gallistel" },
+  { id:"ma-part-whole", dom:"cognitive", branch:"numeracy", t:"Part-whole — '3 and 2 make 5'", age:"3.5–4.5y",
+    what:"Combines two small groups and states the total", why:"Part-whole reasoning is the base of addition.",
+    how:"Compose/decompose with counters; number bonds.", next:"Adds within 10", src:"NCTM progressions" },
+  { id:"ma-addition", dom:"cognitive", branch:"numeracy", t:"Adds within 10 with objects", age:"4.5–5.5y",
+    what:"Solves simple addition using objects or fingers", why:"Concrete arithmetic before abstract.",
+    how:"Count-on strategy; real objects then drawings.", next:"Subtracts within 10", src:"NCTM" },
+  { id:"ma-subtraction", dom:"cognitive", branch:"numeracy", t:"Subtracts within 10 ('take away')", age:"5–6y",
+    what:"Solves simple take-away problems with objects", why:"Inverse of addition — completes basic arithmetic.",
+    how:"Story problems with counters; 'how many left?'", next:"Skip-counts by 2s and 5s", src:"NCTM" },
+  { id:"ma-skip-count", dom:"cognitive", branch:"numeracy", t:"Skip-counts by 2s and 5s", age:"6–7y",
+    what:"Counts 2,4,6… and 5,10,15… reliably", why:"Foundation for multiplication and place value.",
+    how:"Number line hops; count coins by 5s.", next:"Multiplication as repeated addition", src:"NCTM" },
+  { id:"ma-multiplication", dom:"cognitive", branch:"numeracy", t:"Multiplication as repeated addition", age:"7–8y",
+    what:"Understands 3×4 as four groups of three", why:"Multiplicative reasoning milestone.",
+    how:"Arrays, equal groups, skip-count link.", next:"Works with fractions", src:"NCTM" },
+  { id:"ma-place-value", dom:"cognitive", branch:"numeracy", t:"Place value — tens and ones", age:"8–9y",
+    what:"Knows the digit positions represent tens and ones", why:"Underpins multi-digit arithmetic.",
+    how:"Base-10 blocks; bundle straws into tens.", next:"Multi-digit operations", src:"NCTM" },
+  { id:"fm-shoelaces", dom:"fine", branch:"self_care", t:"Ties shoelaces", age:"5–6y",
+    what:"Ties a bow independently", why:"Bilateral fine-motor sequencing + self-care autonomy.",
+    how:"Two-loop 'bunny ears' method; practise off-foot first.", next:"Independent dressing mastery", src:"OT / Montessori practical life" },
 ];
 SKILLS.push(...SKILLS_CUSTOM_SEED);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CORE_PREREQ_CHAINS — v10 skill graph (ground truth for prereq computation)
+   Research: Fischer Dynamic Skill Theory; Scarborough Reading Rope (2001);
+   Science of Reading; Brown's stages; Balyi LTAD; NCTM progressions;
+   Gelman–Gallistel; Greenspan DIRFloortime. Each meta-milestone maps to an
+   ordered array of REAL skill ids; skills later in the array depend on
+   earlier ones. (All "FIND:" placeholders from the spec were resolved to
+   existing ids or to v10 bridge skills above; unmatchable links were omitted
+   rather than mis-wired.)
+   ═══════════════════════════════════════════════════════════════════════ */
+const CORE_PREREQ_CHAINS = {
+  reading: [
+    "se-aud-locate","la-phon-babble","la-phon-first-sounds","la-2word","la-points-pic",
+    "la-exp-name-pics","la-phon-rhyme","la-phon-syllable","la-phon-initial","rd-letter-name",
+    "rd-letter-sound","rd-decode-cvc","rd-sight-words","rd-read-sentences","rd-fluency",
+    "la-rec-summarise-chapter"
+  ],
+  writing: [
+    "fm-grasp-palmar","fm-pincer","fm-scribble","fm-lines-h","fm-lines-v","fm-circle",
+    "wr-tripod-grip","wr-letter-formation","wr-name","wr-invented-spelling","wr-sentence",
+    "la-exp-five-sentence-paragraph","co-executive-persuasive-paragraph"
+  ],
+  mathematics: [
+    "co-obj-perm","ma-subitize","co-count-3","co-count-5","ma-cardinality","co-num-count-10",
+    "co-num-compare","ma-part-whole","ma-addition","ma-subtraction","ma-skip-count",
+    "ma-multiplication","co-numbers-fractions-percent","ma-place-value"
+  ],
+  athletics: [
+    "gm-head-control","gm-rolls","gm-sits","gm-crawls","gm-pulls-to-stand","gm-walk","gm-run",
+    "gm-jump","gm-kick","gm-throw","gm-catch","gm-one-foot","gm-coord-bounce","se-prop-obstacle",
+    "gm-coordination-dribble-pass","gm-strength-aerobic-20min"
+  ],
+  fine_motor: [
+    "fm-grasp-palmar","fm-grasp-transfer","fm-pincer","fm-spoon-fork","fm-lids","fm-velcro",
+    "fm-buttons-large","fm-zip","fm-scissors","fm-tool-cut-line","fm-shoelaces"
+  ],
+  music: [
+    "se-aud-locate","gm-dance-rhythm","gm-rhythm-clap","gm-rhythm-march","gm-rhythm-instrument",
+    "gm-rhythm-pattern","fm-tool-instrument-melody"
+  ],
+  science: [
+    "co-cause-effect","co-sort-color","co-same-diff","co-class-category","co-executive-hypothesis-test"
+  ],
+  social_emotional: [
+    "so-emo-mirror","so-attach-secure","so-parallel","so-emotion-4","so-emp-perspective",
+    "so-reg-wait-turn-competitive","so-prosocial-lead-group","so-prosocial-resolve-conflict",
+    "so-ind-multiweek-goal"
+  ]
+};
+
+/* Meta-milestones — chain key → display config (AI tutor "north star" goals).
+   Augmented per child by AI inference into state.metaMilestones. */
+const META_MILESTONES_STATIC = {
+  reading:          { label:"Reading",           emoji:"📚", color:"#3B82F6" },
+  writing:          { label:"Writing",           emoji:"✍️",  color:"#8B5CF6" },
+  mathematics:      { label:"Mathematics",       emoji:"🔢", color:"#F59E0B" },
+  athletics:        { label:"Athletics",         emoji:"🏃", color:"#10B981" },
+  fine_motor:       { label:"Fine Motor",        emoji:"✋", color:"#EC4899" },
+  music:            { label:"Music",             emoji:"🎵", color:"#6366F1" },
+  science:          { label:"Science",           emoji:"🔬", color:"#14B8A6" },
+  social_emotional: { label:"Social-Emotional",  emoji:"💛", color:"#F97316" }
+};
+
+/* v10 prereq backfill. NOTE: runs EVERY load (not flag-guarded) because SKILLS
+   is a fresh const literal each load — a once-only guard would lose the prereqs
+   on reload. Idempotent: only ADDS a chain-predecessor prereq if missing; never
+   removes existing prereqs; mutates the in-memory pool only (no per-child state,
+   so no saveState / no sync push). */
+function migratePrereqsV10(){
+  const pools = [SKILLS, (typeof SKILLS_CUSTOM_SEED !== "undefined" && SKILLS_CUSTOM_SEED) || [], Array.isArray(state.skillsCustom) ? state.skillsCustom : []];
+  const findSkill = id => { for (const p of pools){ const s = p.find(x => x && x.id === id); if (s) return s; } return null; };
+  // Does `fromId` already reach `targetId` through its existing prereqs? Used to
+  // refuse any edge that would close a cycle — the existing auto-derived graph
+  // (migrateSkillTreeV9) sometimes orders a pair opposite to a hardcoded chain;
+  // adding the reverse edge would create a cycle and break recursive traversal.
+  const reaches = (fromId, targetId, seen) => {
+    seen = seen || new Set();
+    if (fromId === targetId) return true;
+    if (seen.has(fromId)) return false;
+    seen.add(fromId);
+    const s = findSkill(fromId);
+    if (!s || !Array.isArray(s.prereqs)) return false;
+    return s.prereqs.some(p => reaches(p, targetId, seen));
+  };
+  let added = 0, skipped = 0;
+  Object.values(CORE_PREREQ_CHAINS).forEach(chain => {
+    chain.forEach((id, pos) => {
+      if (pos === 0) return;                          // root — no chain prereq
+      const prereqId = chain[pos - 1];
+      if (prereqId === id) return;                    // self-prereq guard
+      const sk = findSkill(id);
+      if (!sk) return;
+      if (!Array.isArray(sk.prereqs)) sk.prereqs = [];
+      if (sk.prereqs.includes(prereqId)) return;      // already present
+      // Cycle guard: adding id→prereqId is safe only if prereqId does not already
+      // (transitively) depend on id.
+      if (reaches(prereqId, id)) { skipped++; return; }
+      sk.prereqs.push(prereqId); added++;
+    });
+  });
+  state.migrationsV10 = state.migrationsV10 || {};
+  state.migrationsV10.prereqs = true;                 // record (informational)
+  if (skipped > 0) console.log("[v10 prereqs] added " + added + ", skipped " + skipped + " (would-be cycles)");
+}
 
 /* ═════════════════════════════════════════════════════════════════════════
    v8 — ACTIVITY HAT (printable mission cards)
@@ -9813,7 +10022,7 @@ const STATUS_TO_RESULT = {
   regressed:"fail", unknown:null
 };
 
-function addObservation({ skillId, status, result, by, where, source, notes }){
+function addObservation({ skillId, status, result, by, where, source, notes, estimated_ts }){
   if (!skillId) return;
   // Accept either `status` or `result`; derive the missing one.
   if (!status && result) status = RESULT_TO_STATUS[result] || "working_on_it";
@@ -9827,11 +10036,17 @@ function addObservation({ skillId, status, result, by, where, source, notes }){
     where: where || "home",
     source: source || "manual",
     ts,
+    estimated_ts: estimated_ts || ts,   // v10: "true" mastery time for velocity (else logging time)
     notes: notes || ""
   });
   // Keep legacy skillStatus mirror in sync so v3.0 code paths still work.
   state.skillStatus = state.skillStatus || {};
   state.skillStatus[skillId] = { status, by: by || state.currentUser || "—", ts };
+  // v10: record estimated mastery timestamp for the frontier/velocity engines.
+  if (status === "mastered" || status === "already_mastered"){
+    state.masteredAt = state.masteredAt || {};
+    state.masteredAt[skillId] = estimated_ts || ts;
+  }
   // v6: mastery declarations schedule reverification; regressions clear it.
   // Smart implicit-verification runs after every observation so newly-mastered
   // descendants can auto-complete ancestor reverify entries.
@@ -10612,6 +10827,146 @@ function zdpScore(skill){
   if (diff < 0.5) return 3;                                          // consolidation
   return 1;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   v10 FRONTIER ENGINE — graph-based developmental frontier classifier.
+   Replaces age-based ZPD heuristics with mastery-graph topology. zdpScore()
+   above is preserved for back-compat; classifySkillFrontier() is canonical.
+   ═══════════════════════════════════════════════════════════════════════ */
+function _frontierPool(){
+  const all = [...SKILLS, ...(SKILLS_CUSTOM_SEED||[]), ...(Array.isArray(state.skillsCustom) ? state.skillsCustom : [])];
+  const seen = new Set();
+  return all.filter(s => { if (!s || !s.id || seen.has(s.id)) return false; seen.add(s.id); return true; });
+}
+
+/* Domain frontier (1–10): recency-weighted mean difficulty of the up-to-5 most
+   recently mastered skills in the domain. 1.5 (newborn baseline) when none. */
+function computeDomainFrontier(domKey){
+  const mastered = _frontierPool()
+    .filter(s => s.dom === domKey && isSkillMastered(s.id))
+    .map(s => {
+      const obsTs = obsForSkill(s.id)
+        .filter(o => o.status === "mastered" || o.status === "already_mastered")
+        .reduce((best, o) => (!best || (o.ts||0) > (best.ts||0)) ? o : best, null);
+      const ts = (state.masteredAt && state.masteredAt[s.id]) || (obsTs && obsTs.ts) || 0;
+      return { diff: (s.difficulty || 3), ts };
+    })
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 5);
+  if (!mastered.length) return 1.5;
+  let ws = 0, tw = 0;
+  mastered.forEach((mm, i) => { const w = 5 - i; ws += mm.diff * w; tw += w; });
+  return ws / tw;
+}
+
+function computeGlobalFrontier(){
+  const scores = DOMAINS.map(d => computeDomainFrontier(d.key));
+  return scores.reduce((a,b) => a+b, 0) / Math.max(scores.length, 1);
+}
+
+/* Flags a mastered skill as shaky when (1) a direct downstream skill that should
+   be reachable (difficulty ≤ domain frontier) is sitting in unknown/working_on_it,
+   or (2) the mastery has no real observation evidence (legacy ts<1000). */
+function verifyMasteryIntegrity(skillId){
+  if (!isSkillMastered(skillId)) return false;
+  const pool = _frontierPool();
+  const skill = pool.find(s => s.id === skillId);
+  if (!skill) return false;
+  const frontier = computeDomainFrontier(skill.dom);
+  const downstreamStruggling = pool.filter(s => {
+    if (!(s.prereqs || []).includes(skillId)) return false;
+    const st = (typeof deriveStatusV6 === "function") ? deriveStatusV6(s.id) : null;
+    if (st !== "unknown" && st !== "working_on_it") return false;
+    return (s.difficulty || 5) <= frontier;
+  });
+  if (downstreamStruggling.length > 0) return true;
+  const masteryObs = obsForSkill(skillId).filter(o => o.status === "mastered" || o.status === "already_mastered");
+  if (masteryObs.length === 0){
+    const legacy = state.skillStatus && state.skillStatus[skillId];
+    if (legacy && (!legacy.ts || legacy.ts < 1000)) return true;
+  }
+  return false;
+}
+
+/* classifySkillFrontier(skill) → mastered|verify|ready|stretch|locked|below */
+function classifySkillFrontier(skill){
+  if (!skill) return 'locked';
+  if (isSkillMastered(skill.id)){
+    return verifyMasteryIntegrity(skill.id) ? 'verify' : 'mastered';
+  }
+  const unmet = (skill.prereqs || []).filter(pid => !isSkillMastered(pid));
+  if (unmet.length > 0) return 'locked';
+  const frontier = computeDomainFrontier(skill.dom);
+  const d = skill.difficulty || 5;
+  if (d < frontier - 2.5) return 'below';
+  if (d <= frontier + 2.0) return 'ready';
+  if (d <= frontier + 4.0) return 'stretch';
+  return 'locked';                       // prereqs met but far beyond frontier
+}
+
+const FRONTIER_DISPLAY = {
+  mastered: { icon:"🟢", label:"Mastered",  badge:"badge-mastered",  showInSmart:false },
+  verify:   { icon:"❓", label:"Verify",    badge:"badge-verify",    showInSmart:true  },
+  ready:    { icon:"🟡", label:"Ready",     badge:"badge-ready",     showInSmart:true  },
+  stretch:  { icon:"🟠", label:"Stretch",   badge:"badge-stretch",   showInSmart:true  },
+  locked:   { icon:"🔒", label:"Locked",    badge:"badge-locked",    showInSmart:false },
+  below:    { icon:"⚪", label:"Done",      badge:"badge-below",     showInSmart:false }
+};
+
+/* Prerequisite tree as levels: [[direct prereqs],[their prereqs],…] (cycle-safe). */
+function getPrereqTree(skillId, maxDepth){
+  maxDepth = maxDepth || 4;
+  const pool = _frontierPool();
+  const find = id => pool.find(s => s.id === id);
+  const visited = new Set();
+  const levels = [];
+  let current = [skillId];
+  for (let depth = 0; depth < maxDepth && current.length > 0; depth++){
+    const next = [], levelSkills = [];
+    current.forEach(id => {
+      const sk = find(id);
+      if (!sk || visited.has(id)) return;
+      if (depth > 0) levelSkills.push(sk);
+      visited.add(id);
+      (sk.prereqs || []).forEach(pid => { if (!visited.has(pid)) next.push(pid); });
+    });
+    if (depth > 0 && levelSkills.length > 0) levels.push(levelSkills);
+    current = next;
+  }
+  return levels;
+}
+
+/* Skills that have this skill as a direct prerequisite. */
+function getEnablesTree(skillId){
+  return _frontierPool().filter(s => (s.prereqs || []).includes(skillId));
+}
+
+/* Progress through a CORE_PREREQ_CHAIN → { mastered, total, pct, nextSkillId }. */
+function metaMilestoneProgress(chainKey){
+  const chain = (typeof CORE_PREREQ_CHAINS !== "undefined" && CORE_PREREQ_CHAINS[chainKey]) || [];
+  const ids = chain.filter(id => typeof id === "string" && !id.startsWith("FIND:"));
+  const masteredCount = ids.filter(id => isSkillMastered(id)).length;
+  const total = ids.length;
+  return { mastered: masteredCount, total, pct: total ? Math.round(masteredCount/total*100) : 0,
+           nextSkillId: ids.find(id => !isSkillMastered(id)) || null };
+}
+
+/* Graph-based ZPD pool — ready + stretch + verify (excludes below/locked/mastered),
+   ordered verify → ready → stretch, then difficulty asc. Replaces the age window. */
+function buildZPDPoolV10(){
+  const classified = _frontierPool()
+    .map(s => ({ skill:s, fc: classifySkillFrontier(s) }))
+    .filter(c => c.fc === 'ready' || c.fc === 'stretch' || c.fc === 'verify');
+  const ORDER = { verify:0, ready:1, stretch:2 };
+  classified.sort((a,b) => {
+    const oa = ORDER[a.fc] ?? 3, ob = ORDER[b.fc] ?? 3;
+    if (oa !== ob) return oa - ob;
+    return (a.skill.difficulty||5) - (b.skill.difficulty||5);
+  });
+  return classified.map(c => c.skill);
+}
+/* ── END v10 FRONTIER ENGINE ─────────────────────────────────────────── */
+
 /* ── v9b — ZPD floor config (tune in one place) ──────────────────────────── */
 const ZPD_HORIZON_MONTHS  = 18;   // preferred developmental-age lookahead
 const ZPD_EXTENDED_MONTHS = 36;   // fallback lookahead when the pool is thin
@@ -11714,7 +12069,47 @@ function skillStatus(id){
   return deriveStatus(id);
 }
 function setSkillStatus(id, status){
-  addObservation({ skillId:id, status, source:"manual" });
+  // v10: when marking mastered for the FIRST time, ask WHEN it became reliable
+  // (velocity correction — retroactive discoveries shouldn't inflate recent pace).
+  if (status === "mastered" && typeof isSkillMastered === "function" && !isSkillMastered(id)){
+    _showMasteryTimePicker(id, (estimated_ts) => {
+      addObservation({ skillId:id, status, source:"manual", estimated_ts });
+    });
+  } else {
+    addObservation({ skillId:id, status, source:"manual" });
+  }
+}
+
+function _showMasteryTimePicker(skillId, callback){
+  // Headless / no-DOM fallback: just log at "now".
+  if (typeof document === "undefined" || !document.body || typeof document.createElement !== "function"){
+    callback(Date.now()); return;
+  }
+  const pool = [...SKILLS, ...(SKILLS_CUSTOM_SEED||[]), ...(Array.isArray(state.skillsCustom) ? state.skillsCustom : [])];
+  const sk = pool.find(s => s.id === skillId);
+  const now = Date.now();
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center";
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:24px;max-width:320px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="font-size:16px;font-weight:800;margin-bottom:8px">✅ Mark as Mastered</div>
+      <div style="font-size:13px;color:#6B7280;margin-bottom:16px">When did <strong>${escapeHtml((sk||{}).t||skillId)}</strong> become reliable?</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="primary" data-mtp="${now}">Today</button>
+        <button data-mtp="${now - 7*86400000}">This week</button>
+        <button data-mtp="${now - 30*86400000}">This month</button>
+        <button data-mtp="${now - 90*86400000}">A few months ago</button>
+        <button data-mtp="0">Always had it</button>
+      </div>
+      <button style="margin-top:12px;width:100%;border:none;background:none;color:#9CA3AF;font-size:12px;cursor:pointer" data-mtp-cancel>Cancel</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => {
+    const btn = e.target.closest && e.target.closest("[data-mtp]");
+    if (btn){ const raw = parseInt(btn.dataset.mtp,10); overlay.remove(); callback(raw === 0 ? 1 : (raw > 0 ? raw : Date.now())); return; }  // 0 = "always had it" → ancient ts
+    if (e.target.closest && e.target.closest("[data-mtp-cancel]")){ overlay.remove(); return; }
+    if (e.target === overlay){ overlay.remove(); }
+  });
 }
 
 /* v6 status ladder. The legacy keys (new / emerging / practising / too_hard /
@@ -12061,12 +12456,9 @@ function drawSkillCatalogue(){
   let html = "";
   let masteredCount = 0;
 
-  // Age horizon for Smart view — only show "new" skills within the child's
-  // near-future window (never below 36m). "All skills" stays unfiltered.
-  const _catChildAge   = (typeof getActiveChildId === "function" && typeof computeChildAgeMonths === "function")
-                          ? (computeChildAgeMonths(getActiveChildId()) || 0) : 0;
-  const _catAgeHorizon = Math.max(36, _catChildAge + 24);
-  let   futureHiddenCount = 0;
+  // v10: frontier classification (not age) drives Smart-view visibility.
+  // "All skills" view stays unfiltered.
+  let lockedHiddenCount = 0;
 
   // Skill pool = static SKILLS + this child's bespoke (custom/AI-generated) skills,
   // deduped by id. skillsCustom is per-child via the working-set swap.
@@ -12094,22 +12486,15 @@ function drawSkillCatalogue(){
     const wStr = (s.what || s.desc || "").toLowerCase();
     if (ft && !tStr.includes(ft) && !wStr.includes(ft)) return;
 
-    // Smart view: hide "new" skills beyond the child's age horizon.
-    if (skillViewMode === "smart" && status === "new" && skillAgeMinMonths(s) > _catAgeHorizon){
-      futureHiddenCount++;
-      return;
-    }
-
-    // Smart mode: hide mastered skills that are below recommended level
-    if (skillViewMode === "smart" && status === "mastered"){
-      masteredCount++;
-      return; // collapsed
+    // v10: frontier classification drives Smart-view visibility.
+    const fc = (typeof classifySkillFrontier === "function") ? classifySkillFrontier(s) : null;
+    if (skillViewMode === "smart" && fc){
+      if (fc === "mastered"){ masteredCount++; return; }    // already done — collapsed
+      if (fc === "below"){ return; }                         // consolidated — hidden
+      if (fc === "locked"){ lockedHiddenCount++; return; }   // prereqs unmet / too far ahead
+      // ready / stretch / verify → shown below
     }
     const domInfo = DOMAINS.find(d => d.key === s.dom);
-    const lv = skillLevel(s);
-    const recLv = recommendedLevel(s.dom);
-    const isZPD = lv === recLv;
-    const highlight = isZPD && status !== "mastered" ? 'border-left:3px solid #F59E0B;' : '';
     const hiddenClass  = s.hidden === true ? " skill-hidden" : "";
     const seededClass  = s._seeded === true ? " skill-seeded" : "";
     const isPriority   = (priorityByDomain[s.dom] && priorityByDomain[s.dom].has(s.id));
@@ -12117,11 +12502,18 @@ function drawSkillCatalogue(){
       ? `<span class="skill-chip-seeded" title="${s._generated ? "AI-generated for this child" : "Auto-suggested based on progress"}">✨ ${s._generated ? "generated" : "suggested"}</span>` : "";
     const priorityChip = isPriority
       ? '<span class="skill-chip-priority" title="High-value next skill — keystone × tier × frontier × prereqs ready">⭐ Priority</span>' : "";
+    // v10 frontier badge + row class + locked-prereq hint.
+    const fdisp = (fc && typeof FRONTIER_DISPLAY !== "undefined") ? FRONTIER_DISPLAY[fc] : null;
+    const frontierBadge = fdisp
+      ? `<span class="badge-frontier ${fdisp.badge}" title="${fdisp.label}">${fdisp.icon} ${fdisp.label}</span>` : "";
+    const unmetPrereqs = (fc === 'locked') ? (s.prereqs||[]).filter(pid => !isSkillMastered(pid)) : [];
+    const prereqHint = unmetPrereqs.length
+      ? `<span class="prereq-missing-count">🔒 ${unmetPrereqs.length} prereq${unmetPrereqs.length>1?"s":""} needed</span>` : "";
     html += `
-      <div class="skill-row${hiddenClass}${seededClass}" data-skillid="${escapeHtml(s.id)}" style="display:flex; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); cursor:pointer; background:${STATUS_COLORS[status]}; align-items:flex-start; ${highlight}">
+      <div class="skill-row skill-row-${fc||'locked'}${hiddenClass}${seededClass}" data-skillid="${escapeHtml(s.id)}" style="display:flex; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); cursor:pointer; background:${STATUS_COLORS[status]}; align-items:flex-start">
         <div style="flex:0 0 36px; text-align:center; font-size:22px">${domInfo?domInfo.emoji:"⭐"}</div>
         <div style="flex:1; min-width:0">
-          <div style="font-weight:700; font-size:14px">${escapeHtml(s.t)} <span style="font-size:11px; color:var(--muted); font-weight:400">${escapeHtml(s.age || "")}</span>${isZPD && status!=="mastered" ? '<span style="font-size:10px; background:#FEF3C7; color:#854D0E; padding:1px 6px; border-radius:4px; margin-left:6px; font-weight:700">🎯 ZPD</span>' : ""}${priorityChip}${seededBadge}</div>
+          <div style="font-weight:700; font-size:14px">${escapeHtml(s.t)} <span style="font-size:11px; color:var(--muted); font-weight:400">${escapeHtml(s.age || "")}</span>${frontierBadge}${priorityChip}${seededBadge}${prereqHint}</div>
           <div style="font-size:12px; color:var(--muted); margin-top:2px">${escapeHtml(s.what || s.desc || "")}</div>
         </div>
         <button class="small" data-skillcycle="${escapeHtml(s.id)}" style="font-size:11px; white-space:nowrap">${escapeHtml(STATUS_LABEL[status])}</button>
@@ -12135,25 +12527,39 @@ function drawSkillCatalogue(){
     </div>`;
   }
 
-  // Smart view: note how many future skills are hidden by the age horizon.
-  if (skillViewMode === "smart" && futureHiddenCount > 0 && !ft){
-    const horizonY = (_catAgeHorizon / 12).toFixed(1).replace(/\.0$/, "");
+  // Smart view: note how many skills are locked (prereqs not yet met).
+  if (skillViewMode === "smart" && lockedHiddenCount > 0 && !ft){
     html += `<div style="padding:10px 14px; font-size:12px; color:var(--muted); background:#F8FAFC; border-top:1px solid var(--line)">
-      🔮 ${futureHiddenCount} skill${futureHiddenCount === 1 ? "" : "s"} (${horizonY}y+) hidden in Smart view.
+      🔒 ${lockedHiddenCount} skill${lockedHiddenCount === 1 ? "" : "s"} locked — prerequisites not yet mastered.
       Switch to <strong>All skills</strong> to browse the full catalogue.
     </div>`;
   }
 
-  // Newborn-mode note — references the age cap (Smart view) rather than "all skills".
+  // Newborn-mode note — frontier-based (ready/stretch skills for the child).
   const _nbChild = (typeof currentChild === "function") ? currentChild() : null;
   if (_nbChild && _nbChild.mode === "newborn"){
-    const capY = (_catAgeHorizon / 12).toFixed(1).replace(/\.0$/, "");
     html = `<div style="padding:10px 14px; background:#FFF7FB; border-bottom:1px solid var(--line); font-size:13px; color:#9D174D">
-      👶 Showing skills up to ${capY}y for ${escapeHtml(_nbChild.name || "")}.
+      👶 Showing ${escapeHtml(_nbChild.name || "")}'s current frontier — the skills ${escapeHtml((_nbChild.name||"they").split(" ")[0])} is ready to work on next.
       Tap <strong>All skills</strong> to browse the full catalogue.</div>` + html;
   }
 
-  list.innerHTML = html || '<div style="padding:20px; text-align:center; color:var(--muted)">No skills match the filters.</div>';
+  // v10: meta-milestone progress strip (compact "north-star" overview, only on
+  // the unfiltered view). Shows a tiny progress bar per CORE_PREREQ_CHAIN.
+  let _mmStrip = "";
+  if (typeof metaMilestoneProgress === "function" && typeof META_MILESTONES_STATIC !== "undefined" && !fd && !fs && !ft){
+    const cells = Object.entries(META_MILESTONES_STATIC).map(([key, cfg]) => {
+      const prog = metaMilestoneProgress(key);
+      if (!prog.total) return "";
+      return `<div style="flex:1; min-width:104px; max-width:200px" title="${escapeHtml(cfg.label)}: ${prog.mastered}/${prog.total}">
+        <div style="font-size:10px; font-weight:700; color:var(--ink); margin-bottom:2px">${cfg.emoji} ${escapeHtml(cfg.label)}</div>
+        <div style="height:5px; background:#E5E7EB; border-radius:99px; overflow:hidden"><div style="height:100%; width:${prog.pct}%; background:${cfg.color}; border-radius:99px; transition:width .4s"></div></div>
+        <div style="font-size:9px; color:var(--muted); margin-top:1px">${prog.pct}%</div>
+      </div>`;
+    }).filter(Boolean).join("");
+    if (cells) _mmStrip = `<div style="display:flex; flex-wrap:wrap; gap:8px; padding:10px 14px; border-bottom:1px solid var(--line); background:#FCFCFD">${cells}</div>`;
+  }
+
+  list.innerHTML = _mmStrip + (html || '<div style="padding:20px; text-align:center; color:var(--muted)">No skills match the filters.</div>');
 }
 
 document.addEventListener("click", (e)=>{
@@ -12216,6 +12622,66 @@ document.addEventListener("click", (e)=>{
   }
 });
 
+/* ── v10 skill-modal dependency builders ─────────────────────────────────── */
+function _fcIcon(skOrId){
+  const pool = (typeof _frontierPool === "function") ? _frontierPool() : [...SKILLS];
+  const sk = (typeof skOrId === "string") ? pool.find(s => s.id === skOrId) : skOrId;
+  if (!sk) return "⬜";
+  const fc = (typeof classifySkillFrontier === "function") ? classifySkillFrontier(sk) : null;
+  return (fc && typeof FRONTIER_DISPLAY !== "undefined" && FRONTIER_DISPLAY[fc]) ? FRONTIER_DISPLAY[fc].icon : "⬜";
+}
+/* Prerequisites — up to 2 levels, with frontier status icons + verify advisory. */
+function buildPrereqTreeHtml(skill){
+  const pool = (typeof _frontierPool === "function") ? _frontierPool() : [...SKILLS];
+  const find = id => pool.find(s => s.id === id);
+  const prereqs = (skill.prereqs || []).filter(id => find(id));
+  if (prereqs.length === 0) return "";
+  let html = `<div class="stmp-section"><div class="stmp-h">🧩 Prerequisites — what this builds on</div>`;
+  prereqs.forEach(pid => {
+    const psk = find(pid); if (!psk) return;
+    const fc = (typeof classifySkillFrontier === "function") ? classifySkillFrontier(psk) : null;
+    const isVerify = fc === 'verify';
+    const notMastered = (typeof isSkillMastered === "function") ? !isSkillMastered(pid) : false;
+    const rowStyle = isVerify ? "border-left:3px solid #F59E0B; padding-left:8px;"
+                   : notMastered ? "border-left:3px solid #EF4444; padding-left:8px;" : "";
+    html += `<div style="margin:6px 0; ${rowStyle}"><span style="font-weight:600; font-size:13px">${_fcIcon(psk)} ${escapeHtml(psk.t)}</span>`;
+    if (isVerify) html += ` <span style="font-size:11px; color:#92400E; font-weight:700">❓ Re-verify recommended</span>`;
+    else if (notMastered) html += ` <span style="font-size:11px; color:#EF4444">· not yet mastered</span>`;
+    const grand = (psk.prereqs || []).filter(gid => find(gid));
+    if (grand.length){
+      html += `<div style="margin-left:16px; margin-top:3px; font-size:11px; color:var(--muted)">Needs: ` +
+        grand.map(gid => { const g = find(gid); return g ? `${_fcIcon(gid)} ${escapeHtml(g.t)}` : gid; }).join(" · ") + `</div>`;
+    }
+    html += `</div>`;
+  });
+  const verifyPrereqs = prereqs.filter(pid => { const psk = find(pid); return psk && (typeof classifySkillFrontier === "function") && classifySkillFrontier(psk) === 'verify'; });
+  if (verifyPrereqs.length){
+    html += `<div style="margin-top:8px; background:#FEF3C7; border:1px solid #FCD34D; border-radius:8px; padding:8px 10px; font-size:12px; color:#78350F">⚠️ One or more prerequisites have uncertain mastery (❓). Consider re-validating them before progressing.</div>`;
+  }
+  return html + `</div>`;
+}
+/* Unlocks — skills this one enables. */
+function buildEnablesHtml(skill){
+  if (typeof getEnablesTree !== "function") return "";
+  const enables = getEnablesTree(skill.id).slice(0, 8);
+  if (!enables.length) return "";
+  return `<div class="stmp-section"><div class="stmp-h">🔓 Unlocks — what this enables</div>` +
+    enables.map(sk => `<div style="margin:4px 0; font-size:13px">${_fcIcon(sk)} ${escapeHtml(sk.t)}</div>`).join("") + `</div>`;
+}
+/* Meta-milestones this skill contributes to. */
+function buildMetaMilestoneHtml(skill){
+  if (typeof CORE_PREREQ_CHAINS === "undefined" || typeof META_MILESTONES_STATIC === "undefined") return "";
+  const contributing = Object.keys(CORE_PREREQ_CHAINS).filter(k => CORE_PREREQ_CHAINS[k].includes(skill.id));
+  if (!contributing.length) return "";
+  return `<div class="stmp-section"><div class="stmp-h">🎯 Contributes to</div><div style="display:flex; flex-wrap:wrap; gap:6px">` +
+    contributing.map(k => {
+      const cfg = META_MILESTONES_STATIC[k]; if (!cfg) return "";
+      const prog = (typeof metaMilestoneProgress === "function") ? metaMilestoneProgress(k) : null;
+      const pctText = prog ? ` — ${prog.pct}%` : "";
+      return `<span style="background:${cfg.color}22; color:${cfg.color}; border:1px solid ${cfg.color}44; border-radius:999px; padding:3px 10px; font-size:12px; font-weight:600">${cfg.emoji} ${escapeHtml(cfg.label)}${pctText}</span>`;
+    }).join("") + `</div></div>`;
+}
+
 function openSkillModal(id){
   const _pool = [...SKILLS, ...(Array.isArray(state.skillsCustom) ? state.skillsCustom : [])];
   const s = _pool.find(x => x.id === id);
@@ -12267,6 +12733,21 @@ function openSkillModal(id){
   `;
   const closeRow = panel.querySelector(".row");
   panel.insertBefore(wrap, closeRow);
+  // v10: dependency-graph sections (prereq tree, unlocks, meta-milestones) + verify alert.
+  try {
+    const _sec = (htmlStr) => { if (!htmlStr || !htmlStr.trim()) return; const d = document.createElement("div"); d.innerHTML = htmlStr; panel.insertBefore(d, closeRow); };
+    if (typeof buildPrereqTreeHtml === "function")    _sec(buildPrereqTreeHtml(s));
+    if (typeof buildEnablesHtml === "function")       _sec(buildEnablesHtml(s));
+    if (typeof buildMetaMilestoneHtml === "function") _sec(buildMetaMilestoneHtml(s));
+    const fc = (typeof classifySkillFrontier === "function") ? classifySkillFrontier(s) : null;
+    if (fc === 'verify'){
+      const alertDiv = document.createElement("div");
+      alertDiv.style.cssText = "background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 12px;margin:0 0 12px;font-size:13px;color:#78350F";
+      alertDiv.innerHTML = `❓ <strong>Mastery uncertain.</strong> This skill is marked mastered, but evidence suggests it may not be fully consolidated. Consider observing it again to confirm.`;
+      const h3 = panel.querySelector("h3");
+      if (h3) h3.insertAdjacentElement("afterend", alertDiv); else panel.insertBefore(alertDiv, closeRow);
+    }
+  } catch(err){ console.warn("[v10 modal]", err); }
   actModal.classList.add("open");
 }
 document.addEventListener("click", (e)=>{
@@ -12479,7 +12960,10 @@ function getGreatestPotential(){
   const D = 86400000;
   const counts = {};
   (state.observations || []).forEach(o => {
-    if (!o || (now - (o.ts || 0)) > 30 * D) return;
+    // v10 velocity correction: use the TRUE mastery time (estimated_ts) not the
+    // logging time, so retroactively-discovered skills don't inflate momentum.
+    const _eff = (o && (o.estimated_ts || o.ts)) || 0;
+    if (!o || (now - _eff) > 30 * D) return;
     if (o.status === "regressed" || o.status === "unknown") return;
     const sk = _skillUniverse().find(x => x && x.id === o.skillId);
     if (!sk) return;
@@ -12782,7 +13266,7 @@ function xpEarnedSince(domKey, sinceTs){
   let total = 0;
   for (const s of SKILLS){
     if (s.dom !== domKey) continue;
-    const hit = (state.observations || []).some(o => o && o.skillId === s.id && (o.ts || 0) >= sinceTs);
+    const hit = (state.observations || []).some(o => o && o.skillId === s.id && ((o.estimated_ts || o.ts) || 0) >= sinceTs);
     if (hit) total += skillXp(s.id);
   }
   return total;
@@ -14477,7 +14961,8 @@ const PER_CHILD_KEYS = [
   "skillFlags","skillsCustom","feedback","history","spotlightHistory",
   "suppressedConfirmations","domainLevel","domainStreak","wellness","coregLog",
   "gratitude","bedtimeChecklist","praiseTally","basics","rituals","quickLog",
-  "activityStatus","_gcSceneShownAt","lou","events","catalogueExpansionTiers"
+  "activityStatus","_gcSceneShownAt","lou","events","catalogueExpansionTiers",
+  "metaMilestones","masteredAt"
 ];
 // Keys whose empty default is an array (everything else defaults to an object,
 // except the special cases handled in defaultForKey).
@@ -14874,6 +15359,7 @@ cleanseContaminationV12().catch(e => console.warn("[V12] cleanse failed", e));
 // v10 — recalibrate skill difficulty to the 14y scale (runs after the skill-tree
 // + child-namespace migrations so it has the final word on s.difficulty).
 try { migrateSkillDifficultyV10(); } catch(e){ console.warn("v10 difficulty migration failed", e); }
+try { migratePrereqsV10(); } catch(e){ console.warn("v10 prereq migration failed", e); }
 
 function ageInDays(dob){
   if (!dob) return null; // unknown birth date (e.g. Jordan until set in Settings)
@@ -16019,6 +16505,15 @@ async function _generateTierSkills(childId, tier, apiKey){
     .filter(s => { const mid = (typeof skillAgeMidpointMonths === "function") ? skillAgeMidpointMonths(s) : 0; return mid >= lo && mid < hi; })
     .map(s => s.t).filter(Boolean).slice(0, 30).join("\n- ");
 
+  // v10: domain-frontier + meta-milestone priority context so generation targets level.
+  const domainFrontiers = {};
+  if (typeof computeDomainFrontier === "function" && typeof DOMAINS !== "undefined"){
+    DOMAINS.forEach(d => { domainFrontiers[d.key] = Math.round(computeDomainFrontier(d.key) * 10) / 10; });
+  }
+  const frontierContext = Object.entries(domainFrontiers).map(([k,v]) => `${k}: ${v}/10`).join(", ");
+  const mmContext = (state.metaMilestones && Array.isArray(state.metaMilestones.top_priorities) && state.metaMilestones.top_priorities.length)
+    ? `\nDevelopmental priorities for this child: ${state.metaMilestones.top_priorities.join("; ")}` : "";
+
   const childLangs = (child.languages || ["en","fr"]).join(" and ");
   const genderNote = child.gender === "M" ? "The child is a boy."
                    : child.gender === "F" ? "The child is a girl."
@@ -16040,13 +16535,16 @@ Rules:
 3. Cover all 6 domains: gross (gross motor), fine (fine motor), sensory, cognitive, vocab (language/speech), social (social-emotional).
 4. Keep titles concise (3–6 words). "what" = 1-sentence observable mastery criterion.
 5. Base on evidence: Montessori, RIE, AAP, WHO, CDC milestones.
-6. ${childLangs.includes("fr") ? "Include 1–2 bilingual EN/FR skills where natural." : ""}
+6. Include prereqs[] array referencing existing skill IDs where applicable.
+7. ${childLangs.includes("fr") ? "Include 1–2 bilingual EN/FR skills where natural." : ""}
+
+Child's domain frontiers (mastery level 1–10): ${frontierContext}${mmContext}
 
 Existing skills in this band (do NOT duplicate):
 - ${existing || "(none yet)"}
 
 Return ONLY a valid JSON array. No markdown fences. No explanation. Example:
-[{"t":"Stacks two objects deliberately","dom":"fine","what":"Places one block on top of another without knocking it over"}]
+[{"t":"Stacks two objects deliberately","dom":"fine","what":"Places one block on top of another","prereqs":["fm-pincer"]}]
 
 Valid dom values: gross, fine, sensory, cognitive, vocab, social`;
 
@@ -16060,7 +16558,7 @@ Valid dom values: gross, fine, sensory, cognitive, vocab, social`;
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true"
       },
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200, messages: [{ role: "user", content: prompt }] })
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1400, messages: [{ role: "user", content: prompt }] })
     });
     if (!resp.ok) throw new Error("API " + resp.status);
     const data = await resp.json();
@@ -16078,34 +16576,110 @@ Valid dom values: gross, fine, sensory, cognitive, vocab, social`;
         age: ageLabel,
         difficulty: diffLevel,
         what: (s.what || "").slice(0, 120),
+        prereqs: Array.isArray(s.prereqs) ? s.prereqs.filter(p => typeof p === "string" && p.length < 60) : [],
+        why: (s.why || "").slice(0, 200),
+        how: (s.how || "").slice(0, 200),
         _generated: true, _childId: childId, _tier: tier
       }));
   } catch(e){ console.warn(`[CatExpand] tier ${tier} parse failed:`, e); return; }
 
   if (generated.length === 0) return;
+  if (typeof getActiveChildId === "function" && getActiveChildId() !== childId) return;
 
   const existingIds = new Set((state.skillsCustom || []).map(s => s.id));
   const newSkills = generated.filter(s => !existingIds.has(s.id));
   state.skillsCustom = [...(state.skillsCustom || []), ...newSkills];
   state.catalogueExpansionTiers = [...new Set([...(state.catalogueExpansionTiers || []), tier])];
-
-  if (typeof flushChildWorkingSet === "function") flushChildWorkingSet(childId);
-  if (typeof saveState === "function") saveState(state);
-
-  // Fire-and-forget Firebase write — EXACT same per-child path V12 / syncPull use.
-  try {
-    const base = ((typeof _fbUrl === "string" && _fbUrl) ? _fbUrl : DEFAULT_FB_URL).replace(/\/$/, "");
-    const ns   = (typeof _fbNs === "string" && _fbNs) ? _fbNs : DEFAULT_FB_NS;
-    const url  = `${base}/maxine-sync/${ns}/state/childData/${childId}.json`;
-    const cd   = (state.childData && state.childData[childId]) || {};
-    cd.skillsCustom = state.skillsCustom;
-    cd.catalogueExpansionTiers = state.catalogueExpansionTiers;
-    fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cd) }).catch(() => {});
-  } catch(e){}
-
-  if (typeof refreshCatalogue === "function"){ try { refreshCatalogue(); } catch(e){} }
-  console.log(`[CatExpand] +${newSkills.length} skills for ${child.name} tier ${tier} (${ageLabel})`);
+  _v31Bump();
+  saveState(state);
+  if (typeof refreshCatalogue === "function") try { refreshCatalogue(); } catch(e){}
 }
+
+/* ── v10 Meta-milestone AI inference ─────────────────────────────────────
+   Infers per-child meta-milestones (strengths, specialisation, priorities)
+   from the child's mastery pattern. Triggered after every 50 mastery events
+   or manually from the Progress view "Refresh insight" button.
+   Stores result in state.metaMilestones (PER_CHILD_KEY).                   */
+let _mmInferInProgress = false;
+let _mmInferMasteryCount = 0;
+
+async function inferMetaMilestones(childId){
+  if (_mmInferInProgress) return;
+  if (typeof getActiveChildId === "function" && getActiveChildId() !== childId) return;
+  const apiKey = await _hzKeySilent();
+  if (!apiKey) return;
+  _mmInferInProgress = true;
+  try {
+    const child = Object.values(state.children || {}).find(c => c && c.id === childId);
+    if (!child) return;
+    const allSkills = [...SKILLS, ...(SKILLS_CUSTOM_SEED||[]), ...(Array.isArray(state.skillsCustom) ? state.skillsCustom : [])];
+    const mastered = allSkills.filter(s => isSkillMastered(s.id))
+      .sort((a,b) => ((state.masteredAt&&state.masteredAt[b.id])||0) - ((state.masteredAt&&state.masteredAt[a.id])||0));
+    const masteredSummary = mastered.slice(0, 60)
+      .map(s => `${s.t} (${s.dom}, d=${s.difficulty||"?"})`).join("\n");
+    const staticProgress = (typeof CORE_PREREQ_CHAINS !== "undefined")
+      ? Object.entries(CORE_PREREQ_CHAINS).map(([key, chain]) => {
+          const prog = (typeof metaMilestoneProgress === "function") ? metaMilestoneProgress(key) : {mastered:0,total:0,pct:0};
+          return `${key}: ${prog.mastered}/${prog.total} (${prog.pct}%)`;
+        }).join("\n")
+      : "(unavailable)";
+    const prompt = `You are an expert child development analyst. Based on the mastery data below, infer:
+1. Which meta-milestones is this child strongest in?
+2. Are there any SPECIALISATION paths emerging (e.g. "pre-athletic", "musical", "linguistic")? Only flag if the pattern strongly suggests it.
+3. What are the TOP 3 developmental priorities right now?
+
+Child: ${child.name}, ${child.gender === "F" ? "girl" : child.gender === "M" ? "boy" : "child"}, languages: ${(child.languages||["en"]).join("/")}
+
+MASTERY DATA (most recent first, top 60):
+${masteredSummary || "(no mastered skills yet)"}
+
+CORE CHAIN PROGRESS:
+${staticProgress}
+
+Return ONLY a valid JSON object. No markdown. No explanation. Schema:
+{"strengths":["key1","key2"],"specialisation":null,"top_priorities":["priority 1","priority 2","priority 3"],"summary":"2-3 sentence narrative for parents"}
+If specialisation exists: {"path":"string","confidence":"low|medium|high"}`;
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600,
+        messages: [{ role: "user", content: prompt }] })
+    });
+    if (!resp.ok) throw new Error("API " + resp.status);
+    const data = await resp.json();
+    const raw = (data.content && data.content[0] && data.content[0].text) || "{}";
+    const cleaned = raw.replace(/^```(?:json)?/m,"").replace(/```$/m,"").trim();
+    const parsed = JSON.parse(cleaned);
+    if (typeof getActiveChildId === "function" && getActiveChildId() !== childId) return;
+    state.metaMilestones = { ...(parsed||{}), _inferredAt: Date.now(), _childId: childId };
+    _v31Bump();
+    saveState(state);
+    if (typeof renderProgressView === "function") try { renderProgressView(); } catch(e){}
+    else if (typeof refreshCatalogue === "function") try { refreshCatalogue(); } catch(e){}
+  } catch(e){ console.warn("[MetaMilestone] inference failed:", e); }
+  finally { _mmInferInProgress = false; }
+}
+
+/* Hook: trigger meta-milestone inference every 50 mastery events. */
+(function _installMmHook(){
+  const _origAdd = addObservation;
+  addObservation = function(args){
+    _origAdd(args);
+    if (args && (args.status === "mastered" || args.status === "already_mastered")){
+      _mmInferMasteryCount++;
+      if (_mmInferMasteryCount >= 50){
+        _mmInferMasteryCount = 0;
+        const cid = (typeof getActiveChildId === "function") ? getActiveChildId() : null;
+        if (cid) Promise.resolve().then(() => inferMetaMilestones(cid).catch(()=>{}));
+      }
+    }
+  };
+})();
 
 /* Wire the setup overlay's save button once. PUTs the entered key to RTDB. */
 let _hzSaveWired = false;
