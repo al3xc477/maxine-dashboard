@@ -5910,6 +5910,11 @@ function _wireChildObserverSettings(){
       const row = e.target.closest(".set-child-row"); if (!row) return;
       const key = row.dataset.childkey;
       const c = state.children[key]; if (!c) return;
+      // `rekeyed` tracks whether the child key changed (rename) — only then must
+      // we rebuild the editor (its data-childkey is now stale). For dob/color/
+      // langs/mode we MUST NOT rebuild: doing so destroys the <input type=date>
+      // mid-edit, which is why the year couldn't be entered (Bug 1).
+      let rekeyed = false;
       if (e.target.classList.contains("set-child-color")) c.color = e.target.value;
       else if (e.target.classList.contains("set-child-dob")) c.dob = e.target.value || null;
       else if (e.target.classList.contains("set-child-mode")) c.mode = e.target.value;
@@ -5918,13 +5923,15 @@ function _wireChildObserverSettings(){
         if (!c.languages.length) c.languages = ["en"];
       } else if (e.target.classList.contains("set-child-name")){
         const newName = e.target.value.trim();
-        if (newName && newName !== key){ _renameChild(key, newName); }
+        if (newName && newName !== key){ _renameChild(key, newName); rekeyed = true; }
         else { c.name = newName || key; }
       }
       saveState(state);
       renderChildPicker(); updateChildHeader(); applyChildMode();
       if (typeof renderParentalAdvice === "function") renderParentalAdvice();
-      _renderChildrenSettings();
+      // Only rebuild the editor when a rename changed the row keys; otherwise
+      // leave the live inputs intact so in-progress edits aren't wiped.
+      if (rekeyed) _renderChildrenSettings();
       showToast("✓ Saved.");
     });
   }
@@ -6315,21 +6322,58 @@ async function syncPull(fullReplace){
     if(fullReplace){
       state = Object.assign({},state,remote);
     } else {
+      // ── v9 per-child merge ──────────────────────────────────────────────
+      // CRITICAL: never merge the flat working-set keys directly — they belong
+      // to the ACTIVE child, while remote.* reflects a DIFFERENT device's active
+      // child (that cross-merge was the cross-child contamination bug). Merge
+      // per-child into childData[id], then re-derive the flat keys from the
+      // active child's namespace below.
       const mergeTS=(local,src)=>{
-        const out=Object.assign({},src);
+        const out=Object.assign({},src||{});
         Object.entries(local||{}).forEach(([k,v])=>{ if(!out[k]||(v&&v.ts&&out[k].ts&&v.ts>=out[k].ts)) out[k]=v; });
         return out;
       };
-      if(remote.vocabMaster)    state.vocabMaster    =mergeTS(state.vocabMaster,    remote.vocabMaster);
-      if(remote.vocabMastered)  state.vocabMastered  =mergeTS(state.vocabMastered,  remote.vocabMastered);
-      if(remote.skillStatus)    state.skillStatus    =mergeTS(state.skillStatus,    remote.skillStatus);
-      if(remote.activityStatus) state.activityStatus =mergeTS(state.activityStatus, remote.activityStatus);
-      if(remote.history){
-        const seen=new Set((state.history||[]).map(h=>h.ts));
-        const fresh=(remote.history||[]).filter(h=>!seen.has(h.ts));
-        state.history=[...(state.history||[]),...fresh].sort((a,b)=>a.ts-b.ts);
+      const mergeArr=(local,rem)=>{
+        local=Array.isArray(local)?local:[]; rem=Array.isArray(rem)?rem:[];
+        const keyOf=x=>(x&&x.ts!=null)?("ts:"+x.ts):JSON.stringify(x);
+        const out=local.slice(); const seen=new Set(out.map(keyOf));
+        rem.forEach(x=>{ const k=keyOf(x); if(!seen.has(k)){ seen.add(k); out.push(x); } });
+        return out;
+      };
+      const mergeChildKey=(lv,rv)=>{
+        if(Array.isArray(lv)||Array.isArray(rv)) return mergeArr(lv,rv);
+        if(lv&&typeof lv==="object"&&rv&&typeof rv==="object"){
+          if((lv&&lv.events!==undefined)||(rv&&rv.events!==undefined)){ // lou-style {events,sleepStart}
+            return { events: mergeArr((lv&&lv.events)||[],(rv&&rv.events)||[]), sleepStart:(lv&&lv.sleepStart)||(rv&&rv.sleepStart)||null };
+          }
+          return mergeTS(lv,rv);
+        }
+        return (lv!==undefined&&lv!==null)?lv:rv;
+      };
+      if(remote.childData && typeof remote.childData==="object"){
+        state.childData = state.childData || {};
+        Object.keys(remote.childData).forEach(id=>{
+          const rns=remote.childData[id]||{};
+          const lns=state.childData[id]=state.childData[id]||{};
+          PER_CHILD_KEYS.forEach(k=>{
+            if(rns[k]===undefined && lns[k]===undefined) return;
+            lns[k]=mergeChildKey(lns[k], rns[k]);
+          });
+        });
+      }
+      // Child registry (profiles/DOB): remote fills gaps; locally-defined fields win.
+      if(remote.children && typeof remote.children==="object"){
+        state.children = state.children || {};
+        Object.keys(remote.children).forEach(name=>{
+          state.children[name] = Object.assign({}, remote.children[name], state.children[name]||{});
+        });
       }
     }
+    // Re-derive the active child's flat working set from the (merged) namespace,
+    // so a remote snapshot's flat keys can NEVER bind into another child.
+    if(typeof ensureChildSchema==="function") ensureChildSchema();
+    if(typeof loadChildWorkingSet==="function" && typeof getActiveChildId==="function") loadChildWorkingSet(getActiveChildId());
+    if(typeof _v31Bump==="function") _v31Bump();
     localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
     renderTheme();
     if(typeof renderProgressView==="function") renderProgressView();
@@ -6639,6 +6683,9 @@ async function syncLoadFromFolder(){
     }
     delete imported._savedAt;
     state = Object.assign({}, state, imported);
+    // v9: re-derive the active child's flat working set from the imported
+    // childData so an imported snapshot's flat keys can't contaminate.
+    try { ensureChildSchema(); loadChildWorkingSet(getActiveChildId()); } catch(e){}
     saveState(state);
     renderFsaStatus("✅ Loaded from folder at " + new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}));
     setModal.classList.remove("open");
@@ -6712,6 +6759,7 @@ document.getElementById("syncFsaDisconnectBtn")?.addEventListener("click", syncF
           /* Folder is newer — auto-load silently */
           delete imported._savedAt;
           state = Object.assign({}, state, imported);
+          try { ensureChildSchema(); loadChildWorkingSet(getActiveChildId()); } catch(e){}
           saveState(state);
           renderTheme();
           if (typeof renderProgressView==="function") renderProgressView();
@@ -6767,6 +6815,9 @@ function importFromPaste(){
   try {
     const imported = JSON.parse(text);
     state = Object.assign({}, state, imported);
+    // v9: re-derive the active child's flat working set from the imported
+    // childData so an imported snapshot's flat keys can't contaminate.
+    try { ensureChildSchema(); loadChildWorkingSet(getActiveChildId()); } catch(e){}
     saveState(state);
     setSyncTimestamp();
     renderSyncStatus();
@@ -14238,6 +14289,23 @@ function loadChildWorkingSet(id){
     if (ns[k] === undefined) ns[k] = defaultForKey(k);
     state[k] = ns[k];
   });
+  // Contamination guard: a non-Maxine child must hold NO skillStatus entries
+  // byte-identical to Maxine's canonical mastery (skillId + status + by + ts) —
+  // that exact-duplicate signature is how cross-child bleed manifested. Fires
+  // (console only) if a ghost survived; stays silent once clean. Guarded so it
+  // never throws.
+  try {
+    const mx = state.childData && state.childData.maxine;
+    if (mx && id !== "maxine" && ns.skillStatus){
+      const mSt = mx.skillStatus || {};
+      const ghosts = Object.keys(ns.skillStatus).filter(sid => {
+        const a = ns.skillStatus[sid], b = mSt[sid];
+        return a && b && a.status === b.status && a.by === b.by && a.ts === b.ts;
+      }).length;
+      console.assert(ghosts === 0,
+        "[child-iso] " + id + " has " + ghosts + " Maxine-duplicate skillStatus entries (cross-child contamination)");
+    }
+  } catch(e){}
 }
 
 function setActiveChildId(id){
@@ -14338,6 +14406,40 @@ migrateToChildNamespaceV7();
     if (typeof loadChildWorkingSet === "function") loadChildWorkingSet(getActiveChildId());
     saveState(state);
   } catch(e){ console.warn("ghost child-data cleanse v8 failed", e); }
+})();
+
+/* v9 — re-run the byte-identical ghost de-dup. The v8 one-shot already fired on
+   affected installs, but the (now-fixed) cross-child sync re-contaminated
+   childData since. This one-shot clears those re-created ghosts; with the sync
+   fix in place they will not return. Removes ONLY entries byte-identical to
+   Maxine's canonical data from non-Maxine children — genuine data is preserved. */
+(function cleanseGhostChildDataV9(){
+  if (state._cleansedGhostChildV9) return;
+  try {
+    const M = state.childData && state.childData.maxine;
+    if (M){
+      const oSig = o => `${o&&o.skillId}|${o&&o.ts}|${o&&o.by}|${o&&o.status}`;
+      const hSig = h => `${h&&h.actId}|${h&&h.ts}|${h&&h.user}|${h&&h.fb}`;
+      const mObs  = new Set((M.observations || []).map(oSig));
+      const mHist = new Set((M.history || []).map(hSig));
+      const mSt   = M.skillStatus || {};
+      Object.keys(state.childData).forEach(id => {
+        if (id === "maxine") return;
+        const ns = state.childData[id]; if (!ns) return;
+        if (Array.isArray(ns.observations)) ns.observations = ns.observations.filter(o => !mObs.has(oSig(o)));
+        if (Array.isArray(ns.history))      ns.history      = ns.history.filter(h => !mHist.has(hSig(h)));
+        if (ns.skillStatus && typeof ns.skillStatus === "object"){
+          Object.keys(ns.skillStatus).forEach(sid => {
+            const a = ns.skillStatus[sid], b = mSt[sid];
+            if (a && b && a.status === b.status && a.by === b.by && a.ts === b.ts) delete ns.skillStatus[sid];
+          });
+        }
+      });
+    }
+    state._cleansedGhostChildV9 = true;
+    if (typeof loadChildWorkingSet === "function") loadChildWorkingSet(getActiveChildId());
+    saveState(state);
+  } catch(e){ console.warn("ghost child-data cleanse v9 failed", e); }
 })();
 
 // v10 — recalibrate skill difficulty to the 14y scale (runs after the skill-tree
