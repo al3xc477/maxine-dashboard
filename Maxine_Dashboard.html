@@ -1053,6 +1053,68 @@
   .v7-pending-actions .small{ flex:1; }
 }
 
+/* ===== Horizon chat widget — all scoped to #hz-* / .hz-* (no collision) ===== */
+#hz-btn{ position:fixed; right:20px; bottom:20px; width:56px; height:56px; border-radius:50%; background:var(--accent); color:#fff; border:none; cursor:pointer; font-size:24px; line-height:1; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(15,23,42,.25), 0 2px 4px rgba(15,23,42,.12); z-index:9000; }
+#hz-btn:hover{ filter:brightness(1.05); }
+.hz-badge{ position:absolute; top:-2px; right:-2px; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:#DC2626; color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center; display:none; }
+#hz-panel{ position:fixed; right:20px; bottom:20px; width:340px; height:520px; background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:0 12px 40px rgba(15,23,42,.22), 0 4px 12px rgba(15,23,42,.10); z-index:9001; display:none; flex-direction:column; overflow:hidden; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color:var(--ink); transform:translateY(16px); opacity:0; transition:transform .22s ease, opacity .22s ease; }
+#hz-panel.hz-open{ display:flex; transform:translateY(0); opacity:1; }
+.hz-header{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line); flex:0 0 auto; }
+.hz-tabs{ display:flex; gap:6px; }
+.hz-tab{ border:1px solid var(--line); background:transparent; color:var(--muted); border-radius:999px; padding:4px 12px; font-size:12px; font-weight:600; cursor:pointer; }
+.hz-tab-active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+#hz-observer-label{ font-size:12px; color:var(--muted); margin-left:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hz-child-name{ font-size:13px; font-weight:700; color:var(--ink); }
+.hz-header-spacer{ flex:1; }
+.hz-close{ border:none; background:transparent; color:var(--muted); font-size:18px; line-height:1; cursor:pointer; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+.hz-close:hover{ background:#F1F4FA; color:var(--ink); }
+#hz-events{ display:flex; flex-wrap:wrap; gap:6px; padding:8px 12px; flex:0 0 auto; }
+.hz-event{ background:#F1F4FA; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:600; white-space:nowrap; }
+#hz-thread{ flex:1; display:flex; flex-direction:column; gap:8px; overflow-y:auto; padding:8px 12px; }
+.hz-msg-user, .hz-msg-bot{ max-width:80%; padding:8px 12px; border-radius:14px; font-size:13px; word-wrap:break-word; white-space:pre-wrap; }
+.hz-msg-user{ align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:4px; }
+.hz-msg-bot{ align-self:flex-start; background:#F1F4FA; color:var(--ink); border-bottom-left-radius:4px; }
+.hz-card{ align-self:stretch; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; box-shadow:0 1px 3px rgba(15,23,42,.06); font-size:13px; }
+.hz-card .hz-card-actions{ display:flex; gap:8px; margin-top:8px; }
+#hz-chips{ display:flex; flex-wrap:wrap; gap:6px; padding:6px 12px; flex:0 0 auto; }
+.hz-chip{ border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; padding:5px 12px; font-size:12px; font-weight:500; cursor:pointer; }
+.hz-chip:hover{ border-color:var(--accent); color:var(--accent); }
+.hz-time-row{ margin:6px 0; display:flex; align-items:center; gap:6px; }
+.hz-time-row input[type=time]{ font-size:13px; padding:3px 6px; border:1px solid var(--line); border-radius:6px; }
+.hz-footer{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-top:1px solid var(--line); flex:0 0 auto; }
+#hz-mic{ flex:0 0 auto; width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--card); color:var(--muted); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+#hz-mic:hover{ border-color:var(--accent); color:var(--accent); }
+.hz-mic-active{ background:#DC2626 !important; border-color:#DC2626 !important; color:#fff !important; animation:hz-pulse 1.2s ease-in-out infinite; }
+@keyframes hz-pulse{ 0%{ box-shadow:0 0 0 0 rgba(220,38,38,.55); } 70%{ box-shadow:0 0 0 8px rgba(220,38,38,0); } 100%{ box-shadow:0 0 0 0 rgba(220,38,38,0); } }
+#hz-input{ flex:1 1 auto; min-width:0; border:1px solid var(--line); border-radius:999px; padding:8px 14px; font-size:13px; color:var(--ink); background:var(--card); outline:none; }
+#hz-input:focus{ border-color:var(--accent); }
+#hz-send{ flex:0 0 auto; border:none; background:var(--accent); color:#fff; border-radius:999px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer; }
+#hz-send:hover{ filter:brightness(1.05); }
+#hz-setup, #hz-observer-pick{ position:absolute; inset:0; background:var(--card); display:none; align-items:center; justify-content:center; padding:20px; z-index:5; }
+.hz-overlay-card{ width:100%; max-width:280px; background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:18px; text-align:center; }
+.hz-overlay-card h3{ margin:0 0 6px; font-size:15px; color:var(--ink); }
+.hz-overlay-card p{ margin:0 0 14px; font-size:12px; color:var(--muted); }
+#hz-setup-key{ width:100%; border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-size:13px; margin-bottom:10px; outline:none; }
+#hz-setup-key:focus{ border-color:var(--accent); }
+#hz-setup-save{ width:100%; border:none; background:var(--accent); color:#fff; border-radius:10px; padding:9px 12px; font-size:13px; font-weight:600; cursor:pointer; }
+.hz-reset-link{ display:inline-block; margin-top:10px; font-size:12px; color:var(--muted); text-decoration:underline; cursor:pointer; }
+.hz-obs-list{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+.hz-obs-btn{ width:100%; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:10px 12px; font-size:14px; font-weight:600; cursor:pointer; }
+.hz-obs-btn:hover{ border-color:var(--accent); color:var(--accent); }
+#hz-toast{ position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(12px); background:#1F2A44; color:#fff; border-radius:10px; padding:10px 16px; font-size:13px; box-shadow:0 8px 24px rgba(15,23,42,.3); z-index:9100; display:none; opacity:0; transition:opacity .2s ease, transform .2s ease; max-width:80vw; }
+#hz-toast.hz-toast-show{ display:block; opacity:1; transform:translateX(-50%) translateY(0); }
+@media (max-width:600px){ #hz-panel{ inset:0; right:0; bottom:0; width:100%; height:100%; border-radius:0; border:none; } }
+/* Horizon bubbles/tabs emitted by JS (reconcile class names) */
+.hz-bubble{ max-width:85%; padding:8px 12px; border-radius:14px; font-size:13px; white-space:pre-wrap; word-wrap:break-word; }
+.hz-bubble-user{ align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:4px; }
+.hz-bubble-assistant, .hz-bubble-bot{ align-self:flex-start; background:#F1F4FA; color:var(--ink); border-bottom-left-radius:4px; }
+.hz-bubble-system{ align-self:center; background:transparent; color:var(--muted); font-style:italic; }
+.hz-bubble-error{ align-self:flex-start; background:#FEE2E2; color:#991B1B; }
+.hz-retry{ margin-left:6px; border:none; background:#991B1B; color:#fff; border-radius:8px; padding:2px 8px; font-size:12px; cursor:pointer; }
+.hz-load-earlier{ align-self:center; font-size:12px; color:var(--accent); text-decoration:underline; cursor:pointer; }
+.hz-card button{ border:1px solid var(--line); background:var(--card); border-radius:8px; padding:5px 10px; font-size:12px; cursor:pointer; }
+.hz-tab.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+@media (max-width:600px){ #hz-panel{ inset:0; } }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
@@ -1200,7 +1262,7 @@
     </div>
 
     <div class="card" style="margin-bottom:14px">
-      <h2>🌱 Montessori sensitive periods active at 2y2m</h2>
+      <h2 id="sensitivePeriodsTitle">🌱 Montessori sensitive periods active at 2y2m</h2>
       <div class="sub" style="color:var(--muted); font-size:13px; margin-bottom:10px">From Maria Montessori + Lillard (Oxford). These windows close — nurture them <em>now</em>.</div>
       <div id="sensitivePeriods" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:8px"></div>
     </div>
@@ -5866,6 +5928,9 @@ function _renderChildrenSettings(){
     const dob = c.dob || "";
     const modeT = c.mode === "toddler" ? "selected" : "";
     const modeN = c.mode === "newborn" ? "selected" : "";
+    const gF = c.gender === "F" ? "selected" : "";
+    const gM = c.gender === "M" ? "selected" : "";
+    const gN = c.gender === "N" ? "selected" : "";
     return `<div class="set-child-row" data-childkey="${escapeHtml(name)}" style="border:1px solid var(--line); border-radius:10px; padding:10px; background:#fff">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
         <span style="font-size:20px">${c.emoji || "🧒"}</span>
@@ -5883,6 +5948,13 @@ function _renderChildrenSettings(){
           <select class="set-child-mode" style="display:block; width:100%; margin-top:3px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-weight:400">
             <option value="toddler" ${modeT}>Toddler</option>
             <option value="newborn" ${modeN}>Newborn</option>
+          </select>
+        </label>
+        <label style="flex:0 0 120px; font-size:11px; color:var(--muted); font-weight:700">Gender
+          <select class="set-child-gender" style="display:block; width:100%; margin-top:3px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-weight:400">
+            <option value="F" ${gF}>Girl</option>
+            <option value="M" ${gM}>Boy</option>
+            <option value="N" ${gN}>Neutral</option>
           </select>
         </label>
       </div>
@@ -5918,6 +5990,7 @@ function _wireChildObserverSettings(){
       if (e.target.classList.contains("set-child-color")) c.color = e.target.value;
       else if (e.target.classList.contains("set-child-dob")) c.dob = e.target.value || null;
       else if (e.target.classList.contains("set-child-mode")) c.mode = e.target.value;
+      else if (e.target.classList.contains("set-child-gender")) c.gender = e.target.value;
       else if (e.target.classList.contains("set-child-langs")){
         c.languages = e.target.value.split(/[,\s]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
         if (!c.languages.length) c.languages = ["en"];
@@ -6319,6 +6392,7 @@ async function syncPull(fullReplace){
     if(!r.ok) throw new Error("Firebase GET "+r.status);
     const remote = await r.json();
     if(!remote||typeof remote!=="object") return;
+    ["horizon-chat","horizon-events","horizon-bugs","horizon-config"].forEach(hk=>{ try{ delete remote[hk]; }catch(e){} });
     if(fullReplace){
       state = Object.assign({},state,remote);
     } else {
@@ -10574,14 +10648,23 @@ function getActiveSkillsForDomain(domKey){
   const all = [...SKILLS, ...((typeof state !== "undefined" && state.skillsCustom) || [])];
   const domSkills = all.filter(s => s.dom === domKey);
   domSkills.forEach(s => { if (!s.branch) s.branch = _branchOf(s); if (typeof s.difficulty !== "number") s.difficulty = _difficultyOf(s); });
-  const devAge = childDevAgeMonths();
+  // Task B — use the active child's FRESH chronological age (clamped >= 0) for the
+  // ZPD window, not the mastered-skill mean (which falls back to 24 for newborns).
+  const ageMonths = (typeof computeChildAgeMonths === "function")
+    ? computeChildAgeMonths(typeof getActiveChildId === "function" ? getActiveChildId() : null)
+    : childDevAgeMonths();
+  const loAge = Math.max(0, ageMonths - DOMAIN_FLOOR);   // clamp lower bound per spec
+  const hiAge = ageMonths + ZPD_HORIZON_MONTHS;          // preferred upper bound
+  // Newborns (< 12m) must NOT see beyond hiAge; older children may extend the pool.
+  const extHiAge = (ageMonths >= 12) ? (ageMonths + ZPD_EXTENDED_MONTHS) : hiAge;
 
   const mastered = domSkills.filter(s => isSkillMastered(s.id));
 
   // Phase 1 — unlocked + within preferred ZPD horizon.
   const phase1 = domSkills
     .filter(s => !isSkillMastered(s.id) && isUnlocked(s)
-              && skillAgeMidpointMonths(s) <= devAge + ZPD_HORIZON_MONTHS)
+              && skillAgeMidpointMonths(s) >= loAge
+              && skillAgeMidpointMonths(s) <= hiAge)
     .map(s => ({ ...s, _zpd: zdpScore(s), _phase: 1 }))
     .sort((a,b) => b._zpd - a._zpd || (a.difficulty||5) - (b.difficulty||5));
 
@@ -10591,7 +10674,8 @@ function getActiveSkillsForDomain(domKey){
     const p1 = new Set(phase1.map(s => s.id));
     const phase2 = domSkills
       .filter(s => !isSkillMastered(s.id) && isUnlocked(s) && !p1.has(s.id)
-                && skillAgeMidpointMonths(s) <= devAge + ZPD_EXTENDED_MONTHS)
+                && skillAgeMidpointMonths(s) >= loAge
+                && skillAgeMidpointMonths(s) <= extHiAge)
       .map(s => ({ ...s, _zpd: zdpScore(s), _phase: 2 }))
       .sort((a,b) => (a.difficulty||5) - (b.difficulty||5));
     candidates = [...phase1, ...phase2].slice(0, DOMAIN_FLOOR);
@@ -10603,7 +10687,8 @@ function getActiveSkillsForDomain(domKey){
     const used = new Set(candidates.map(s => s.id));
     const almost = domSkills
       .filter(s => !isSkillMastered(s.id) && !isUnlocked(s) && !used.has(s.id)
-                && skillAgeMidpointMonths(s) <= devAge + ZPD_EXTENDED_MONTHS)
+                && skillAgeMidpointMonths(s) >= loAge
+                && skillAgeMidpointMonths(s) <= extHiAge)
       .filter(s => {
         const missing = (s.prereqs || []).filter(p => !isSkillMastered(p));
         return missing.length === 1 && isUnlocked(all.find(x => x.id === missing[0]) || {});
@@ -10832,12 +10917,33 @@ function currentChild(){
   return (state.children && state.children[state.currentChild]) || null;
 }
 
+function getChildPronouns(childId){
+  const id = childId || (typeof getActiveChildId === "function" ? getActiveChildId() : null);
+  const c = (id && Object.values(state.children||{}).find(x => x && x.id === id)) ||
+            (typeof currentChild === "function" ? currentChild() : null);
+  const g = (c && c.gender) || "F";
+  if (g === "M") return { subject:"he",  Subject:"He",  object:"him",  possessive:"his",   Possessive:"His",   reflexive:"himself" };
+  if (g === "N") return { subject:"they",Subject:"They",object:"them", possessive:"their", Possessive:"Their", reflexive:"themself" };
+  return                  { subject:"she",Subject:"She",object:"her",  possessive:"her",   Possessive:"Her",   reflexive:"herself" };
+}
+
 function chronoAgeMonths(child){
   if (!child || !child.dob) return 0;
   const birth = new Date(child.dob);
   if (isNaN(birth.getTime())) return 0;
   const now = new Date();
   return (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+}
+
+/* Task B — CHRONOLOGICAL age in months for a child id, clamped >= 0.
+   Unlike childDevAgeMonths() (mean age of MASTERED skills, falls back to 24),
+   this is the true calendar age — so a fresh newborn correctly reads 0 and the
+   ZPD filter shows 0-18m skills instead of Maxine's ~24-42m window.            */
+function computeChildAgeMonths(childId){
+  const id = childId || (typeof getActiveChildId === "function" ? getActiveChildId() : null);
+  const c = (id && Object.values(state.children||{}).find(x => x && x.id === id)) ||
+            (typeof currentChild === "function" ? currentChild() : null);
+  return Math.max(0, chronoAgeMonths(c));
 }
 
 function activeEra(child){
@@ -12297,8 +12403,9 @@ function computeTutorNarrative(){
   const ageBit = ageM ? ` (age ${ageM}m)` : "";
 
   const p1 = `${child.name || "Maxine"}${ageBit} is at developmental tier T${ct}. This week's spotlight domain is ${spotlightDom.emoji} ${spotlightDom.label} — lean play, reading, and one-on-one time toward it.`;
+  const _prN = (typeof getChildPronouns === "function") ? getChildPronouns(getActiveChildId()) : { Possessive:"Her" };
   const p2 = potential
-    ? `Her greatest current momentum is ${potential.domain_emoji} ${potential.domain_label} (${potential.obs_count_30d} observations in the last 30 days). Amplify what's already pulling.`
+    ? `${_prN.Possessive} greatest current momentum is ${potential.domain_emoji} ${potential.domain_label} (${potential.obs_count_30d} observations in the last 30 days). Amplify what's already pulling.`
     : `Not enough recent observations to detect momentum — log a few activities to surface the trend.`;
   const fragments = [];
   if (pending > 0) fragments.push(`${pending} skill${pending === 1 ? "" : "s"} look${pending === 1 ? "s" : ""} ready to declare mastered — see "Pending confirmations" below`);
@@ -13149,7 +13256,13 @@ function renderVocabularyBingo(){
   // Render stats
   const masteredEn = words.filter((_, i) => isVocabMastered(themeW, i, "en")).length;
   const masteredFr = words.filter((_, i) => isVocabMastered(themeW, i, "fr")).length;
+  // Task B — fresh-child empty-state hint: this child has no tracked vocab yet.
+  const _vmCount = Object.keys(state.vocabMaster||{}).length;
+  const _vmHint = (_vmCount === 0)
+    ? `<div style="grid-column:1/-1; text-align:center; color:var(--muted); font-size:12px; margin-bottom:6px">No words tracked yet for this child — tap a cell to start.</div>`
+    : "";
   document.getElementById("bingoStats").innerHTML = `
+    ${_vmHint}
     <div class="prog-card"><div class="lbl">🇬🇧 English mastered</div><div class="big">${masteredEn}/${words.length}</div></div>
     <div class="prog-card"><div class="lbl">🇫🇷 Français maîtrisé</div><div class="big">${masteredFr}/${words.length}</div></div>
   `;
@@ -14231,13 +14344,13 @@ const PER_CHILD_KEYS = [
   "skillFlags","skillsCustom","feedback","history","spotlightHistory",
   "suppressedConfirmations","domainLevel","domainStreak","wellness","coregLog",
   "gratitude","bedtimeChecklist","praiseTally","basics","rituals","quickLog",
-  "activityStatus","_gcSceneShownAt","lou"
+  "activityStatus","_gcSceneShownAt","lou","events"
 ];
 // Keys whose empty default is an array (everything else defaults to an object,
 // except the special cases handled in defaultForKey).
 const _PCK_ARRAY = new Set([
   "observations","vocabCustom","pendingGenerations","reverifyQueue","backfillQueue",
-  "skillsCustom","feedback","history","spotlightHistory","coregLog","gratitude"
+  "skillsCustom","feedback","history","spotlightHistory","coregLog","gratitude","events"
 ]);
 function defaultForKey(k){
   if (k === "lou")          return { events:[], sleepStart:null };
@@ -14251,15 +14364,15 @@ function defaultForKey(k){
 function ensureChildSchema(){
   state.children = state.children || {};
   const DEFAULTS = {
-    Maxine: { id:"maxine", emoji:"👧", languages:["en","fr"], color:"#2E5BFF", mode:"toddler" },
-    Lou:    { id:"lou",    emoji:"👶", languages:["en","fr"], color:"#16A34A", mode:"newborn" },
-    Jordan: { id:"jordan", emoji:"🧒", dob:null, languages:["en","pt"], color:"#F59E0B", mode:"newborn" },
+    Maxine: { id:"maxine", emoji:"👧", languages:["en","fr"], color:"#2E5BFF", mode:"toddler", gender:"F" },
+    Lou:    { id:"lou",    emoji:"👶", languages:["en","fr"], color:"#16A34A", mode:"newborn", gender:"F" },
+    Jordan: { id:"jordan", emoji:"🧒", dob:null, languages:["en","pt"], color:"#F59E0B", mode:"newborn", gender:"M" },
   };
   Object.entries(DEFAULTS).forEach(([name, d]) => {
     const existing = state.children[name] || {};
     // existing wins for fields it already has; defaults fill the gaps.
     state.children[name] = Object.assign({ name }, d, existing);
-    ["id","languages","color","mode","emoji"].forEach(f => {
+    ["id","languages","color","mode","emoji","gender"].forEach(f => {
       if (state.children[name][f] === undefined) state.children[name][f] = d[f];
     });
   });
@@ -14316,11 +14429,7 @@ function setActiveChildId(id){
   loadChildWorkingSet(id);
   saveState(state);
   if (typeof _v31Bump === "function") _v31Bump();
-  if (typeof renderChildPicker === "function") renderChildPicker();
-  if (typeof applyChildMode === "function") applyChildMode();
-  if (typeof renderParentalAdvice === "function") renderParentalAdvice();
-  if (typeof updateChildHeader === "function") updateChildHeader();
-  if (typeof showView === "function" && typeof getActiveView === "function") showView(getActiveView());
+  if (typeof onActiveChildChange === "function") onActiveChildChange();
 }
 
 /* Thin accessors for new code + quality gates. getChildData reads the active
@@ -14442,6 +14551,88 @@ migrateToChildNamespaceV7();
   } catch(e){ console.warn("ghost child-data cleanse v9 failed", e); }
 })();
 
+/* v10 — generic ghost cleanse for EVERY non-primary child (V9 only happened to
+   work for some installs). The primary (canonical) child is the first in the
+   registry — NOT hardcoded. Removes from each other child's namespace any
+   observation/history entry byte-identical to the primary's, and deletes
+   skillStatus/vocabMaster/vocabMastered/activityStatus entries byte-identical
+   to the primary's same-key values. Genuine, distinct data is preserved. */
+(function cleanseGhostChildDataV10(){
+  if (state.ghostCleanseV10) return;
+  try {
+    const primaryId = (state.children && Object.values(state.children)[0] && Object.values(state.children)[0].id) || "maxine";
+    const P = state.childData && state.childData[primaryId];
+    if (P){
+      const oSig = o => `${o&&o.skillId}|${o&&o.ts}|${o&&o.by}|${o&&o.status}`;
+      const hSig = h => `${h&&h.actId}|${h&&h.ts}|${h&&h.user}|${h&&h.fb}`;
+      const sigOf = v => { try { return JSON.stringify(v); } catch(e){ return String(v); } };
+      const pObs  = new Set((P.observations || []).map(oSig));
+      const pHist = new Set((P.history || []).map(hSig));
+      const MAP_KEYS = ["skillStatus","vocabMaster","vocabMastered","activityStatus"];
+      const pMaps = {}; MAP_KEYS.forEach(k => { pMaps[k] = P[k] || {}; });
+      Object.keys(state.childData).forEach(id => {
+        if (id === primaryId) return;
+        const ns = state.childData[id]; if (!ns) return;
+        let removed = 0;
+        if (Array.isArray(ns.observations)){
+          const before = ns.observations.length;
+          ns.observations = ns.observations.filter(o => !pObs.has(oSig(o)));
+          removed += before - ns.observations.length;
+        }
+        if (Array.isArray(ns.history)){
+          const before = ns.history.length;
+          ns.history = ns.history.filter(h => !pHist.has(hSig(h)));
+          removed += before - ns.history.length;
+        }
+        MAP_KEYS.forEach(k => {
+          if (ns[k] && typeof ns[k] === "object"){
+            Object.keys(ns[k]).forEach(sub => {
+              if (pMaps[k][sub] !== undefined && sigOf(ns[k][sub]) === sigOf(pMaps[k][sub])){
+                delete ns[k][sub]; removed++;
+              }
+            });
+          }
+        });
+        if (removed) console.log("[V10] Cleansed " + removed + " ghost entries from " + id);
+      });
+    }
+    state.ghostCleanseV10 = true;
+    if (typeof loadChildWorkingSet === "function") loadChildWorkingSet(getActiveChildId());
+    saveState(state);
+  } catch(e){ console.warn("ghost child-data cleanse v10 failed", e); }
+})();
+
+// v10b — vocab-specific ghost cleanse. Removes, from every NON-primary child's
+// vocabMaster AND vocabMastered, any entry byte-identical to the primary child's
+// same-key entry (the contamination signature). Own flag so it runs once even if
+// V10 already flipped its flag on a prior load.
+(function vocabCleanseV10b(){
+  if (state.vocabCleanseV10b) return;
+  try {
+    const primaryId = (Object.values(state.children||{})[0] && Object.values(state.children)[0].id) || "maxine";
+    const P = (state.childData||{})[primaryId] || {};
+    let removed = 0;
+    Object.keys(state.childData||{}).forEach(id => {
+      if (id === primaryId) return;
+      const ns = state.childData[id]; if (!ns) return;
+      ["vocabMaster","vocabMastered"].forEach(k => {
+        const child = ns[k], prim = P[k];
+        if (!child || !prim) return;
+        Object.keys(child).forEach(key => {
+          if (prim[key] !== undefined &&
+              JSON.stringify(child[key]) === JSON.stringify(prim[key])){
+            delete child[key]; removed++;
+          }
+        });
+      });
+    });
+    state.vocabCleanseV10b = true;
+    if (typeof loadChildWorkingSet === "function") loadChildWorkingSet(getActiveChildId());
+    if (typeof saveState === "function") saveState(state);
+    console.log("[V10b] Cleansed " + removed + " ghost vocab entries");
+  } catch(e){}
+})();
+
 // v10 — recalibrate skill difficulty to the 14y scale (runs after the skill-tree
 // + child-namespace migrations so it has the final word on s.difficulty).
 try { migrateSkillDifficultyV10(); } catch(e){ console.warn("v10 difficulty migration failed", e); }
@@ -14549,7 +14740,7 @@ function renderParentalAdvice(){
       `).join("")}
     </div>
     <div style="margin-top:10px; font-size:12px; color:var(--muted); padding:8px 10px; background:#FFFBEB; border-radius:8px; border-left:3px solid #F59E0B">
-      <strong>Tip:</strong> When Lou is born, switch the child toggle (top right) to see Lou's tips. Tabs and trackers update per child too.
+      <strong>Tip:</strong> Switch the child toggle (top right) to see each child's own tips. Tabs and trackers update per child.
     </div>
   `;
 }
@@ -14617,7 +14808,7 @@ function applyChildMode(){
   const isLou = _c ? (_c.mode === "newborn") : (state.currentChild === "Lou");
   // Tabs to hide in newborn mode (toddler-only). Skills/catalogue stays VISIBLE
   // for newborns so parents can log early milestones (full catalogue, no filter).
-  ["vocabulary","meals","overview"].forEach(name => {
+  ["meals","overview"].forEach(name => {
     const btn = document.querySelector(`.nav-btn[data-view="${name}"]`);
     if (btn) btn.style.display = isLou ? "none" : "";
   });
@@ -14632,7 +14823,7 @@ function applyChildMode(){
   if (focusCard) focusCard.style.display = (isLou && onDashboard) ? "none" : (onDashboard ? "" : "none");
   // If a newborn child is on a still-hidden tab, force back to dashboard
   // (catalogue is intentionally NOT in this list — it stays available).
-  if (isLou && ["vocabulary","meals","overview"].includes(getActiveView())){
+  if (isLou && ["meals","overview"].includes(getActiveView())){
     if (typeof showView === "function") showView("dashboard");
   }
   if (isLou && louHome) renderLouHome();
@@ -14828,16 +15019,21 @@ function renderLouHome(){
     <div style="color:var(--muted); font-size:12px">Both parents. 60+ min/day boosts bonding (Cochrane).</div>
   `;
 
-  // Top tip — pick first item from current age bucket
-  const child = state.children[state.currentChild];
-  const bucket = ageBucket(child.dob);
-  const tips = PARENTAL_ADVICE[bucket] || [];
-  const tip = tips[Math.floor(Math.random() * Math.min(tips.length, 3))] || null;
-  document.getElementById("louTopTip").innerHTML = tip ? `
-    <div style="font-weight:700; font-size:14px; color:var(--ink)">${escapeHtml(tip.t)}</div>
-    <div style="font-size:13px; color:var(--ink); margin-top:6px; line-height:1.5">${escapeHtml(tip.b)}</div>
-    <div style="font-size:11px; color:var(--muted); font-style:italic; margin-top:6px">📚 ${escapeHtml(tip.src)}</div>
-  ` : "Switch to Progress for full advice.";
+  // Top tip — prefer the fully personalised renderTopAdvice; fall back to a
+  // random age-bucket parental-advice tip if it produced no content.
+  let _topAdviceItems = [];
+  try { if (typeof renderTopAdvice === "function") _topAdviceItems = renderTopAdvice() || []; } catch(e){ _topAdviceItems = []; }
+  if (!_topAdviceItems.length){
+    const child = state.children[state.currentChild];
+    const bucket = ageBucket(child.dob);
+    const tips = PARENTAL_ADVICE[bucket] || [];
+    const tip = tips[Math.floor(Math.random() * Math.min(tips.length, 3))] || null;
+    document.getElementById("louTopTip").innerHTML = tip ? `
+      <div style="font-weight:700; font-size:14px; color:var(--ink)">${escapeHtml(tip.t)}</div>
+      <div style="font-size:13px; color:var(--ink); margin-top:6px; line-height:1.5">${escapeHtml(tip.b)}</div>
+      <div style="font-size:11px; color:var(--muted); font-style:italic; margin-top:6px">📚 ${escapeHtml(tip.src)}</div>
+    ` : "Switch to Progress for full advice.";
+  }
 
   // Recent log — newest first, with per-row delete (✕). The data-lou-del index
   // is the TRUE index into state.lou.events so deletes hit the right entry.
@@ -14983,17 +15179,143 @@ const SENSITIVE_PERIODS = [
   { period:"Refinement of senses", window:"~2–6y", active:true, what:"Discriminating colors, sounds, textures, weights, tastes.", do:"Sensory bins, smell jars, mystery bag, taste tests.", src:"Montessori" },
   { period:"Social behaviour", window:"~2.5–6y", active:true, what:"Manners, taking turns, group play.", do:"Model + practice please/thank you. Sharing games.", src:"Montessori / Brackett Yale" },
 ];
+/* Parse a sensitive-period window string into [loMonths, hiMonths].
+   Handles "~", en-dash "–" and hyphen "-", "y"→×12, trailing "m"/none→months.
+   e.g. "~0–4y"→[0,48], "0–6y"→[0,72], "~1–3y"→[12,36], "~2.5–6y"→[30,72]. */
+function _spWindowMonths(win){
+  try {
+    let s = String(win || "").replace(/~/g, "").trim();
+    // Split on en-dash or hyphen.
+    const parts = s.split(/[–-]/).map(x => x.trim()).filter(x => x.length);
+    if (!parts.length) return [0, 0];
+    // A unit "y" or "m" may be attached only to the last part (e.g. "0–6y").
+    // Detect the unit from whichever part carries a letter; default to years
+    // when a "y" appears anywhere, else months.
+    const joined = s.toLowerCase();
+    const isYears = /y/.test(joined);
+    const isMonths = /m/.test(joined) && !isYears;
+    const toNum = (x) => {
+      const n = parseFloat(String(x).replace(/[^0-9.]/g, ""));
+      return isNaN(n) ? 0 : n;
+    };
+    let lo = toNum(parts[0]);
+    let hi = toNum(parts.length > 1 ? parts[1] : parts[0]);
+    const mult = isYears ? 12 : 1;
+    lo = Math.round(lo * mult);
+    hi = Math.round(hi * mult);
+    if (isMonths){ /* already months */ }
+    if (hi < lo){ const t = lo; lo = hi; hi = t; }
+    return [lo, hi];
+  } catch(e){ return [0, 0]; }
+}
+
 function renderSensitivePeriods(){
   const grid = document.getElementById("sensitivePeriods");
   if (!grid) return;
-  grid.innerHTML = SENSITIVE_PERIODS.map(p => `
-    <div style="background:#F0F9FF; border:1px solid #BAE6FD; border-radius:10px; padding:10px">
-      <div style="font-weight:700; color:#0C4A6E; font-size:13px">${escapeHtml(p.period)} <span style="font-size:11px; color:var(--muted); font-weight:400">${p.window}</span></div>
+  const ageM = (typeof computeChildAgeMonths === "function") ? computeChildAgeMonths(getActiveChildId()) : 0;
+  // Dynamic header for the active child.
+  try {
+    const t = document.getElementById("sensitivePeriodsTitle");
+    const c = (typeof currentChild === "function") ? currentChild() : null;
+    if (t) t.textContent = "🌱 Montessori sensitive periods — " + ((c && c.name) || "") + " (" + ageDescription((c || {}).dob) + ")";
+  } catch(e){}
+  grid.innerHTML = SENSITIVE_PERIODS.map(p => {
+    const wm = _spWindowMonths(p.window);
+    const lo = wm[0], hi = wm[1];
+    const isActive = ageM >= lo && ageM <= hi;
+    // Badge: not yet (before window), active (in window), closing soon (within
+    // last 6 months of an active window), closed (past window).
+    let badge;
+    if (ageM < lo) badge = `<span style="font-size:10px; font-weight:700; color:#92400E; background:#FEF3C7; border-radius:6px; padding:1px 6px">not yet</span>`;
+    else if (ageM > hi) badge = `<span style="font-size:10px; font-weight:700; color:#6B7280; background:#F3F4F6; border-radius:6px; padding:1px 6px">closed</span>`;
+    else if (hi - ageM <= 6) badge = `<span style="font-size:10px; font-weight:700; color:#B45309; background:#FFEDD5; border-radius:6px; padding:1px 6px">closing soon</span>`;
+    else badge = `<span style="font-size:10px; font-weight:700; color:#166534; background:#DCFCE7; border-radius:6px; padding:1px 6px">active</span>`;
+    return `
+    <div style="background:#F0F9FF; border:1px solid #BAE6FD; border-radius:10px; padding:10px; ${isActive ? "" : "opacity:0.45;"}">
+      <div style="font-weight:700; color:#0C4A6E; font-size:13px; display:flex; align-items:center; gap:6px; justify-content:space-between">
+        <span>${escapeHtml(p.period)} <span style="font-size:11px; color:var(--muted); font-weight:400">${p.window}</span></span>
+        ${badge}
+      </div>
       <div style="font-size:12px; color:var(--ink); margin-top:4px"><strong>What:</strong> ${escapeHtml(p.what)}</div>
       <div style="font-size:12px; color:#14532D; margin-top:4px; padding:6px 8px; background:#F0FDF4; border-radius:6px"><strong>Do:</strong> ${escapeHtml(p.do)}</div>
       <div style="font-size:10px; color:var(--muted); font-style:italic; margin-top:4px">${escapeHtml(p.src)}</div>
     </div>
-  `).join("");
+  `;
+  }).join("");
+}
+
+/* renderTopAdvice — fully personalised, ≤3 items derived from the ACTIVE child.
+   Renders into #louTopTip. Returns the array of items (so a gate can assert ≤3). */
+function renderTopAdvice(){
+  const items = [];
+  try {
+    // ---- Item 1: lowest-DFS domain ----
+    let lowestKey = null, lowestLabel = "", lowestDfs = Infinity;
+    if (typeof computeDFS === "function" && typeof DOMAINS !== "undefined" && Array.isArray(DOMAINS)){
+      DOMAINS.forEach(d => {
+        const dfs = computeDFS(d.key);
+        if (dfs < lowestDfs){ lowestDfs = dfs; lowestKey = d.key; lowestLabel = d.label; }
+      });
+    }
+    if (lowestKey != null && isFinite(lowestDfs)){
+      items.push({
+        title: "🎯 Focus area",
+        body: `${lowestLabel} is your lowest DFS at ${lowestDfs}/10 — give it extra attention this week.`
+      });
+    }
+
+    // ---- Item 2: next ZPD skill in the lowest domain ----
+    if (lowestKey != null && typeof frontierSkills === "function"){
+      try {
+        const fr = frontierSkills(lowestKey, 1);
+        if (fr && fr.length && fr[0] && fr[0].t){
+          items.push({
+            title: "🌱 Next skill to nurture",
+            body: String(fr[0].t)
+          });
+        }
+      } catch(e){}
+    }
+
+    // ---- Item 3: an active sensitive period for this child's age ----
+    if (typeof SENSITIVE_PERIODS !== "undefined" && Array.isArray(SENSITIVE_PERIODS) && typeof _spWindowMonths === "function"){
+      const ageM = (typeof computeChildAgeMonths === "function") ? computeChildAgeMonths(getActiveChildId()) : 0;
+      const sp = SENSITIVE_PERIODS.find(p => {
+        const wm = _spWindowMonths(p.window);
+        return ageM >= wm[0] && ageM <= wm[1];
+      });
+      if (sp){
+        items.push({
+          title: "⏳ Sensitive period now open",
+          body: `${sp.period} — ${sp.do}`
+        });
+      }
+    }
+  } catch(e){}
+
+  const trimmed = items.slice(0, 3);
+  const el = document.getElementById("louTopTip");
+  if (el && trimmed.length){
+    el.innerHTML = trimmed.map(it => `
+      <div style="background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px; margin-bottom:8px">
+        <div style="font-weight:700; font-size:13px; color:var(--ink)">${escapeHtml(it.title)}</div>
+        <div style="font-size:13px; color:var(--ink); margin-top:4px; line-height:1.5">${escapeHtml(it.body)}</div>
+      </div>
+    `).join("");
+  }
+  return trimmed;
+}
+
+/* onActiveChildChange — single orchestrator re-rendering everything child-derived. */
+function onActiveChildChange(){
+  try { if (typeof renderChildPicker==="function") renderChildPicker(); } catch(e){}
+  try { if (typeof applyChildMode==="function") applyChildMode(); } catch(e){}
+  try { if (typeof updateChildHeader==="function") updateChildHeader(); } catch(e){}
+  try { if (typeof renderParentalAdvice==="function") renderParentalAdvice(); } catch(e){}
+  try { if (typeof renderSensitivePeriods==="function") renderSensitivePeriods(); } catch(e){}
+  try { if (typeof renderTopAdvice==="function") renderTopAdvice(); } catch(e){}
+  try { if (typeof renderVocabularyBingo==="function" && document.getElementById("vocabularyView") && document.getElementById("vocabularyView").style.display !== "none") renderVocabularyBingo(); } catch(e){}
+  try { if (typeof showView==="function" && typeof getActiveView==="function") showView(getActiveView()); } catch(e){}
 }
 
 // #9 Connection rituals (Maté attachment)
@@ -15314,6 +15636,1346 @@ window._sobTransfer = async function(){
   try { if (typeof backfillEngine             === "function") backfillEngine();             } catch(e){ console.warn("v6: backfillEngine failed", e); }
 })();
 
+/* ════════ Horizon chat widget — JS (Tasks B + C) ════════ */
+/* ============================================================================
+ * Horizon widget — Task B: tutor chat / history / starter-chips logic
+ * ----------------------------------------------------------------------------
+ * Depends on (all verified present in Maxine_Dashboard.html):
+ *   DEFAULT_FB_URL, state(.currentUser/.observers/.currentChild), saveState,
+ *   getActiveChildId, setActiveChildId, currentChild, renderUserPicker,
+ *   DOMAINS (array of {key,label,labelFr,emoji}), computeDFS, stageLabelForDFS,
+ *   computeBalanceIndex, domainDevAgeLabel, childDevAgeMonths, frontierSkills
+ *   (returns SKILL objects with .t title), isSkillMastered, showToast.
+ * DOM ids (built by Task A): hz-btn, hz-panel, hz-observer-label, hz-tab-tutor,
+ *   hz-tab-bug, hz-thread, hz-chips, hz-events, hz-input, hz-send, hz-mic,
+ *   hz-setup, hz-setup-save, hz-observer-pick, hz-toast.
+ * Paste this inside the existing <script> (everything is in scope there).
+ * ==========================================================================*/
+
+/* Horizon Firebase paths (built at ROOT, not under the family namespace). */
+const HZ_FB_ROOT = DEFAULT_FB_URL.replace(/\/$/, "");
+function hzApiKeyPath(){ return `${HZ_FB_ROOT}/horizon-config/apiKey.json`; }
+function hzMessagesPath(childId, observer){
+  return `${HZ_FB_ROOT}/horizon-chat/${encodeURIComponent(childId)}/${encodeURIComponent(observer)}/messages.json`;
+}
+
+/* In-memory conversation (max 10 turns kept for the model context). */
+let hzHistory = [];           // [{role:'user'|'assistant', content}]
+const HZ_MAX_TURNS = 10;
+function hzPushHistory(role, content){
+  hzHistory.push({ role, content });
+  // keep the last HZ_MAX_TURNS *pairs* (20 messages)
+  const max = HZ_MAX_TURNS * 2;
+  if (hzHistory.length > max) hzHistory = hzHistory.slice(hzHistory.length - max);
+}
+
+/* ── getOrFetchApiKey ───────────────────────────────────────────────────── */
+let getApiKeyCached = null;   // module-level cache — never logged, never persisted
+
+async function getOrFetchApiKey(){
+  if (getApiKeyCached) return getApiKeyCached;
+  let key = null;
+  try {
+    const r = await fetch(hzApiKeyPath(), { method: "GET" });
+    if (r.ok) key = await r.json();   // RTDB returns the bare string or null
+  } catch(e){
+    key = null;   // network/404 → treat as missing, fall through to setup
+  }
+  if (!key || typeof key !== "string" || !key.trim()){
+    const setup = document.getElementById("hz-setup");
+    if (setup) setup.style.display = "flex";
+    _wireApiKeySave();
+    return null;
+  }
+  getApiKeyCached = key.trim();
+  return getApiKeyCached;
+}
+
+/* Wire the setup overlay's save button once. PUTs the entered key to RTDB. */
+let _hzSaveWired = false;
+function _wireApiKeySave(){
+  if (_hzSaveWired) return;
+  const btn = document.getElementById("hz-setup-save");
+  if (!btn) return;
+  _hzSaveWired = true;
+  btn.addEventListener("click", async () => {
+    const setup = document.getElementById("hz-setup");
+    const input = setup ? setup.querySelector("input") : null;
+    const val = input ? (input.value || "").trim() : "";
+    if (!val){ if (typeof showToast === "function") showToast("Please enter an API key."); return; }
+    try {
+      const r = await fetch(hzApiKeyPath(), {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(val)        // key goes in BODY only — never URL/localStorage
+      });
+      if (!r.ok) throw new Error("PUT failed " + r.status);
+      getApiKeyCached = val;
+      if (input) input.value = "";
+      if (setup) setup.style.display = "none";
+      if (typeof showToast === "function") showToast("🔑 Horizon key saved.");
+    } catch(e){
+      if (typeof showToast === "function") showToast("Could not save key — check connection.");
+    }
+  });
+}
+
+/* ── getObserverId ──────────────────────────────────────────────────────── */
+function getObserverId(){
+  let obs = (typeof state !== "undefined" && state.currentUser) ? state.currentUser : null;
+  if (!obs){
+    try { obs = localStorage.getItem("hz-observer") || null; } catch(e){ obs = null; }
+  }
+  const label = document.getElementById("hz-observer-label");
+  if (label) label.textContent = obs || "—";
+  if (!obs){
+    const pick = document.getElementById("hz-observer-pick");
+    if (pick) pick.style.display = "flex";
+    _wireObserverPick();
+    return null;
+  }
+  return obs;
+}
+
+let _hzObsWired = false;
+function _wireObserverPick(){
+  if (_hzObsWired) return;
+  const pick = document.getElementById("hz-observer-pick");
+  if (!pick) return;
+  _hzObsWired = true;
+  pick.addEventListener("click", (e) => {
+    const b = e.target.closest(".hz-obs-btn");
+    if (!b) return;
+    const obs = b.dataset.observer;
+    if (!obs) return;
+    if (typeof state !== "undefined"){ state.currentUser = obs; if (typeof saveState === "function") saveState(state); }
+    try { localStorage.setItem("hz-observer", obs); } catch(e2){}
+    const label = document.getElementById("hz-observer-label");
+    if (label) label.textContent = obs;
+    pick.style.display = "none";
+    if (typeof renderUserPicker === "function") renderUserPicker();
+    // observer changed → reload their thread
+    _hzReloadConversation();
+  });
+}
+
+/* ── buildSystemPrompt ──────────────────────────────────────────────────── */
+function buildSystemPrompt(){
+  const child = (typeof currentChild === "function" && currentChild())
+    || { name: (typeof state !== "undefined" && state.currentChild) || "the child" };
+  const name = child.name || "the child";
+  const pr = (typeof getChildPronouns === "function") ? getChildPronouns(getActiveChildId()) : { subject:"they", object:"them", possessive:"their" };
+  const devM = (typeof childDevAgeMonths === "function") ? childDevAgeMonths() : null;
+
+  // Per-domain DFS + stage, and track the lowest-DFS domain (the focus).
+  const lines = [];
+  let lowest = null;
+  (Array.isArray(DOMAINS) ? DOMAINS : []).forEach(d => {
+    const dfs = (typeof computeDFS === "function") ? computeDFS(d.key) : 0;
+    const stage = (typeof stageLabelForDFS === "function") ? stageLabelForDFS(dfs) : "";
+    const devAge = (typeof domainDevAgeLabel === "function") ? domainDevAgeLabel(dfs) : "";
+    lines.push(`- ${d.label}: DFS ${dfs.toFixed(1)}/10 (${stage}, ~${devAge})`);
+    if (!lowest || dfs < lowest.dfs) lowest = { key: d.key, label: d.label, dfs };
+  });
+
+  // Top-3 frontier skill titles for the focus domain.
+  let frontierTitles = [];
+  if (lowest && typeof frontierSkills === "function"){
+    frontierTitles = (frontierSkills(lowest.key, 3) || []).map(s => s.t).filter(Boolean);
+  }
+
+  const bal = (typeof computeBalanceIndex === "function") ? computeBalanceIndex() : null;
+
+  let p = "";
+  p += `You are Horizon, a warm, concrete child-development coach for parents and caregivers. `;
+  p += `You are advising on ${name}`;
+  if (devM != null) p += `, whose blended developmental age is about ${devM} months`;
+  p += `.\n\n`;
+  p += `Current domain profile (DFS = Developmental Functioning Score, 0–10):\n`;
+  p += lines.join("\n") + "\n\n";
+  if (lowest) p += `Focus domain (lowest DFS): ${lowest.label} at ${lowest.dfs.toFixed(1)}/10.\n`;
+  if (frontierTitles.length) p += `Top frontier skills in the focus domain: ${frontierTitles.join("; ")}.\n`;
+  if (bal) p += `Balance index: ${bal.score}/100 (${bal.label}).\n`;
+  p += `\nGuidelines:\n`;
+  p += `- Always answer in English only.\n`;
+  p += `- Be specific and actionable; ground advice in the profile above.\n`;
+  p += `- Length tiers (do not exceed unless writing a plan):\n`;
+  p += `  • Conversational replies: ≤100 words.\n`;
+  p += `  • A single activity suggestion: ≤300 words.\n`;
+  p += `  • An explanation of "why"/developmental reasoning: ≤500 words.\n`;
+  p += `  • A structured multi-day/multi-week plan: no length cap.\n`;
+  p += "\n- Use " + pr.subject + "/" + pr.object + "/" + pr.possessive + " pronouns for " + name + ".";
+  p += `- Use the child's name. Be encouraging, never alarmist.`;
+  return p;
+}
+
+/* ── sendTutorMessage ───────────────────────────────────────────────────── */
+async function sendTutorMessage(userText){
+  const text = (userText || "").trim();
+  if (!text) return;
+
+  const thread = document.getElementById("hz-thread");
+  if (!thread) return;
+
+  const key = await getOrFetchApiKey();
+  if (!key) return;   // setup overlay already shown
+
+  // Hide starter chips after the first user message.
+  const chips = document.getElementById("hz-chips");
+  if (chips) chips.style.display = "none";
+
+  const input = document.getElementById("hz-input");
+  if (input) input.value = "";
+
+  // User bubble + history.
+  _hzAppendBubble(thread, "user", text);
+  hzPushHistory("user", text);
+
+  // Disable send for 3s (rate-guard).
+  const sendBtn = document.getElementById("hz-send");
+  if (sendBtn){ sendBtn.disabled = true; setTimeout(() => { sendBtn.disabled = false; }, 3000); }
+
+  // Growing bot bubble.
+  const botBubble = _hzAppendBubble(thread, "assistant", "");
+  let botText = "";
+
+  const observer = getObserverId() || "—";
+  const childId = (typeof getActiveChildId === "function") ? getActiveChildId() : "maxine";
+
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2048,
+        stream: true,
+        system: buildSystemPrompt(),
+        messages: hzHistory.map(m => ({ role: m.role, content: m.content }))
+      })
+    });
+
+    if (resp.status === 401){
+      getApiKeyCached = null;
+      const setup = document.getElementById("hz-setup");
+      if (setup) setup.style.display = "flex";
+      _wireApiKeySave();
+      botBubble.textContent = "Authentication failed — please re-enter the API key.";
+      return;
+    }
+    if (!resp.ok || !resp.body){
+      throw new Error("HTTP " + resp.status);
+    }
+
+    // Parse SSE stream — accumulate content_block_delta text deltas.
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true){
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buffer.indexOf("\n")) >= 0){
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (!data || data === "[DONE]") continue;
+        let evt;
+        try { evt = JSON.parse(data); } catch(e){ continue; }
+        if (evt.type === "content_block_delta" && evt.delta){
+          const piece = evt.delta.text || "";
+          if (piece){
+            botText += piece;
+            botBubble.textContent = botText;
+            thread.scrollTop = thread.scrollHeight;
+          }
+        }
+      }
+    }
+
+    if (!botText){ botBubble.textContent = "(no response)"; return; }
+    hzPushHistory("assistant", botText);
+
+    // Persist BOTH messages (PATCH = merge multiple children in one request).
+    try {
+      const now = Date.now();
+      await fetch(hzMessagesPath(childId, observer), {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ["m" + now + "u"]:      { role: "user",      content: text,    ts: now,     observer },
+          ["m" + (now + 1) + "a"]:{ role: "assistant", content: botText, ts: now + 1, observer }
+        })
+      });
+    } catch(e){ /* persistence failure is non-fatal for the chat UX */ }
+
+  } catch(e){
+    // Network/other error → inline error bubble with a retry button.
+    botBubble.textContent = "";
+    botBubble.classList.add("hz-bubble-error");
+    const span = document.createElement("span");
+    span.textContent = "Couldn't reach Horizon. ";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "hz-retry";
+    retry.textContent = "Retry";
+    retry.addEventListener("click", () => {
+      botBubble.remove();
+      // drop the just-added user turn so it isn't duplicated on resend
+      if (hzHistory.length && hzHistory[hzHistory.length - 1].role === "user") hzHistory.pop();
+      sendTutorMessage(text);
+    });
+    botBubble.appendChild(span);
+    botBubble.appendChild(retry);
+    // the user turn stays in history above; pop it so retry rebuilds cleanly
+    if (hzHistory.length && hzHistory[hzHistory.length - 1].role === "user") hzHistory.pop();
+  }
+}
+
+/* Append a chat bubble; returns the bubble element. */
+function _hzAppendBubble(thread, role, content){
+  const b = document.createElement("div");
+  b.className = "hz-bubble hz-bubble-" + role;
+  b.textContent = content || "";
+  thread.appendChild(b);
+  thread.scrollTop = thread.scrollHeight;
+  return b;
+}
+
+/* ── loadChatHistory ────────────────────────────────────────────────────── */
+async function loadChatHistory(){
+  const thread = document.getElementById("hz-thread");
+  if (!thread) return;
+  const observer = getObserverId();
+  if (!observer) return;   // observer overlay shown
+  const childId = (typeof getActiveChildId === "function") ? getActiveChildId() : "maxine";
+
+  thread.innerHTML = "";
+  hzHistory = [];
+
+  let msgs = [];
+  try {
+    const url = hzMessagesPath(childId, observer) + '?orderBy="ts"&limitToLast=20';
+    const r = await fetch(url, { method: "GET" });
+    if (r.ok){
+      const data = await r.json();
+      if (data && typeof data === "object"){
+        msgs = Object.keys(data).map(k => data[k]).filter(Boolean);
+      }
+    }
+  } catch(e){ msgs = []; }
+
+  msgs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+  // "Load earlier" affordance when the window is full (likely more behind it).
+  if (msgs.length >= 20){
+    const more = document.createElement("a");
+    more.href = "#";
+    more.className = "hz-load-earlier";
+    more.textContent = "Load earlier";
+    more.addEventListener("click", (e) => { e.preventDefault(); _hzLoadEarlier(more); });
+    thread.appendChild(more);
+  }
+
+  msgs.forEach(m => {
+    if (!m || !m.role) return;
+    _hzAppendBubble(thread, m.role, m.content || "");
+  });
+
+  // Build ≤10-turn in-memory history from the rendered messages.
+  hzHistory = [];
+  msgs.forEach(m => { if (m && m.role) hzPushHistory(m.role, m.content || ""); });
+}
+
+/* Load the next-older window of 20 messages and prepend them. */
+async function _hzLoadEarlier(anchorEl){
+  const thread = document.getElementById("hz-thread");
+  if (!thread) return;
+  const observer = getObserverId();
+  if (!observer) return;
+  const childId = (typeof getActiveChildId === "function") ? getActiveChildId() : "maxine";
+
+  // ts of the currently-oldest rendered message (the first bubble after the link).
+  let oldestTs = null;
+  const firstBubble = thread.querySelector(".hz-bubble");
+  if (firstBubble && firstBubble.dataset && firstBubble.dataset.ts) oldestTs = Number(firstBubble.dataset.ts);
+
+  try {
+    const url = hzMessagesPath(childId, observer) + '?orderBy="ts"&limitToLast=40';
+    const r = await fetch(url, { method: "GET" });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data || typeof data !== "object") return;
+    let all = Object.keys(data).map(k => data[k]).filter(Boolean).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    const older = (oldestTs != null) ? all.filter(m => (m.ts || 0) < oldestTs) : all;
+    const insertBefore = anchorEl.nextSibling;
+    older.forEach(m => {
+      if (!m || !m.role) return;
+      const b = document.createElement("div");
+      b.className = "hz-bubble hz-bubble-" + m.role;
+      b.textContent = m.content || "";
+      if (m.ts != null) b.dataset.ts = String(m.ts);
+      thread.insertBefore(b, insertBefore);
+    });
+    if (older.length < 20) anchorEl.remove();   // reached the beginning
+  } catch(e){ /* ignore */ }
+}
+
+/* ── buildStarterChips ──────────────────────────────────────────────────── */
+function buildStarterChips(){
+  const wrap = document.getElementById("hz-chips");
+  if (!wrap) return;
+  const pr = (typeof getChildPronouns === "function") ? getChildPronouns(getActiveChildId()) : { subject:"she", possessive:"her" };
+
+  // Find lowest-DFS domain + a frontier skill for it.
+  let lowest = null;
+  (Array.isArray(DOMAINS) ? DOMAINS : []).forEach(d => {
+    const dfs = (typeof computeDFS === "function") ? computeDFS(d.key) : 0;
+    if (!lowest || dfs < lowest.dfs) lowest = { label: d.label, key: d.key, dfs };
+  });
+  let frontier = null;
+  if (lowest && typeof frontierSkills === "function"){
+    const fs = frontierSkills(lowest.key, 1) || [];
+    if (fs.length) frontier = fs[0];
+  }
+
+  const chips = [
+    "What should we work on today?",
+    lowest ? `Why is ${lowest.label} at ${lowest.dfs.toFixed(1)}?` : `Why is ${pr.possessive} lowest domain low?`,
+    lowest ? `Give me a 5-min activity for ${lowest.label}` : "Give me a 5-min activity",
+    frontier ? `Tell me about "${frontier.t}"` : `How is ${pr.subject} developing overall?`
+  ];
+
+  wrap.innerHTML = "";
+  wrap.style.display = "";   // re-show (in case it was hidden after first message)
+  chips.forEach(txt => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "hz-chip";
+    b.textContent = txt;
+    b.addEventListener("click", () => {
+      const input = document.getElementById("hz-input");
+      if (input) input.value = txt;
+      sendTutorMessage(txt);
+    });
+    wrap.appendChild(b);
+  });
+}
+
+/* ── initHorizonChat ────────────────────────────────────────────────────── */
+function initHorizonChat(){
+  const btn = document.getElementById("hz-btn");
+  const panel = document.getElementById("hz-panel");
+
+  // Toggle panel; on open, run the load sequence.
+  if (btn && panel){
+    btn.addEventListener("click", async () => {
+      const opening = !panel.classList.contains("hz-open");
+      panel.classList.toggle("hz-open");
+      if (opening) await _hzOnPanelOpen();
+    });
+  }
+
+  // Tab switching: tutor vs bug.
+  const tabTutor = document.getElementById("hz-tab-tutor");
+  const tabBug   = document.getElementById("hz-tab-bug");
+  function setTab(which){
+    const thread = document.getElementById("hz-thread");
+    const chips  = document.getElementById("hz-chips");
+    const events = document.getElementById("hz-events");
+    if (tabTutor) tabTutor.classList.toggle("hz-tab-active", which === "tutor");
+    if (tabBug)   tabBug.classList.toggle("hz-tab-active", which === "bug");
+    if (thread) thread.style.display = (which === "tutor") ? "" : "none";
+    if (chips)  chips.style.display  = (which === "tutor") ? "" : "none";
+    if (events) events.style.display = (which === "bug")   ? "" : "none";
+  }
+  let hzBugMode = false;
+  if (tabTutor) tabTutor.addEventListener("click", () => { hzBugMode=false; setTab("tutor"); if (typeof _hzReloadConversation==="function") _hzReloadConversation(); });
+  if (tabBug)   tabBug.addEventListener("click", () => { hzBugMode=true; setTab("bug"); if (typeof startBugConversation==="function") startBugConversation(); });
+
+  // Send button + Enter key. In bug mode, route to the bug-conversation handler.
+  const sendBtn = document.getElementById("hz-send");
+  const input   = document.getElementById("hz-input");
+  function _hzSend(){ if(!input) return; const v=input.value; if(hzBugMode){ input.value=""; if(typeof handleBugAnswer==="function") handleBugAnswer(v); } else { sendTutorMessage(v); } }
+  if (sendBtn) sendBtn.addEventListener("click", _hzSend);
+  if (input){
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); _hzSend(); }
+    });
+  }
+
+  // "Clear conversation" — DELETE only this observer+child path, then reset UI.
+  const clearBtn = document.getElementById("hz-clear");
+  if (clearBtn){
+    clearBtn.addEventListener("click", async () => {
+      const observer = getObserverId();
+      if (!observer) return;
+      const childId = (typeof getActiveChildId === "function") ? getActiveChildId() : "maxine";
+      try { await fetch(hzMessagesPath(childId, observer), { method: "DELETE" }); } catch(e){}
+      const thread = document.getElementById("hz-thread");
+      if (thread) thread.innerHTML = "";
+      hzHistory = [];
+      buildStarterChips();
+      if (typeof showToast === "function") showToast("🧹 Conversation cleared.");
+    });
+  }
+
+  // Child switch → reload chat + chips + clear in-memory history.
+  if (typeof setActiveChildId === "function"){
+    const _origSAC = setActiveChildId;
+    setActiveChildId = function(id){
+      _origSAC(id);
+      // horizon: reload chat for the newly-active child (only if panel is open)
+      const p = document.getElementById("hz-panel");
+      if (p && p.classList.contains("hz-open")) _hzReloadConversation();
+      else hzHistory = [];
+    };
+  }
+}
+
+/* Run when the panel opens. */
+async function _hzOnPanelOpen(){
+  const obs = getObserverId();      // sets label; shows pick overlay if unknown
+  if (!obs) return;
+  const key = await getOrFetchApiKey();
+  if (!key) return;                 // setup overlay shown
+  await loadChatHistory();
+  const thread = document.getElementById("hz-thread");
+  const empty = !thread || !thread.querySelector(".hz-bubble");
+  if (empty) buildStarterChips();
+  if (typeof loadRecentEvents === "function"){ try { loadRecentEvents(); } catch(e){} }
+}
+
+/* Reload the conversation (used after observer/child switch). */
+async function _hzReloadConversation(){
+  hzHistory = [];
+  await loadChatHistory();
+  const thread = document.getElementById("hz-thread");
+  const empty = !thread || !thread.querySelector(".hz-bubble");
+  if (empty) buildStarterChips();
+}
+
+/* =====================================================================
+   _patch_C.js  —  Horizon widget: events, voice input, bug conversation,
+                   and sync polling.   (Task C)
+
+   Depends on host (Maxine_Dashboard.html) globals:
+     state, saveState(state), DEFAULT_FB_URL,
+     getActiveChildId(), currentChild(), getOrFetchApiKey()  [Task B],
+     addObservation({skillId,status,result,by,where,source,notes})  (~9684),
+     SKILLS (~7817), SKILLS_CUSTOM_SEED (~7985),
+     loadChildWorkingSet(id) (~14284), getActiveView(), showView(),
+     renderProgressView(), sendTutorMessage()  [Task A], initHorizonChat() [Task A].
+
+   All DOM lookups are guarded. This file does NOT modify Maxine_Dashboard.html;
+   the required in-file edits are described in the MODIFY blocks at the bottom.
+   ===================================================================== */
+
+(function (global) {
+  "use strict";
+
+  /* Small guarded DOM helper. */
+  function $(id) { return document.getElementById(id); }
+
+  /* observer id — prefer host getObserverId(); else fall back to currentUser. */
+  function getObserverId() {
+    if (typeof global.getObserverId === "function" && global.getObserverId !== getObserverId) {
+      try { return global.getObserverId(); } catch (e) {}
+    }
+    return (state && state.currentUser) || "—";
+  }
+  // Export the fallback only if the host has none, so callers can rely on it.
+  if (typeof global.getObserverId !== "function") global.getObserverId = getObserverId;
+
+  /* Relative-time formatter for event pills. */
+  function relTime(ts) {
+    const now = Date.now();
+    const diff = Math.max(0, now - ts);
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + "m ago";
+    const hrs = Math.floor(mins / 60);
+    const sameDay = new Date(ts).toDateString() === new Date(now).toDateString();
+    if (sameDay) return hrs + "h ago";
+    const yest = new Date(now); yest.setDate(yest.getDate() - 1);
+    if (new Date(ts).toDateString() === yest.toDateString()) return "Yesterday";
+    const days = Math.floor(hrs / 24);
+    return days + "d ago";
+  }
+
+  // Friendlier absolute-ish timestamp for event pills.
+  // Same day -> "Today HH:MM"; previous calendar day -> "Yesterday HH:MM";
+  // within 6 days -> "<Weekday> HH:MM"; else -> "DD/MM HH:MM".
+  function fmtEventTime(ts) {
+    const d = new Date(ts);
+    const now = new Date();
+    const hhmm = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+    const ds = d.toDateString();
+    if (ds === now.toDateString()) return "Today " + hhmm;
+    const yest = new Date(now); yest.setDate(yest.getDate() - 1);
+    if (ds === yest.toDateString()) return "Yesterday " + hhmm;
+    const diffDays = Math.floor((now.setHours(0,0,0,0) - new Date(ts).setHours(0,0,0,0)) / 86400000);
+    if (diffDays >= 0 && diffDays <= 6) {
+      const wd = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+      return wd + " " + hhmm;
+    }
+    const dd = String(d.getDate()).padStart(2,"0");
+    const mm = String(d.getMonth() + 1).padStart(2,"0");
+    return dd + "/" + mm + " " + hhmm;
+  }
+
+  /* ===================================================================
+     ── C1 EVENTS ─────────────────────────────────────────────────────
+     =================================================================== */
+
+  const EVENT_TYPES = {
+    feed:      { label: "Feed",      icon: "🍼", color: "#7BB8E8" },
+    nap:       { label: "Nap",       icon: "😴", color: "#B8A7E8" },
+    activity:  { label: "Activity",  icon: "🎮", color: "#7BE8A7" },
+    milestone: { label: "Milestone", icon: "⭐", color: "#E8C87B" }
+  };
+
+  function logEvent(type, details, childId, observer, tsMs) {
+    if (!type || !childId) return null;
+    const ts = (typeof tsMs === "number" && isFinite(tsMs) && tsMs > 0) ? tsMs : Date.now();
+    const id = type + "-" + ts;
+    const evt = { id: id, type: type, details: details, childId: childId, ts: ts, observer: observer };
+    state.childData = state.childData || {};
+    const ns = state.childData[childId] = state.childData[childId] || {};
+    if (!Array.isArray(ns.events)) ns.events = [];
+    ns.events.push(evt);
+    // Mirror into the flat working set if this is the active child, so the
+    // current view sees it without a reload.
+    try {
+      if (typeof getActiveChildId === "function" && getActiveChildId() === childId) {
+        if (!Array.isArray(state.events)) state.events = ns.events;
+      }
+    } catch (e) {}
+    // Best-effort PUT to Firebase (never blocks local save).
+    try {
+      const url = DEFAULT_FB_URL + "/horizon-events/" + childId + "/" + id + ".json";
+      fetch(url, { method: "PUT", body: JSON.stringify(evt) }).catch(function () {});
+    } catch (e) {}
+    if (typeof saveState === "function") saveState(state);
+    try { loadRecentEvents(); } catch (e) {}
+    return evt;
+  }
+
+  function loadRecentEvents() {
+    const wrap = $("hz-events");
+    if (!wrap) return;
+    let id;
+    try { id = (typeof getActiveChildId === "function") ? getActiveChildId() : "maxine"; }
+    catch (e) { id = "maxine"; }
+    const ns = (state.childData && state.childData[id]) || {};
+    const events = Array.isArray(ns.events) ? ns.events : [];
+    const recent = events.slice(-3).reverse();
+    wrap.innerHTML = "";
+    recent.forEach(function (e) {
+      const meta = EVENT_TYPES[e.type] || { label: e.type, icon: "•", color: "#CCC" };
+      const pill = document.createElement("span");
+      pill.className = "hz-event-pill";
+      pill.style.background = meta.color + "22";
+      pill.style.border = "1px solid " + meta.color;
+      pill.style.borderRadius = "999px";
+      pill.style.padding = "2px 8px";
+      pill.style.marginRight = "6px";
+      pill.style.fontSize = "12px";
+      pill.style.display = "inline-block";
+      pill.textContent = meta.icon + " " + meta.label + " · " + fmtEventTime(e.ts);
+      wrap.appendChild(pill);
+    });
+  }
+
+  /* ===================================================================
+     ── C2 VOICE ──────────────────────────────────────────────────────
+     =================================================================== */
+
+  const CLASSIFIER_SYSTEM_PROMPT =
+    "You are a voice-intent classifier for a parenting activity tracker. " +
+    "Classify the parent's spoken sentence into exactly one intent and extract structured fields. " +
+    "Intents:\n" +
+    "- CHAT: a question, comment, or anything that is not a log of a concrete event.\n" +
+    "- LOG_SKILL: the child demonstrated/mastered a developmental skill (e.g. 'she stacked three blocks', 'he said dada').\n" +
+    "- LOG_FEED: a feeding occurred (bottle, nursing, solids).\n" +
+    "- LOG_NAP: a nap or sleep occurred or started/ended.\n" +
+    "- LOG_ACTIVITY: a play activity or outing occurred.\n" +
+    "Respond with ONLY a JSON object, no prose, matching this schema:\n" +
+    '{"intent":"CHAT|LOG_SKILL|LOG_FEED|LOG_NAP|LOG_ACTIVITY",' +
+    '"confidence":0.0-1.0,' +
+    '"extracted":{"description":"string (for LOG_SKILL: the skill demonstrated)",' +
+    '"amount":"string|null","duration":"string|null","notes":"string|null",' +
+    '"time_hint":"string|null (any time the parent mentioned, e.g. \'20 minutes ago\', \'at 2pm\', \'this morning\'; null if none)"}}\n' +
+    "If unsure, use CHAT with low confidence. confidence reflects how certain you are of the intent.";
+
+  let _recognition = null;
+
+  function initVoiceInput() {
+    const mic = $("hz-mic");
+    const SR = global.SpeechRecognition || global.webkitSpeechRecognition;
+    if (!SR) { if (mic) mic.style.display = "none"; return; }
+    if (!mic) return;
+
+    _recognition = new SR();
+    _recognition.lang = "en-US";
+    _recognition.interimResults = false;
+    _recognition.maxAlternatives = 1;
+
+    let listening = false;
+
+    mic.addEventListener("click", function () {
+      if (listening) { try { _recognition.stop(); } catch (e) {} return; }
+      try {
+        _recognition.start();
+        listening = true;
+        mic.classList.add("hz-mic-active");
+      } catch (e) {
+        appendInlineBubble("Couldn't hear — try again");
+      }
+    });
+
+    _recognition.onresult = function (ev) {
+      let transcript = "";
+      try { transcript = ev.results[0][0].transcript || ""; } catch (e) {}
+      transcript = transcript.trim();
+      if (transcript) classifyVoiceIntent(transcript);
+    };
+    _recognition.onerror = function () {
+      appendInlineBubble("Couldn't hear — try again");
+    };
+    _recognition.onend = function () {
+      listening = false;
+      mic.classList.remove("hz-mic-active");
+    };
+  }
+
+  function appendInlineBubble(text) {
+    const thread = $("hz-thread");
+    if (!thread) return;
+    const b = document.createElement("div");
+    b.className = "hz-bubble hz-bubble-system";
+    b.style.fontStyle = "italic";
+    b.style.opacity = "0.8";
+    b.textContent = text;
+    thread.appendChild(b);
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  async function classifyVoiceIntent(transcript) {
+    let apiKey = null;
+    try { apiKey = (typeof getOrFetchApiKey === "function") ? await getOrFetchApiKey() : null; }
+    catch (e) { apiKey = null; }
+    if (!apiKey) return; // abort silently — no key configured.
+
+    let data;
+    try {
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 150,
+          system: CLASSIFIER_SYSTEM_PROMPT,
+          messages: [{ role: "user", content: transcript }]
+        })
+      });
+      data = await resp.json();
+    } catch (e) {
+      // Network/API failure → treat as chat so the parent isn't blocked.
+      routeToChat(transcript);
+      return;
+    }
+
+    let parsed = null;
+    try {
+      const txt = (data && data.content && data.content[0] && data.content[0].text) || "";
+      const m = txt.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(m ? m[0] : txt);
+    } catch (e) { parsed = null; }
+
+    if (!parsed || !parsed.intent) { routeToChat(transcript); return; }
+
+    const intent = parsed.intent;
+    const confidence = (typeof parsed.confidence === "number") ? parsed.confidence : 0;
+    const extracted = parsed.extracted || {};
+
+    if (intent === "CHAT" || confidence < 0.65) {
+      routeToChat(transcript);
+      return;
+    }
+    showConfirmationCard(intent, extracted, transcript);
+  }
+
+  function routeToChat(transcript) {
+    const input = $("hz-input");
+    if (input) input.value = transcript;
+    if (typeof sendTutorMessage === "function") {
+      try { sendTutorMessage(transcript); } catch (e) {}
+    }
+  }
+
+  /* Token-overlap fuzzy match across SKILLS + SKILLS_CUSTOM_SEED. */
+  function fuzzyMatchSkill(description) {
+    const all = []
+      .concat(typeof SKILLS !== "undefined" && Array.isArray(SKILLS) ? SKILLS : [])
+      .concat(typeof SKILLS_CUSTOM_SEED !== "undefined" && Array.isArray(SKILLS_CUSTOM_SEED) ? SKILLS_CUSTOM_SEED : []);
+    const norm = function (s) {
+      return String(s || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+    };
+    const qTokens = new Set(norm(description));
+    if (!qTokens.size) return [];
+    const scored = all.map(function (s) {
+      const sTokens = norm((s.t || "") + " " + (s.what || ""));
+      let overlap = 0;
+      const seen = new Set();
+      sTokens.forEach(function (t) { if (qTokens.has(t) && !seen.has(t)) { overlap++; seen.add(t); } });
+      const denom = sTokens.length || 1;
+      return { skill: s, score: overlap / denom };
+    });
+    scored.sort(function (a, b) { return b.score - a.score; });
+    return scored.slice(0, 3);
+  }
+
+  function showConfirmationCard(intent, extracted, transcript) {
+    const thread = $("hz-thread");
+    if (!thread) return;
+
+    const card = document.createElement("div");
+    card.className = "hz-card";
+    card.style.border = "1px solid #ccc";
+    card.style.borderRadius = "12px";
+    card.style.padding = "10px 12px";
+    card.style.margin = "8px 0";
+    card.style.background = "#fff";
+
+    const intentLabels = {
+      LOG_SKILL: "Skill", LOG_FEED: "Feed", LOG_NAP: "Nap", LOG_ACTIVITY: "Activity"
+    };
+    const human = {
+      LOG_FEED: "Log a feed", LOG_NAP: "Log a nap",
+      LOG_ACTIVITY: "Log an activity", LOG_SKILL: "Log a mastered skill"
+    };
+
+    const head = document.createElement("div");
+    head.style.fontWeight = "600";
+    head.style.marginBottom = "4px";
+    head.textContent = (intentLabels[intent] || intent) + " — " + (human[intent] || "");
+    card.appendChild(head);
+
+    const q = document.createElement("div");
+    q.style.fontStyle = "italic";
+    q.style.opacity = "0.7";
+    q.style.marginBottom = "6px";
+    q.textContent = "“" + transcript + "”";
+    card.appendChild(q);
+
+    // Resolution state for LOG_SKILL.
+    let matches = [];
+    let topSkill = null;
+    let select = null;
+
+    if (intent === "LOG_SKILL") {
+      matches = fuzzyMatchSkill(extracted.description || transcript);
+      const top = matches[0];
+      topSkill = top ? top.skill : null;
+
+      const summary = document.createElement("div");
+      summary.style.marginBottom = "6px";
+      if (topSkill) {
+        const diff = (topSkill.difficulty != null) ? (" · difficulty " + topSkill.difficulty) : "";
+        summary.textContent = "Best match: " + (topSkill.t || topSkill.id) +
+          " (" + (topSkill.dom || "?") + diff + ")";
+      } else {
+        summary.textContent = "No matching skill found.";
+      }
+      card.appendChild(summary);
+
+      // Low confidence in the match → offer a chooser of the top 3.
+      if (!top || top.score < 0.5) {
+        select = document.createElement("select");
+        select.className = "hz-skill-select";
+        select.style.width = "100%";
+        select.style.margin = "4px 0";
+        matches.forEach(function (m) {
+          const opt = document.createElement("option");
+          opt.value = m.skill.id;
+          const diff = (m.skill.difficulty != null) ? (" · d" + m.skill.difficulty) : "";
+          opt.textContent = (m.skill.t || m.skill.id) + " (" + (m.skill.dom || "?") + diff + ")";
+          select.appendChild(opt);
+        });
+        card.appendChild(select);
+      }
+    } else {
+      const summary = document.createElement("div");
+      summary.style.marginBottom = "6px";
+      const bits = [];
+      if (extracted.amount) bits.push("amount: " + extracted.amount);
+      if (extracted.duration) bits.push("duration: " + extracted.duration);
+      if (extracted.description) bits.push(extracted.description);
+      if (extracted.notes) bits.push(extracted.notes);
+      summary.textContent = bits.length ? bits.join(" · ") : "(no extra details)";
+      card.appendChild(summary);
+
+      // Advisory: time_hint (if any) is only a spoken hint; the manual time
+      // input below is the source of truth. We do NOT natural-language parse.
+      const timeRow = document.createElement("div");
+      timeRow.className = "hz-time-row";
+      const timeLabel = document.createElement("label");
+      timeLabel.textContent = "Time: ";
+      timeLabel.style.fontSize = "12px";
+      timeLabel.style.opacity = "0.8";
+      const timeInput = document.createElement("input");
+      timeInput.type = "time";
+      timeInput.id = "hz-log-time";
+      const _now = new Date();
+      timeInput.value = String(_now.getHours()).padStart(2,"0") + ":" + String(_now.getMinutes()).padStart(2,"0");
+      timeLabel.appendChild(timeInput);
+      timeRow.appendChild(timeLabel);
+      card.appendChild(timeRow);
+    }
+
+    // Buttons row.
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.gap = "8px";
+    row.style.marginTop = "6px";
+
+    const btnLog = document.createElement("button");
+    btnLog.className = "hz-btn-log";
+    btnLog.textContent = "✓ Log it";
+    const btnEdit = document.createElement("button");
+    btnEdit.className = "hz-btn-edit";
+    btnEdit.textContent = "✎ Edit";
+    const btnCancel = document.createElement("button");
+    btnCancel.className = "hz-btn-cancel";
+    btnCancel.textContent = "✕ Cancel";
+    row.appendChild(btnLog); row.appendChild(btnEdit); row.appendChild(btnCancel);
+    card.appendChild(row);
+
+    // ✓ Log it — MANDATORY gate. Nothing is logged before this fires.
+    btnLog.addEventListener("click", function () {
+      if (intent === "LOG_SKILL") {
+        const skillId = select ? select.value : (topSkill && topSkill.id);
+        if (!skillId) { btnLog.disabled = true; head.textContent = "No skill to log."; return; }
+        if (typeof addObservation === "function") {
+          addObservation({ skillId: skillId, status: "mastered", by: getObserverId(), source: "voice" });
+        }
+      } else {
+        const typeMap = { LOG_FEED: "feed", LOG_NAP: "nap", LOG_ACTIVITY: "activity" };
+        const type = typeMap[intent];
+        if (type) {
+          const childId = (typeof getActiveChildId === "function") ? getActiveChildId() : "maxine";
+          let tsMs = Date.now();
+          const ti = document.getElementById("hz-log-time");
+          if (ti && ti.value){
+            const parts = ti.value.split(":");
+            const d = new Date();
+            d.setHours(parseInt(parts[0],10)||0, parseInt(parts[1],10)||0, 0, 0);
+            if (!isNaN(d.getTime())) tsMs = d.getTime();
+          }
+          logEvent(type, extracted, childId, getObserverId(), tsMs);
+        }
+      }
+      card.innerHTML = "";
+      card.style.color = "#2E7D32";
+      card.textContent = "✓ Logged!";
+    });
+
+    // ✎ Edit — drop the transcript into the input for manual correction.
+    btnEdit.addEventListener("click", function () {
+      const input = $("hz-input");
+      if (input) { input.value = transcript; input.focus(); }
+      card.remove();
+    });
+
+    // ✕ Cancel — discard, log nothing.
+    btnCancel.addEventListener("click", function () { card.remove(); });
+
+    thread.appendChild(card);
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  /* ===================================================================
+     ── C3 BUG CONVERSATION ───────────────────────────────────────────
+     =================================================================== */
+
+  const BUG_QUESTIONS = [
+    { key: "title",       q: "What's going wrong? Give it a short title." },
+    { key: "which_part",  q: "Which part of the app is it happening in?" },
+    { key: "reproducible", q: "Does it happen every time, or just sometimes?" },
+    { key: "extra_context", q: "Anything else that might help us track it down? (data, steps, etc.)" }
+  ];
+
+  let _bugState = { step: 0, answers: [], active: false };
+  let _hzMode = "tutor";
+  let _bugQuestionCount = 3; // shown to the user; Q "x of 3"
+
+  function startBugConversation() {
+    _hzMode = "bug";
+    _bugState = { step: 0, answers: [], active: true };
+    const thread = $("hz-thread");
+    if (thread) thread.innerHTML = "";
+    askBugQuestion(0);
+  }
+
+  function askBugQuestion(step) {
+    const thread = $("hz-thread");
+    if (!thread) return;
+    const def = BUG_QUESTIONS[step];
+    if (!def) return;
+    const b = document.createElement("div");
+    b.className = "hz-bubble hz-bubble-bot";
+    const shownNum = Math.min(step + 1, _bugQuestionCount);
+    b.innerHTML = "<div style='font-size:11px;opacity:0.6'>Question " + shownNum +
+      " of " + _bugQuestionCount + "</div>" + escapeHtml(def.q);
+    thread.appendChild(b);
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function handleBugAnswer(answer) {
+    if (!_bugState.active) return;
+    answer = (answer || "").trim();
+    if (!answer) return;
+    // Echo the user's answer.
+    const thread = $("hz-thread");
+    if (thread) {
+      const u = document.createElement("div");
+      u.className = "hz-bubble hz-bubble-user";
+      u.textContent = answer;
+      thread.appendChild(u);
+      thread.scrollTop = thread.scrollHeight;
+    }
+    _bugState.answers.push({ key: BUG_QUESTIONS[_bugState.step].key, q: BUG_QUESTIONS[_bugState.step].q, a: answer });
+    _bugState.step++;
+
+    const next = getNextQuestion(_bugState);
+    if (next == null) {
+      submitBugReport(_bugState.answers);
+    } else {
+      _bugState.step = next;
+      askBugQuestion(next);
+    }
+  }
+
+  /* Returns the index of the next question to ask, or null when done.
+     Skip-logic: if the parent already named concrete data terms in their
+     answers, skip the redundant "which part" probe (Q index 1). */
+  function getNextQuestion(stateObj) {
+    let step = stateObj.step;
+    if (step >= BUG_QUESTIONS.length) return null;
+
+    const dataTerms = /\b(data|sync|save|saved|firebase|skill|observation|event|child|vocab|chart|graph|number|count)\b/i;
+    const mentionedData = stateObj.answers.some(function (x) { return dataTerms.test(x.a); });
+
+    // Skip the "which part" question (index 1) when the parent already gave
+    // enough locating detail, so the flow stays at 3 visible questions.
+    if (step === 1 && mentionedData) step = 2;
+    if (step >= BUG_QUESTIONS.length) return null;
+    return step;
+  }
+
+  function submitBugReport(answers) {
+    _bugState.active = false;
+    const byKey = {};
+    answers.forEach(function (x) { byKey[x.key] = x.a; });
+
+    const observerId = getObserverId();
+    const key = observerId + "-" + Date.now(); // collision-proof per reporter.
+
+    let activeChild = "maxine";
+    try { activeChild = (typeof getActiveChildId === "function") ? getActiveChildId() : "maxine"; } catch (e) {}
+
+    const report = {
+      title: byKey.title || "(untitled)",
+      description: byKey.title || "",
+      which_part: byKey.which_part || "",
+      reproducible: byKey.reproducible || "",
+      extra_context: byKey.extra_context || "",
+      reporter: observerId,
+      activeChild: activeChild,
+      device: (typeof navigator !== "undefined" && navigator.userAgent) || "unknown",
+      ts: Date.now(),
+      status: "new",
+      conversationTranscript: answers
+    };
+
+    const thread = $("hz-thread");
+    try {
+      const url = DEFAULT_FB_URL + "/horizon-bugs/" + key + ".json";
+      fetch(url, { method: "PUT", body: JSON.stringify(report) })
+        .then(function () {
+          if (thread) {
+            const b = document.createElement("div");
+            b.className = "hz-bubble hz-bubble-bot";
+            b.textContent = "✓ Thanks! Your report is in. I'll keep you posted here.";
+            thread.appendChild(b);
+            thread.scrollTop = thread.scrollHeight;
+          }
+          pollBugStatus(key);
+        })
+        .catch(function () {
+          if (thread) {
+            const b = document.createElement("div");
+            b.className = "hz-bubble hz-bubble-bot";
+            b.textContent = "Couldn't submit the report (offline?). Please try again later.";
+            thread.appendChild(b);
+          }
+        });
+    } catch (e) {}
+
+    _hzMode = "tutor"; // conversation complete; return to tutor routing.
+  }
+
+  function pollBugStatus(key) {
+    let attempts = 0;
+    const MAX = 80;
+    const url = DEFAULT_FB_URL + "/horizon-bugs/" + key + ".json";
+    const timer = setInterval(function () {
+      attempts++;
+      if (attempts > MAX) { clearInterval(timer); return; }
+      fetch(url).then(function (r) { return r.json(); }).then(function (rep) {
+        if (!rep || !rep.status) return;
+        const st = rep.status;
+        if (st === "fixing" || st === "fixed" || st === "needs-review" || st === "failed") {
+          renderBugStatusBadge(key, st, rep);
+        }
+        if (st === "fixed" || st === "failed") clearInterval(timer);
+      }).catch(function () {});
+    }, 15000);
+  }
+
+  function renderBugStatusBadge(key, status, rep) {
+    const thread = $("hz-thread");
+    if (!thread) return;
+    const map = {
+      "fixing":       { txt: "🛠 Working on it…", bg: "#FEF3C7" },
+      "fixed":        { txt: "✅ Fixed!",          bg: "#DCFCE7" },
+      "needs-review": { txt: "👀 Needs review",    bg: "#E0E7FF" },
+      "failed":       { txt: "⚠️ Couldn't fix automatically", bg: "#FEE2E2" }
+    };
+    const meta = map[status] || { txt: status, bg: "#EEE" };
+    const existingId = "hz-bug-badge-" + key;
+    let badge = document.getElementById(existingId);
+    if (!badge) {
+      badge = document.createElement("div");
+      badge.id = existingId;
+      badge.className = "hz-bug-badge";
+      badge.style.borderRadius = "8px";
+      badge.style.padding = "4px 8px";
+      badge.style.margin = "6px 0";
+      badge.style.fontSize = "13px";
+      thread.appendChild(badge);
+    }
+    badge.style.background = meta.bg;
+    badge.textContent = meta.txt + (rep && rep.note ? " — " + rep.note : "");
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  /* Bug-tab activation + send routing. Call maybeStartBugTab() when the
+     bug tab is selected. */
+  function maybeStartBugTab() {
+    const tab = $("hz-tab-bug");
+    const thread = $("hz-thread");
+    if (!tab) return;
+    if (thread && thread.children.length === 0) startBugConversation();
+  }
+
+  function routeHzSend() {
+    const input = $("hz-input");
+    if (!input) return;
+    const val = input.value;
+    if (_hzMode === "bug") {
+      input.value = "";
+      handleBugAnswer(val);
+    } else if (typeof sendTutorMessage === "function") {
+      sendTutorMessage(val);
+    }
+  }
+
+  /* ===================================================================
+     ── C4 SYNC ───────────────────────────────────────────────────────
+     =================================================================== */
+
+  let _hzSyncTimer = null;
+
+  function startSyncPolling() {
+    if (_hzSyncTimer) clearInterval(_hzSyncTimer);
+    _hzSyncTimer = setInterval(syncFromFirebase, 45000);
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") syncFromFirebase();
+    });
+  }
+
+  async function syncFromFirebase() {
+    if (typeof document !== "undefined" && document.hidden) return;
+    let activeChildId;
+    try { activeChildId = (typeof getActiveChildId === "function") ? getActiveChildId() : "maxine"; }
+    catch (e) { return; }
+
+    state.childData = state.childData || {};
+    const ns = state.childData[activeChildId] = state.childData[activeChildId] || {};
+    let added = 0;
+
+    // (a) Events — Horizon root path.
+    try {
+      const evUrl = DEFAULT_FB_URL + "/horizon-events/" + activeChildId + ".json";
+      const r = await fetch(evUrl);
+      const remoteEvents = await r.json();
+      if (remoteEvents && typeof remoteEvents === "object") {
+        if (!Array.isArray(ns.events)) ns.events = [];
+        const seen = new Set(ns.events.map(function (e) { return "ts:" + e.ts; }));
+        Object.keys(remoteEvents).forEach(function (k) {
+          const e = remoteEvents[k];
+          if (e && e.ts != null && !seen.has("ts:" + e.ts)) { seen.add("ts:" + e.ts); ns.events.push(e); added++; }
+        });
+      }
+    } catch (e) {}
+
+    // (b) Observations — the existing per-child sync path (maxine-sync namespace).
+    try {
+      const base = DEFAULT_FB_URL.replace(/\/$/, "");
+      const obsUrl = base + "/maxine-sync/" + (global._fbNs || "maxine-family") +
+        "/state/childData/" + activeChildId + "/observations.json";
+      const r2 = await fetch(obsUrl);
+      const remoteObs = await r2.json();
+      if (Array.isArray(remoteObs)) {
+        if (!Array.isArray(ns.observations)) ns.observations = [];
+        const seenO = new Set(ns.observations.map(function (o) { return "ts:" + o.ts; }));
+        remoteObs.forEach(function (o) {
+          if (o && o.ts != null && !seenO.has("ts:" + o.ts)) { seenO.add("ts:" + o.ts); ns.observations.push(o); added++; }
+        });
+      }
+    } catch (e) {}
+
+    if (added > 0) {
+      // MANDATORY: never touch flat keys directly — re-derive them.
+      if (typeof loadChildWorkingSet === "function") loadChildWorkingSet(activeChildId);
+      if (typeof saveState === "function") saveState(state);
+      // Re-render the active view + the event pills.
+      try {
+        const view = (typeof getActiveView === "function") ? getActiveView() : null;
+        if (view && typeof showView === "function") showView(view);
+        else if (typeof renderProgressView === "function") renderProgressView();
+      } catch (e) {}
+      try { loadRecentEvents(); } catch (e) {}
+      hzShowToast(added + " new entr" + (added === 1 ? "y" : "ies") + " synced");
+    }
+  }
+
+  /* Horizon toast — renders #hz-toast (spec C4). Named hzShowToast to avoid
+     clobbering the host's global showToast (which targets a different node).
+     Exposed as showToast only if the host has not already defined one. */
+  function hzShowToast(msg) {
+    const el = $("hz-toast");
+    if (!el) {
+      if (typeof global.showToast === "function") { try { global.showToast(msg); } catch (e) {} }
+      return;
+    }
+    el.textContent = msg;
+    el.classList.add("hz-toast-show");
+    clearTimeout(hzShowToast._t);
+    hzShowToast._t = setTimeout(function () { el.classList.remove("hz-toast-show"); }, 3000);
+  }
+  if (typeof global.showToast !== "function") global.showToast = hzShowToast;
+
+  /* ===================================================================
+     EXPORTS
+     =================================================================== */
+  global.EVENT_TYPES        = EVENT_TYPES;
+  global.logEvent           = logEvent;
+  global.loadRecentEvents   = loadRecentEvents;
+  global.initVoiceInput     = initVoiceInput;
+  global.classifyVoiceIntent = classifyVoiceIntent;
+  global.fuzzyMatchSkill    = fuzzyMatchSkill;
+  global.showConfirmationCard = showConfirmationCard;
+  global.BUG_QUESTIONS      = BUG_QUESTIONS;
+  global.startBugConversation = startBugConversation;
+  global.handleBugAnswer    = handleBugAnswer;
+  global.getNextQuestion    = getNextQuestion;
+  global.submitBugReport    = submitBugReport;
+  global.pollBugStatus      = pollBugStatus;
+  global.maybeStartBugTab   = maybeStartBugTab;
+  global.routeHzSend        = routeHzSend;
+  global.startSyncPolling   = startSyncPolling;
+  global.syncFromFirebase   = syncFromFirebase;
+  global.hzShowToast        = hzShowToast;
+
+})(typeof window !== "undefined" ? window : this);
+
+/* Horizon boot — the widget DOM lives after this <script>, so defer init. */
+(function hzBoot(){
+  function _hzInit(){ try{
+    if(typeof initHorizonChat==="function") initHorizonChat();
+    if(typeof initVoiceInput==="function")  initVoiceInput();
+    if(typeof loadRecentEvents==="function") loadRecentEvents();
+    if(typeof startSyncPolling==="function") startSyncPolling();
+  }catch(e){ console.warn("Horizon init failed", e); } }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", _hzInit);
+  else _hzInit();
+})();
+
 </script>
+<!-- ===== Horizon chat widget (static structure; behavior wired by JS below) ===== -->
+<button id="hz-btn" type="button" aria-label="Open Horizon">💬<span class="hz-badge" id="hz-badge"></span></button>
+<div id="hz-panel" role="dialog" aria-label="Horizon chat">
+  <div class="hz-header">
+    <div class="hz-tabs">
+      <button type="button" id="hz-tab-tutor" class="hz-tab hz-tab-active">Tutor</button>
+      <button type="button" id="hz-tab-bug" class="hz-tab">Report bug</button>
+    </div>
+    <span class="hz-child-name">Maxine</span>
+    <span id="hz-observer-label"></span>
+    <span class="hz-header-spacer"></span>
+    <button type="button" class="hz-close" aria-label="Close">×</button>
+  </div>
+  <div id="hz-events"></div>
+  <div id="hz-thread"></div>
+  <div id="hz-chips"></div>
+  <div class="hz-footer">
+    <button type="button" id="hz-mic" aria-label="Voice input">🎤</button>
+    <input type="text" id="hz-input" placeholder="Ask Horizon…" autocomplete="off">
+    <button type="button" id="hz-send">Send</button>
+  </div>
+  <div id="hz-setup">
+    <div class="hz-overlay-card">
+      <h3>Connect Horizon</h3>
+      <p>Enter the API key to enable Horizon for everyone on this dashboard.</p>
+      <input type="password" id="hz-setup-key" placeholder="API key" autocomplete="off">
+      <button type="button" id="hz-setup-save">Save for everyone</button>
+      <span class="hz-reset-link" id="hz-setup-reset">Reset key</span>
+    </div>
+  </div>
+  <div id="hz-observer-pick">
+    <div class="hz-overlay-card">
+      <h3>Who's observing?</h3>
+      <p>Select the observer for this session.</p>
+      <div class="hz-obs-list">
+        <button type="button" class="hz-obs-btn" data-observer="Alex">Alex</button>
+        <button type="button" class="hz-obs-btn" data-observer="Claire">Claire</button>
+        <button type="button" class="hz-obs-btn" data-observer="Sidney">Sidney</button>
+        <button type="button" class="hz-obs-btn" data-observer="Mendes">Mendes</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="hz-toast"></div>
 </body>
 </html>
