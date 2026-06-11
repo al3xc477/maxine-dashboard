@@ -7474,8 +7474,10 @@ function renderProgressView(){
     return `${x.d.emoji} <strong>${escapeHtml(sk.t)}</strong> ${tag} <span style="color:var(--muted); font-size:11px">(${escapeHtml(sk.age||"")})</span>`;
   }).filter(Boolean);
 
-  // Holistic vocab counts from ALL trackers (MacArthur-Bates CDI logic)
-  const { en: vmKnownEn, fr: vmKnownFr, conceptual: vmConceptual } = vocabTotalKnown();
+  // Holistic vocab counts from ALL trackers (MacArthur-Bates CDI logic).
+  // Language-aware: vocabKnown.byLang holds a count per the active child's languages.
+  const vocabKnown = vocabTotalKnown();
+  const vmConceptual = vocabKnown.conceptual;
   const vocabLv = computeDomainLevel('vocab');
   const bodyPartCat = VOCAB_MASTER.find(c=>c.cat.includes("Body"));
   const bodyKnownEn = bodyPartCat ? bodyPartCat.words.filter(w=>isVMastered(w.en,"en")).length : 0;
@@ -7513,9 +7515,10 @@ function renderProgressView(){
       <!-- Vocab milestone row (clickable) -->
       <div onclick="showView('vocabulary')" style="cursor:pointer; display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px; padding:8px 12px; background:rgba(252,231,243,.5); border:1px solid #FBCFE8; border-radius:8px">
         <span style="font-size:14px">📚</span>
-        <span style="font-size:13px; font-weight:700; color:#9D174D">${vmKnownEn}</span><span style="font-size:12px; color:var(--muted)">🇬🇧</span>
-        <span style="font-size:12px; color:var(--muted)">·</span>
-        <span style="font-size:13px; font-weight:700; color:#9D174D">${vmKnownFr}</span><span style="font-size:12px; color:var(--muted)">🇫🇷</span>
+        ${(vocabKnown.langs||["en","fr"]).map(L=>{
+          const lm = (typeof langMeta==="function") ? langMeta(L) : { flag:L };
+          return `<span style="font-size:13px; font-weight:700; color:#9D174D">${vocabKnown.byLang[L]||0}</span><span style="font-size:12px; color:var(--muted)">${lm.flag}</span>`;
+        }).join('<span style="font-size:12px; color:var(--muted)">·</span>')}
         <span style="font-size:12px; color:var(--muted)">·</span>
         <span style="font-size:12px; font-weight:600; color:${vocabLv.color}; background:${vocabLv.bg}; border-radius:6px; padding:1px 7px">${vmConceptual} concepts · ${vocabLv.label.replace(/^\S+\s*/,"")}</span>
         ${vmConceptual > 0 ? `<span style="font-size:11px; color:var(--muted)">${bodyKnownEn}/${bodyTotal} body parts</span>` : ""}
@@ -7801,29 +7804,29 @@ function domainLevel(pct){
    Secondary: vocabMastered (per-week bingo entries)
    Uses VOCAB_MASTER catalogue as the canonical word list.                  */
 function vocabTotalKnown(){
-  let vmEN=0, vmFR=0;
-  VOCAB_MASTER.forEach(cat=>cat.words.forEach(w=>{
-    if(isVMastered(w.en,'en')) vmEN++;
-    if(isVMastered(w.en,'fr')) vmFR++;
-  }));
-  // Bingo-only count (weeks not yet synced to master tracker)
-  const bingoEN = new Set(), bingoFR = new Set();
-  Object.keys(state.vocabMastered||{}).forEach(k=>{
-    const parts = k.split('-');
-    if(parts.length >= 3){
-      const lang = parts[parts.length-1];
-      const base = parts.slice(0,-1).join('-');
-      if(lang==='en') bingoEN.add(base);
-      if(lang==='fr') bingoFR.add(base);
-    }
+  // Language-aware: count each of the ACTIVE child's languages (Jordan en/pt,
+  // Lou/Maxine en/fr) rather than a hardcoded en/fr pair. Reads the per-child
+  // vocab working set (state.vocabMaster / state.vocabMastered).
+  const langs = (typeof getActiveChildLanguages === "function")
+    ? getActiveChildLanguages() : ["en","fr"];
+  const byLang = {};
+  langs.forEach(L => {
+    let vm = 0;
+    VOCAB_MASTER.forEach(cat=>cat.words.forEach(w=>{ if(isVMastered(w.en, L)) vm++; }));
+    const bingo = new Set();
+    Object.keys(state.vocabMastered||{}).forEach(k=>{
+      const parts = k.split('-');
+      if (parts.length >= 3 && parts[parts.length-1] === L){
+        bingo.add(parts.slice(0,-1).join('-'));
+      }
+    });
+    byLang[L] = Math.max(vm, bingo.size);   // avoid double-counting across trackers
   });
-  // Take max of each source — avoid double-counting words in both trackers
-  const en = Math.max(vmEN, bingoEN.size);
-  const fr = Math.max(vmFR, bingoFR.size);
-  // Conceptual vocabulary = unique concepts in at least one language
-  // For bilingual assessment: count each concept once (MacArthur-Bates bilingual CDI)
-  const conceptual = Math.max(en, fr);
-  return { en, fr, conceptual };
+  // Conceptual = unique concepts known in at least one language (bilingual CDI).
+  const conceptual = langs.length ? Math.max(0, ...langs.map(L => byLang[L] || 0)) : 0;
+  // Back-compat: keep .en/.fr for any legacy caller; add byLang + langs for the
+  // language-aware Progress display.
+  return { en: byLang.en || 0, fr: byLang.fr || 0, byLang: byLang, langs: langs, conceptual };
 }
 
 /* ── Holistic domain level — science-backed weighted assessment ────────────
@@ -14633,6 +14636,71 @@ migrateToChildNamespaceV7();
   } catch(e){}
 })();
 
+// v11 — COUNT-based contamination cleanse. The byte-identical V10/V10b checks miss
+// contamination whose ts/by differ from the primary's CURRENT values (which is why
+// V10b reported 0). Heuristic: a non-primary child holding >50% of the primary's
+// skill count, or vocab impossible for their age, is wiped. Reconciliations vs the
+// naive spec: state.children is OBJECT-keyed (Object.values, not [0]/.forEach), and
+// vocabMaster/vocabMastered are OBJECTS (Object.keys / reset to {}, not [] / .length).
+// Never touches the primary (Maxine). Runs before any view renders (script-eval time).
+(function cleanseContaminationV11(){
+  if (state.contaminationCleanseV11) return;
+  try {
+    const primaryId = (Object.values(state.children || {})[0] || {}).id;
+    if (!primaryId) return;
+    const primaryData   = state.childData[primaryId] || {};
+    const primarySkills = Object.keys(primaryData.skillStatus || {}).length;
+    const primaryVocab  = Object.keys(primaryData.vocabMaster  || {}).length;
+    let cleaned = 0;
+    Object.values(state.children || {}).forEach(child => {
+      if (!child || child.id === primaryId) return;
+      const cd = state.childData[child.id];
+      if (!cd) return;
+      // Skill contamination: non-primary child has >50% of primary's skill count.
+      const childSkillCount = Object.keys(cd.skillStatus || {}).length;
+      if (primarySkills > 0 && childSkillCount > primarySkills * 0.5){
+        console.log("[V11] Clearing contaminated skillStatus for " + child.id + ": " + childSkillCount + " entries (primary has " + primarySkills + ")");
+        cd.skillStatus = {}; cd.activityStatus = {}; cd.history = []; cd.observations = [];
+        cleaned++;
+      }
+      // Vocab contamination: a <6m newborn with any vocab, or a <18m child with
+      // more than half the primary's vocabulary, is contaminated.
+      const childVocab     = Object.keys(cd.vocabMaster || {}).length;
+      const childAgeMonths = (typeof computeChildAgeMonths === "function") ? computeChildAgeMonths(child.id) : 99;
+      if (childAgeMonths < 6 && childVocab > 0){
+        console.log("[V11] Clearing contaminated vocabMaster for " + child.id + ": " + childVocab + " entries (age " + childAgeMonths + "m)");
+        cd.vocabMaster = {}; cd.vocabMastered = {};
+        cleaned++;
+      } else if (childVocab > primaryVocab * 0.5 && childAgeMonths < 18){
+        console.log("[V11] Clearing suspicious vocabMaster for " + child.id + ": " + childVocab + " entries");
+        cd.vocabMaster = {}; cd.vocabMastered = {};
+        cleaned++;
+      }
+    });
+    state.contaminationCleanseV11 = true;
+    if (typeof loadChildWorkingSet === "function") loadChildWorkingSet(getActiveChildId());
+    if (cleaned > 0 && typeof saveState === "function") saveState(state);
+    console.log("[V11] Contamination cleanse complete. Cleaned " + cleaned + " child namespaces.");
+  } catch(e){ console.warn("contamination cleanse v11 failed", e); }
+})();
+
+// Languages safety net — seed ONLY when a child has no languages set; never
+// overwrites user-configured values. children is OBJECT-keyed.
+(function ensureChildLanguages(){
+  try {
+    const defaults = { jordan:["en","pt"], lou:["en","fr"] };
+    let changed = false;
+    Object.values(state.children || {}).forEach(c => {
+      if (c && (!c.languages || c.languages.length === 0) && defaults[c.id]){
+        c.languages = defaults[c.id].slice();
+        changed = true;
+        console.log("[languages] Set " + c.id + " languages: " + c.languages.join(","));
+      }
+    });
+    if (changed && typeof saveState === "function") saveState(state);
+  } catch(e){ console.warn("ensureChildLanguages failed", e); }
+})();
+
 // v10 — recalibrate skill difficulty to the 14y scale (runs after the skill-tree
 // + child-namespace migrations so it has the final word on s.difficulty).
 try { migrateSkillDifficultyV10(); } catch(e){ console.warn("v10 difficulty migration failed", e); }
@@ -15308,13 +15376,26 @@ function renderTopAdvice(){
 
 /* onActiveChildChange — single orchestrator re-rendering everything child-derived. */
 function onActiveChildChange(){
+  // loadChildWorkingSet FIRST — every render below must read the NEW child's flat
+  // keys (skillStatus, vocabMaster, …). Idempotent: setActiveChildId already loaded
+  // it, but keeping it first here guarantees the invariant for any other caller.
+  try { if (typeof loadChildWorkingSet==="function") loadChildWorkingSet(getActiveChildId()); } catch(e){}
   try { if (typeof renderChildPicker==="function") renderChildPicker(); } catch(e){}
   try { if (typeof applyChildMode==="function") applyChildMode(); } catch(e){}
   try { if (typeof updateChildHeader==="function") updateChildHeader(); } catch(e){}
   try { if (typeof renderParentalAdvice==="function") renderParentalAdvice(); } catch(e){}
   try { if (typeof renderSensitivePeriods==="function") renderSensitivePeriods(); } catch(e){}
   try { if (typeof renderTopAdvice==="function") renderTopAdvice(); } catch(e){}
+  // Heavy views: re-render ONLY when visible. renderProgressView fires
+  // checkEraTransition (a modal) — must not trigger it for a hidden view. When the
+  // view is hidden, showView() below renders it fresh on next navigation.
+  try { if (typeof renderProgressView==="function" && document.getElementById("progressView") && document.getElementById("progressView").style.display !== "none") renderProgressView(); } catch(e){}
+  try { if (typeof renderTutorTab==="function" && document.getElementById("tutorView") && document.getElementById("tutorView").style.display !== "none") renderTutorTab(); } catch(e){}
   try { if (typeof renderVocabularyBingo==="function" && document.getElementById("vocabularyView") && document.getElementById("vocabularyView").style.display !== "none") renderVocabularyBingo(); } catch(e){}
+  // Horizon widget: rebuild starter chips + recent-event pills for the new child
+  // (chat-history reload is handled by the setActiveChildId wrapper when open).
+  try { if (typeof buildStarterChips==="function") buildStarterChips(); } catch(e){}
+  try { if (typeof loadRecentEvents==="function") loadRecentEvents(); } catch(e){}
   try { if (typeof showView==="function" && typeof getActiveView==="function") showView(getActiveView()); } catch(e){}
 }
 
