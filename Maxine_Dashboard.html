@@ -6428,6 +6428,21 @@ async function syncPull(fullReplace){
         state.childData = state.childData || {};
         Object.keys(remote.childData).forEach(id=>{
           const rns=remote.childData[id]||{};
+          // SYNC GUARD (v12): never merge dirty remote data for a newborn (<6m) —
+          // they must have zero skills/vocab/observations. Blocks Firebase from
+          // restoring contamination while V12 writes the clean state back.
+          try {
+            const ageM = (typeof computeChildAgeMonths==="function") ? computeChildAgeMonths(id) : 99;
+            if (ageM < 6){
+              const rSkill = Object.keys(rns.skillStatus||{}).length + Object.keys(rns.activityStatus||{}).length;
+              const rVocab = Array.isArray(rns.vocabMaster) ? rns.vocabMaster.length : Object.keys(rns.vocabMaster||{}).length;
+              const rObs   = Array.isArray(rns.observations) ? rns.observations.length : 0;
+              if (rSkill > 0 || rVocab > 0 || rObs > 0){
+                console.warn("[sync] Blocking dirty remote data for "+id+" (age "+ageM+"m, "+rSkill+" skills, "+rVocab+" vocab, "+rObs+" obs)");
+                return; // skip merging this contaminated child namespace
+              }
+            }
+          } catch(e){}
           const lns=state.childData[id]=state.childData[id]||{};
           PER_CHILD_KEYS.forEach(k=>{
             if(rns[k]===undefined && lns[k]===undefined) return;
@@ -14643,53 +14658,81 @@ migrateToChildNamespaceV7();
   } catch(e){}
 })();
 
-// v11 — COUNT-based contamination cleanse. The byte-identical V10/V10b checks miss
-// contamination whose ts/by differ from the primary's CURRENT values (which is why
-// V10b reported 0). Heuristic: a non-primary child holding >50% of the primary's
-// skill count, or vocab impossible for their age, is wiped. Reconciliations vs the
-// naive spec: state.children is OBJECT-keyed (Object.values, not [0]/.forEach), and
-// vocabMaster/vocabMastered are OBJECTS (Object.keys / reset to {}, not [] / .length).
-// Never touches the primary (Maxine). Runs before any view renders (script-eval time).
-(function cleanseContaminationV11(){
-  if (state.contaminationCleanseV11) return;
-  try {
-    const primaryId = (Object.values(state.children || {})[0] || {}).id;
-    if (!primaryId) return;
-    const primaryData   = state.childData[primaryId] || {};
-    const primarySkills = Object.keys(primaryData.skillStatus || {}).length;
-    const primaryVocab  = Object.keys(primaryData.vocabMaster  || {}).length;
-    let cleaned = 0;
-    Object.values(state.children || {}).forEach(child => {
-      if (!child || child.id === primaryId) return;
-      const cd = state.childData[child.id];
-      if (!cd) return;
-      // Skill contamination: non-primary child has >50% of primary's skill count.
-      const childSkillCount = Object.keys(cd.skillStatus || {}).length;
-      if (primarySkills > 0 && childSkillCount > primarySkills * 0.5){
-        console.log("[V11] Clearing contaminated skillStatus for " + child.id + ": " + childSkillCount + " entries (primary has " + primarySkills + ")");
-        cd.skillStatus = {}; cd.activityStatus = {}; cd.history = []; cd.observations = [];
-        cleaned++;
+// v12 — AGE-ONLY contamination cleanse that ALSO writes the clean state back to
+// Firebase. Root cause of the recurring contamination: V8–V11 cleared memory/
+// localStorage but never pushed clean per-child data to the cloud, so the next
+// syncPull re-imported the dirty remote and re-contaminated. V12:
+//   1. Criterion = AGE ONLY. A child < 6 months has zero mastered skills and zero
+//      vocab by definition — no comparison to the primary child is needed.
+//   2. Writes the cleaned child namespace back to Firebase with a PUT (the missing
+//      step in every prior cleanse).
+//   3. No once-only flag: runs every load, but is self-limiting — once BOTH local
+//      and remote are clean it does nothing (no writes).
+// Reconciliations vs the naive spec:
+//   • state.children is OBJECT-keyed → Object.values(...)[0].id, never [0]/.forEach.
+//   • vocabMaster/vocabMastered are OBJECTS → reset to {} (handles array form too).
+//   • Firebase path is `${base}/maxine-sync/${ns}/state/childData/${id}.json`
+//     (the WHOLE state lives at maxine-sync/{ns}/state.json; per-child nodes hang
+//     under .../state/childData/{id}) — NOT /{ns}/childData/{id}. This matches the
+//     existing observations URL and syncPush target exactly.
+async function cleanseContaminationV12(){
+  const primaryId = (Object.values(state.children || {})[0] || {}).id;
+  if (!primaryId) return;
+  const base = ((typeof _fbUrl === "string" && _fbUrl) ? _fbUrl : DEFAULT_FB_URL).replace(/\/$/, "");
+  const ns   = (typeof _fbNs === "string" && _fbNs) ? _fbNs : DEFAULT_FB_NS;
+  const cnt   = o => Object.keys(o || {}).length;
+  const vcnt  = v => Array.isArray(v) ? v.length : Object.keys(v || {}).length;
+  const ocnt  = a => Array.isArray(a) ? a.length : 0;
+  let anyWritten = false;
+
+  for (const child of Object.values(state.children || {})){
+    if (!child || child.id === primaryId) continue;
+    const ageMonths = (typeof computeChildAgeMonths === "function") ? computeChildAgeMonths(child.id) : 99;
+    if (ageMonths >= 6) continue;                       // age is the ONLY criterion
+
+    const cd  = state.childData[child.id] = state.childData[child.id] || {};
+    const url = `${base}/maxine-sync/${ns}/state/childData/${child.id}.json`;
+
+    const localDirty = (cnt(cd.skillStatus) + cnt(cd.activityStatus) > 0) || vcnt(cd.vocabMaster) > 0 || ocnt(cd.observations) > 0;
+
+    // Check the remote too, so Firebase gets cleaned even if local was already
+    // cleared by a prior cleanse (the exact case that left Firebase dirty).
+    let remoteDirty = false;
+    try {
+      const r = await fetch(url);
+      if (r.ok){
+        const rc = await r.json();
+        if (rc && typeof rc === "object"){
+          remoteDirty = (cnt(rc.skillStatus) + cnt(rc.activityStatus) > 0) || vcnt(rc.vocabMaster) > 0 || ocnt(rc.observations) > 0;
+        }
       }
-      // Vocab contamination: a <6m newborn with any vocab, or a <18m child with
-      // more than half the primary's vocabulary, is contaminated.
-      const childVocab     = Object.keys(cd.vocabMaster || {}).length;
-      const childAgeMonths = (typeof computeChildAgeMonths === "function") ? computeChildAgeMonths(child.id) : 99;
-      if (childAgeMonths < 6 && childVocab > 0){
-        console.log("[V11] Clearing contaminated vocabMaster for " + child.id + ": " + childVocab + " entries (age " + childAgeMonths + "m)");
-        cd.vocabMaster = {}; cd.vocabMastered = {};
-        cleaned++;
-      } else if (childVocab > primaryVocab * 0.5 && childAgeMonths < 18){
-        console.log("[V11] Clearing suspicious vocabMaster for " + child.id + ": " + childVocab + " entries");
-        cd.vocabMaster = {}; cd.vocabMastered = {};
-        cleaned++;
-      }
-    });
-    state.contaminationCleanseV11 = true;
+    } catch(e){ /* offline — local clear still applies */ }
+
+    if (!localDirty && !remoteDirty) continue;          // confirmed clean both sides
+
+    console.log(`[V12] Clearing ${child.id} (age ${ageMonths}m) localDirty=${localDirty} remoteDirty=${remoteDirty}`);
+
+    // 1. Clear in memory.
+    cd.skillStatus = {}; cd.activityStatus = {}; cd.history = []; cd.observations = [];
+    if (Array.isArray(cd.vocabMaster)){ cd.vocabMaster = []; cd.vocabMastered = []; }
+    else { cd.vocabMaster = {}; cd.vocabMastered = {}; }
+
+    // 2. Write the cleaned child namespace back to Firebase (overwrite the subtree).
+    try {
+      const w = await fetch(url, { method:"PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(cd) });
+      if (w.ok){ console.log(`[V12] Firebase cleared for ${child.id}`); anyWritten = true; }
+      else console.warn(`[V12] Firebase write HTTP ${w.status} for ${child.id}`);
+    } catch(e){ console.warn(`[V12] Firebase write failed for ${child.id}:`, e); /* memory still clean */ }
+  }
+
+  if (anyWritten){
     if (typeof loadChildWorkingSet === "function") loadChildWorkingSet(getActiveChildId());
-    if (cleaned > 0 && typeof saveState === "function") saveState(state);
-    console.log("[V11] Contamination cleanse complete. Cleaned " + cleaned + " child namespaces.");
-  } catch(e){ console.warn("contamination cleanse v11 failed", e); }
-})();
+    if (typeof saveState === "function") saveState(state);
+    console.log("[V12] Contamination cleanse complete, Firebase updated");
+  }
+}
+// Migration chain is synchronous → fire-and-forget (V12 is async).
+cleanseContaminationV12().catch(e => console.warn("[V12] cleanse failed", e));
 
 // Languages safety net — seed ONLY when a child has no languages set; never
 // overwrites user-configured values. children is OBJECT-keyed.
@@ -16975,7 +17018,12 @@ async function _hzReloadConversation(){
         "/state/childData/" + activeChildId + "/observations.json";
       const r2 = await fetch(obsUrl);
       const remoteObs = await r2.json();
-      if (Array.isArray(remoteObs)) {
+      // SYNC GUARD (v12): a newborn (<6m) must have zero observations — never
+      // re-import dirty remote observations (that re-derives mastered skills).
+      const _obsAgeM = (typeof computeChildAgeMonths === "function") ? computeChildAgeMonths(activeChildId) : 99;
+      if (_obsAgeM < 6 && Array.isArray(remoteObs) && remoteObs.length > 0) {
+        console.warn("[sync] Blocking dirty remote observations for " + activeChildId + " (age " + _obsAgeM + "m, " + remoteObs.length + " obs)");
+      } else if (Array.isArray(remoteObs)) {
         if (!Array.isArray(ns.observations)) ns.observations = [];
         const seenO = new Set(ns.observations.map(function (o) { return "ts:" + o.ts; }));
         remoteObs.forEach(function (o) {
