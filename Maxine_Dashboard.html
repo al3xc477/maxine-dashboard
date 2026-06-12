@@ -12068,13 +12068,36 @@ function refreshReverifyQueue(){
 function skillStatus(id){
   return deriveStatus(id);
 }
+/* _estimateEarlyTs(skill) — best-guess "when the child probably mastered this"
+   for below-frontier skills where the parent didn't observe it live.
+   Uses skillAgeMinMonths(skill) + child's dob; floors at dob + 90 days (never a
+   ts before birth), caps at 1 week ago. (v8 reconciliation: skills carry an `age`
+   string parsed by skillAgeMinMonths, not a numeric `age_min` field.)          */
+function _estimateEarlyTs(skill){
+  const child = (typeof currentChild === "function") ? currentChild() : null;
+  const dobTs = child && child.dob ? new Date(child.dob).getTime() : 0;
+  const MONTH_MS = 30.5 * 86400000;
+  const ageMin = (typeof skillAgeMinMonths === "function") ? (skillAgeMinMonths(skill) || 12) : 12;
+  const estimated = dobTs + ageMin * MONTH_MS;
+  const floor    = dobTs + 90 * 86400000;          // at least 90 days after birth
+  const cap      = Date.now() - 7 * 86400000;      // no later than 1 week ago
+  return Math.min(cap, Math.max(floor, estimated));
+}
+
 function setSkillStatus(id, status){
   // v10: when marking mastered for the FIRST time, ask WHEN it became reliable
   // (velocity correction — retroactive discoveries shouldn't inflate recent pace).
   if (status === "mastered" && typeof isSkillMastered === "function" && !isSkillMastered(id)){
-    _showMasteryTimePicker(id, (estimated_ts) => {
-      addObservation({ skillId:id, status, source:"manual", estimated_ts });
-    });
+    // v8: below-frontier skills — skip the modal; auto-estimate from age.
+    const pool = [...SKILLS, ...(SKILLS_CUSTOM_SEED||[]), ...(Array.isArray(state.skillsCustom) ? state.skillsCustom : [])];
+    const sk = pool.find(s => s.id === id);
+    if (sk && typeof classifySkillFrontier === "function" && classifySkillFrontier(sk) === "below"){
+      addObservation({ skillId:id, status, source:"manual", estimated_ts: _estimateEarlyTs(sk) });
+    } else {
+      _showMasteryTimePicker(id, (estimated_ts) => {
+        addObservation({ skillId:id, status, source:"manual", estimated_ts });
+      });
+    }
   } else {
     addObservation({ skillId:id, status, source:"manual" });
   }
